@@ -2,74 +2,29 @@
 
 ### Now for a little internet optimism
 
-# Sample README
+# The At Protocol Specification
 
-Open with intent - we welcome contributions - we want pull requests and to hear about issues.
+This repository is home to the open source specification for The @protocol as well as supporting documentation.
 
-## Who is this for?
+## This repo is for anyone interested in:
 
-The README should be addressed to somebody who's never seen this before.
-But also don't assume that they're a novice.
+1. Understanding what The @protocol is and how it works.
+2. Contributing to the specification with suggestions, edits or proposed changes.
+3. Implementing another reference implementation that us interoperatable with others.
 
-### Code user
+The intent of the specifation is to define the actors, roles, responsibilities required to implement a working system that is @protocol compliant.
 
-Does this repo publish to [pub.dev](https://pub.dev) or similar?
-In which case the code user just needs a pointer there - e.g. [at_client on pub.dev](https://pub.dev/packages/at_client)
+The specification itself is a simple markdown document that is easiy to view and edit.
 
-### Contributor
+### Contributing
 
-This is the person who we want working with us here.
-[CONTRIBUTING.md](CONTRIBUTING.md) is going to have the detailed guidance on how to setup their tools,
-tests and how to make a pull request.
-
-## Why, What, How?
-
-### Why?
-
-What is the purpose of this project?
-
-### What?
-
-What is needed to get the project and its dependencies installed?
-
-### How?
-
-How does this work? How is this used to fulfil its intended purpose?
-
-## Checklist
-
-### Writing
-
-Does the writing flow, with proper grammar and correct spelling?
-
-### Links
-
-Are the links to external resources correct?
-Are the links to other parts of the project correct
-(beware stuff carried over from previous repos where the
-project might have lived during earlier development)?
-
-### Description
-
-Has the Description field been filled out?
-
-### Acknowledgement/Attribution
-
-Have we correctly acknowledged the work of others (and their Trademarks etc.)
-where appropriate (per the conditions of their LICENSE?
-
-### LICENSE
-
-Which LICENSE are we using?  
-Is the LICENSE(.md) file present?  
-Does it have the correct dates, legal entities etc.?
+Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidance on how to submit changes and make pull requests.
 
 ## Maintainers
+This document was created and is maintained by:
+- [Colin Constable](https://github.com/cconstab)
+- [Murali Dharan](https://github.com/murali-shris)
+- [Kevin Nickels](https://github.com/nickelskevin)
+- [Jagannadh Vanghuri](https://github.com/VJag)
 
-Who created this?  
-
-Do they have complete GitHub profiles?  
-
-How can they be contacted?  
-
-Who is going to respond to pull requests?  
+You can ask any of the above to review/approve any change requests.
