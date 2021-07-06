@@ -1,6 +1,4 @@
-# Specification for The @protocol 
-<br>
-<br>
+# The @protocol Specification
 <br>
 <table>
   <tr>
@@ -19,18 +17,16 @@
   <tr>
    <td><strong>Revision</strong>
    </td>
-   <td>Draft
+   <td>v0.1.0 (draft)
    </td>
   </tr>
   <tr>
    <td><strong>Date</strong>
    </td>
-   <td>October 21, 2020
+   <td>July 5, 2021
    </td>
   </tr>
 </table>
-<br>
-<br>
 <br>
 
 ## Root Server
@@ -38,13 +34,11 @@ A Root Server should provide a lookup of where a Secondary Server for an @sign i
 
 When asking a Root Server for the lookup of a particular @sign the Root Server should respond with a null if the name does not exist and if the name exists the DNS name or address of the @server and the IP port number for that @sign should be returned.
 
-#### Response: 
+**Response:** 
 
 ```<host>:<port>```
 
 The Root Server only has one verb - `@exit` and all other inputs are considered to be lookup requests.
-
-<br>
 
 ## Secondary Server
 A Secondary Server is where an @sign user's personal data should be stored. One interacts with a secondary using the verbs exposed by the protocol.
@@ -57,7 +51,7 @@ A Secondary Server should have 4 major sub components:
 
 Verbs described in the document should be used to create, update, delete and retrieve information from the above sub components.
 
-### **Key Store**
+### 1. Key Store
 
 Key store is a place where user data in a Secondary Server should be saved as key and value pairs. Apart from the value, an @sign user should be able to add certain metadata for a key. 
     
@@ -71,15 +65,14 @@ A key in the @protocol can be formed by using any alphanumeric and special chara
 
     - A public key should be part of the <em><span style="text-decoration:underline;">scan</span></em> verb result.
 
-    - Format of the public key should be <strong>public:<identifier>:<@sign></strong>.
+    - Format of the public key should be **public:<identifier>:<@sign>**.
 
-    #### Example:    
+    **Example:**    
 
     ```public:location@alice```
 
     > The owner of the secondary should be allowed to update or delete the value of a public key.
 
-<br>
 
 2. Private Key
         
@@ -89,20 +82,19 @@ A key in the @protocol can be formed by using any alphanumeric and special chara
     
     - Format of the private key should be <strong>privatekey:<identifier>:<@sign></strong>.
 
-    #### Example:
+    **Example:**    
 
     ```privatekey:pk1@alice```
 
     > The owner of the secondary should be allowed to update or delete the value of a private key.
 
-<br>
 
 3. User key
     - A user key can only be looked up by an @sign user with whom the data has been shared.
     - A user key should be part of the <em><span style="text-decoration:underline;">scan</span></em> verb result only for the user who created it and the specific user it has been shared with.
     - Format of the key shared with someone else should be <strong><Shared with @sign>:<identifier>:<Created by @sign></strong>
 
-    #### Example:
+    **Example:**    
 
     ```@bob:phone@alice```
     
@@ -110,13 +102,11 @@ A key in the @protocol can be formed by using any alphanumeric and special chara
 
     > The owner of the secondary should be allowed to update or delete the value of a user key.
 
-<br>
 
 4. Internal Key
 
     - Internal keys start with an underscore(_) and are not displayed in scan results. Internal keys can be looked up only by the owner of the secondary
 
-<br>
 
 5. Cached Key
 
@@ -128,7 +118,7 @@ A key in the @protocol can be formed by using any alphanumeric and special chara
 
     - Format of the key shared with someone else should be <strong>cached:<Shared with @sign>:<identifier>:<Created by @sign></strong>
 
-    #### Example:
+    **Example:**    
 
     ```cached:@bob:phone@alice```
 
@@ -289,7 +279,6 @@ Text or binary values can be saved in a Secondary Server. The size of the value 
     </tr>
     </table>
 
-<br>
 
 ### 2. Commit Log
 
@@ -297,23 +286,17 @@ A Secondary Server should record any create, update and delete operations in a c
 
 A Secondary Server should provide a way to compact the Commit Log based on time and size.
 
-<br>
-
 ### 3. Access Log
 
 A Secondary Server should record the following user actions: user login, user authentication and lookup. The Access Log should record these operations so that users of the secondary can retrieve various statistics such as the most visited @sign or most visited keys.
 
 A Secondary Server should provide a way to compact the Access Log based on time and size.
 
-<br>
-
 ### 4. Notification Log
 
 A Secondary Server should record any notifications that have been received and sent. Please check the `notify` verb specification for details on how a notification should be sent.
 
 A Secondary Server should provide a way to compact the Notification Log based on time and size.
-
-<br>
 
 ## Standard Keys
 A Secondary Server should have the following standard keys:
@@ -351,8 +334,6 @@ A Secondary Server should have the following standard keys:
    </td>
   </tr>
 </table>
-
-<br>
 
 ## Configuration Parameters
 A Secondary Server should honor the following configuration parameters.
@@ -419,33 +400,28 @@ A Secondary Server should honor the following configuration parameters.
   </tr>
 </table>
 
-<br>
-
 ## Block List
 A user of the Secondary Server should be able to decide who is allowed to connect to a Secondary Server. The `config` verb should be used to configure this. Once added, a Secondary Server should honor the list at the time of accepting new connections from an @sign user using the `from` verb.
 
-<br>
-
-## Life Cycle
+<!-- ## Life Cycle -->
 
 <!-- <TO DO: TBD: What I want to write is, A User of the secondary should be able to control pausing and resuming of a Secondary Server> -->
-
-<br>
 
 ## Verbs
 
 ### The `from` verb
 
-#### Synopsis
+**Synopsis:**
+
 The `from` verb is used to tell a secondary whom you claim to be.
 
 Following regex represents the syntax of the `from` verb:
 
-#### Example
+**Example:**
 
 ```r'^from:(?<@sign>@?[^@\s]+$)' ```
 
-#### Response
+**Response:**
 
 If the user who is trying to connect is the owner of the Secondary Server, then the `from` verb should respond with the following response.
 
@@ -459,12 +435,13 @@ If the user is not allowed to connect to the Secondary Server, then it should re
 
 ```error:AT0013-Connection Exception```
 
-#### Description
+**Description:**
+
 The `from` verb is used to tell the Secondary Server what @sign you claim to be. With the `from` verb, one can connect to one's own Secondary Server or someone else's Secondary Server. In both cases, the Secondary Server responds back with a challenge to prove that you are who you claim to be. This is part of the authentication mechanism of the @protocol. 
 
 This authentication mechanism varies based on whether you are connecting to your own secondary (cram) or someone else's secondary (pol).
 
-#### OPTIONS
+**OPTIONS:**
 
 ```<@sign>``` 
 Required: Yes
@@ -472,7 +449,8 @@ Description: @sign with which you are connecting to a Secondary Server.
 
 ### The `cram` verb
 
-#### Synopsis
+**Synopsis:**
+
 The `cram` verb is used to boostrap authenticate one's own self as an owner of a Secondary Server. It is 
 intended to be used once until a set of PKI keys are cut on the owner's mobile device and from then on 
 we use the `pkam` verb.
@@ -481,7 +459,7 @@ The following regex represents the syntax of the `cram` verb:
 
 ```r'^cram:(?<digest>.+$)'```
 
-#### Response
+**Response:**
 
 If the user gets the challenge right, the prompt should change to the @sign of the user.
 
@@ -491,19 +469,19 @@ If the user gets the cram authentication wrong, then it should respond back with
 
 ```error:AT0401-Client authentication failed```
 
-#### Description
+**Description:**
 
 The `cram` verb follows the `from` verb. As an owner of the Secondary Server, you should be able to take the challenge thrown by the `from` verb and encrypt using the shared key that the server has been bound with. Upon receiving the `cram` verb along with the digest, the server decrypts the digest using the shared key and matches it with the challenge. If they are the same, then the secondary lets you connect to the Secondary Server and changes the prompt to your @sign.
 
-#### OPTIONS
+**OPTIONS:**
 
 ```<digest> ```
 Required: Yes
 Description: Encrypted challenge
 
-#### The `pol` verb
+### The `pol` verb
 
-#### Synopsis
+**Synopsis:**
 
 The `pol` verb is part of the `pkam` process to authenticate oneself while connecting to someone else's Secondary Server. The term
 'pol' means 'proof of life' as it provides a near realtime assurance that the requestor is who it claims to be.
@@ -512,7 +490,7 @@ Following regex represents the syntax of the `pol` verb:
 
 ```r'^pol$'```
 
-#### Response
+**Response:**
 
 If the user gets the challenge right the prompt should change to the @sign of the user.
 
@@ -522,16 +500,17 @@ If the user gets the cram authentication wrong then it should respond back with 
 
 ```error:AT0401-Client authentication failed```
 
-#### Description
+**Description:**
+
 The `pol` verb follows the `from` verb. 'pol' indicates another secondary that the user who is trying to connect is ready to authenticate himself. For example, if @bob is trying to connect to @alice, @bob would take the key and value from the proof response of the verb and create a public key and value which then can be looked up by @alice. After @alice looks up @bob's secondary @alices secondary should change the prompt to @bob.
 
-#### OPTIONS
+**OPTIONS:**
 
 NA
 
 ### The `update` verb
 
-#### Synopsis
+**Synopsis:**
 
 The `update` verb is used to insert key/value pairs into a Key Store. An update can only be run by the owner of a Secondary Server on his/her own Secondary Server.
 
@@ -539,7 +518,7 @@ Following regex represents the syntax of the `update` verb:
 
 ```r'^update:(?:ttl:(?<ttl>\d+):)?(?:ttb:(?<ttb>\d+):)?(?:ttr:(?<ttr>(-?)\d+):)?(ccd:(?<ccd>true|false):)?((?:public:)|(@(?<for@sign>[^@:\s]-):))?(?<atKey>[^:@]((?!:{2})[^@])+)(?:@(?<@sign>[^@\s]-))? (?<value>.+$)'```
 
-#### Response
+**Response:**
 
 The Secondary Server should return the commit id from Commit Log if the update is successful.
 
@@ -549,12 +528,13 @@ If the user provides the invalid update command, then it should respond with the
 
 ```error:AT0003-Invalid Syntax```
 
-#### Description
+**Description:**
+
 The `update` verb should be used to perform create/update operations on the Secondary Server. The `update` verb requires the owner of the secondary to authenticate himself/herself to the Secondary Server using `from` and `cram` verbs.
 
 If a key has been created for another @sign user, the Secondary Server should honor "autoNotify" configuration parameter.
 
-#### OPTIONS
+**OPTIONS:**
 
 `<ttl>` 
 Required: No
@@ -587,7 +567,7 @@ Description: Value for the key
 
 ### The `update:meta` verb
 
-#### Synopsis
+**Synopsis:**
 
 The `update:meta` verb should be used to update the metadata of a key @sign user without having to send or save the value again.
 
@@ -595,7 +575,8 @@ Following is the regex for the `update:meta` verb
 
 ```^update:meta:((?:public:)|((?<forAtSign>@?[^@\s]-):))?(?<atKey>((?!:{2})[^@])+)@(?<atSign>[^@:\s]-)(:ttl:(?<ttl>\d+))?(:ttb:(?<ttb>\d+))?(:ttr:(?<ttr>\d+))?(:ccd:(?<ccd>true|false))?(:isBinary:(?<isBinary>true|false))?(:isEncrypted:(?<isEncrypted>true|false))?$```
 
-#### Response
+**Response:**
+
 The Secondary Server should return the commit id from Commit Log if the update is successful.
 
 ```data:<CommitId>```
@@ -605,13 +586,13 @@ If the user provides the invalid update meta command, then it should respond wit
 
 ```error:AT0003-Invalid Syntax```
 
-#### Description
+**Description:**
 
 The `update:meta` verb should be used to perform create/update operations on the Secondary Server. The `update:meta` verb requires the owner of the secondary to authenticate himself/herself to the Secondary Server using `from` and `cram` verbs.
 
 The Secondary Server should allow creation of keys with null values. If a key has been created for another @sign user, the Secondary Server should honor "autoNotify" configuration parameter.
 
-#### OPTIONS
+**OPTIONS:**
 
 `<ttl>` 
 Required: No
@@ -640,7 +621,7 @@ Description: @sign of the owner
 
 ### The `lookup` verb
 
-#### Synopsis
+**Synopsis:**
 
 The `lookup` verb should be used to lookup the value shared by another @sign user.
 
@@ -648,7 +629,7 @@ The following is the regex of the `lookup` verb:
 
 ```lookup:((?<operation>meta|all):)?(?<atKey>(?:[^:]).+)@(?<@sign>[^@\s]+)$```
 
-#### Response
+**Response:**
 
 If the operation is not specified the Secondary Server should just respond back with the value saved by the user as is.
 
@@ -658,7 +639,7 @@ If the operation is to lookup the metadata only then the result should be wrappe
 
 ```data:<Metadata in a JSON>```
 
-#### Example:
+**Example:**    
 
 ``` json 
 data: 
@@ -685,7 +666,8 @@ If the operation is to lookup the metadata and the data together then the result
 
 ```data:<Value and Metadata in a JSON>```
 
-Example:
+**Example:**    
+
 ``` json
 data:
 {
@@ -727,13 +709,13 @@ For whatever reasons, If the handshake with another secondary fails, then the Se
 
 ```data:AT0008-Handshake failure```
 
-#### Description:
+**Description:**:
 
 The `lookup` verb should be used to fetch the value of the key shared by another @sign user. If there is a public and user key with the same name then the result should be based on whether the user is trying to lookup is authenticated or not. If the user is authenticated then the user key has to be returned, otherwise the public key has to be returned.
 
 ### The `plookup` verb:
 
-#### Synopsis
+**Synopsis:**
 
 The `plookup` verb enables to lookup the value of the public key shared by another @sign user.
 
@@ -741,7 +723,7 @@ Following is the regex of the `plookup` verb:
 
 ```^plookup:((?<operation>meta|all):)?(?<atKey>[^@\s]+)@(?<@sign>[^@\s]+)$```
 
-#### Response
+**Response:**
 
 The Secondary Server should return the value or metadata or the value and metadata together based on the option specified. 
 
@@ -755,20 +737,21 @@ If the `lookup` command is not valid, then the Secondary Server should return th
 
 ```error:AT0003-Invalid Syntax```
 
-#### Description:
+**Description:**:
 
 The `plookup` verb should be used to fetch the value of the public key shared by another @sign user. 
 
 ### The `llookup` verb
 
-#### Synopsis
+**Synopsis:**
+
 The `llookup` verb should be used to look up one's own secondary and this should return the value as is (i.e. without any resolution).
 
 The Following is the regex of the `llookup` verb:
 
 ```^llookup:((?<operation>meta|all):)?(?:cached:)?((?:public:)|(@(?<for@sign>[^@:\s]-):))?(?<atKey>[^:]((?!:{2})[^@])+)@(?<@sign>[^@\s]+)$```
 
-#### Response
+**Response:**
 
 The Secondary Server should return the value or metadata or the value and metadata together based on the option specified. 
 
@@ -783,24 +766,26 @@ If the other Secondary Server on which the lookup needs to be performed is down 
 
 ```error:AT0003-Invalid Syntax```
 
-#### Description:
+**Description:**:
 
 The `llookup` verb should be used to fetch the value of the key in the owners secondary store as is without resolving it. For example if a key contains a reference as a value, the `lookup` verb should resolve it to a value whereas llookup should return the value as is.
 
-#### Example:
+**Example:**    
+
 If phone@bob is "1234" and altphone@bob is "atsign://phone@bob",
 then `lookup` of altphone@bob should return "1234" whereas `llookup` of altphone@bob should return "atsign://phone@bob".
 
-## The `pkam` verb
+### The `pkam` verb
 
-#### Synopsis
+**Synopsis:**
+
 The `pkam` verb is used to authenticate one's own self as an owner of a Secondary Server using a PKI style authentication.
 
 Following regex represents the syntax of the `pkam` verb:
 
 ```^pkam:(?<signature>.+$)```
 
-#### Response
+**Response:**
 
 If the user gets the challenge right, the prompt should change to the @sign of the user.
 
@@ -810,11 +795,11 @@ If the user gets the pkam authentication wrong then it should respond back with 
 
 ```error:AT0401-Client authentication failed```
 
-#### Description
+**Description:**
 
 The `pkam` verb follows the `from` verb. As an owner of the Secondary Server, you should be able to take the challenge thrown by the `from` verb and encrypt using the private key of the RSA key pair with what the server has been bound with. Upon receiving the `cram` verb along with the digest, the server decrypts the digest using the public key and matches it with the challenge. If they are the same then the secondary lets you connect to the Secondary Server and changes the prompt to your @sign.
 
-#### OPTIONS
+**OPTIONS:**
 
 `<digest> `
 Required: Yes
@@ -822,7 +807,7 @@ Description: Encrypted challenge
 
 ### The `stats` verb
 
-#### Synopsis
+**Synopsis:**
 
 The `stats` verb should be used to get the statistics of an atsign.
 
@@ -830,7 +815,7 @@ Following is the regex of the `stats` verb
 
 ```stats(?<statId>:((?!0)\d+)?(,(\d+))-)?```
 
-#### Response
+**Response:**
 
 If the user gives stats all the statistics will be returned as JSON. Following statistics are provided:
 
@@ -841,7 +826,7 @@ If the user gives stats all the statistics will be returned as JSON. Following s
 5. `topAtSigns`
 6. `topKeys`
 
-#### Example:
+**Example:**    
 
 ```data: [{"id":"1","name":"activeInboundConnections","value":"1"}, {"id":"2","name":"activeOutboundConnections","value":"0"}, {"id":"3","name":"lastCommitID","value":"1"}, {"id":"4","name":"secondaryStorageSize","value":12560}, {"id":"5","name":"topAtSigns","value":{"@bob":1}}, {"id":"6","name":"topKeys","value":{"publickey@alice":1}}]```
 
@@ -854,14 +839,15 @@ data: [{"id":"1","name":"activeInboundConnections","value":"1"}]
 
 ### The `sync` verb
 
-#### Synopsis
+**Synopsis:**
+
 The `sync` verb enables to synchronize the keys between the local Secondary Server and remote Secondary Server.
 
 Following is the regex:
 
 ```sync:(?<from_commit_seq>[0-9]+$|-1)```
 
-#### Response
+**Response:**
 
 The `sync` verb returns a json array of the commit entries from the given commit id to the current commit id. Further, The `sync` verb accepts -1 as argument which returns all the commit entries.
 
@@ -879,20 +865,21 @@ The Following is the regex for the `notify` verb
 
 ```notify:((?<operation>update|delete):)?(ttl:(?<ttl>\d+):)?(ttb:(?<ttb>\d+):)?(ttr:(?<ttr>(-)?\d+):)?(ccd:(?<ccd>true|false):)?(@(?<forAtSign>[^@:\s]-)):(?<atKey>[^:]((?!:{2})[^@])+)@(?<atSign>[^@:\s]+)(:(?<value>.+))?```
 
-#### Response
+**Response:**
 
 When a key is notified successfully, returns 
 
 
 ```data:success```
 
-#### Description:
+**Description:**
+
 When an atsign user notifies the key to another atsign user, an entry has to be created in received notifications list on the user who has shared the key and an entry has to be created in sent notifications list on the user to whom the key is to be notified. When auto notify is set to true, when a key is created/updated and deleted notification is triggered to another atsign user.
 
 
 ### Notify List
 
-#### Synopsis
+**Synopsis:**
 
 Notify list returns a list of notifications.
 
@@ -900,7 +887,7 @@ Following is the regex
 
 ```notify:(list (?<regex>.-)|list$)```
 
-#### Response
+**Response:**
 
 If the user is the owner, returns a list of received notifications. If a user is pol authenticated user, returns a list of sent notifications
 
@@ -908,7 +895,7 @@ If the user is the owner, returns a list of received notifications. If a user is
 
 The `monitor` Verb
 
-#### Synopsis
+**Synopsis:**
 
 The `monitor` verb streams received notifications.
 
@@ -916,18 +903,19 @@ Following is the regex
 
 ```^monitor$|^monitor ?(?<regex>.-)?)$```
 
-#### Response
+**Response:**
+
 Returns a stream of notifications.
 
 ```
 @alice@monitor
 notification: {"id":"773e226d-dac2-4269-b1ee-64d7ce93a42f","from":"@bob","to":"@alice","key":"@alice:phone@bob","value":null,"operation":"update","epochMillis":1603714720965}
 ```
-#### Description
+**Description:**
 
 The `monitor` verb accepts an optional parameter to filter the notifications by passing filter criteria as regex to `monitor` verb.
 
-#### Error Codes
+## Error Codes
 
 <table>
   <tr>
