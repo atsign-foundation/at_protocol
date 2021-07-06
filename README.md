@@ -4,7 +4,7 @@
 
 # The At Protocol Specification
 
-This repository is home to the open source specification for The @protocol as well as supporting documentation.
+This repository is home to the [open source specification for The @protocol](specification/at_protocol_specification.md) as well as supporting documentation.
 
 ## This repo is for anyone interested in:
 
