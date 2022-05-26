@@ -1,5 +1,7 @@
 <img width=250px src="https://atsign.dev/assets/img/@platform_logo_grey.svg?sanitize=true">
 
+[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://github.com/atsign-foundation/at_protocol/blob/trunk/LICENSE)
+
 # The At Protocol Specification
 
 This repository is home to the [open source specification for The @protocol](specification/at_protocol_specification.md) as well as supporting documentation.
