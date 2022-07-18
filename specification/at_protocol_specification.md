@@ -226,7 +226,7 @@ Text or binary values can be saved in a Secondary Server. The size of the value 
     </td>
     <td>Yes
     </td>
-    <td>A Date and Time derived from the ttl (now + ttl). A Key should be only available after availableFrom.
+    <td>A Date and Time derived from the ttb (now + ttb). A Key should be only available after availableFrom.
     </td>
     </tr>
     <tr>
