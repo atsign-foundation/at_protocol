@@ -856,7 +856,7 @@ data:[{"atKey":"@bob:phone@alice","operation":"+","opTime":"2020-10-26 11:57:43.
 {"atKey":"@bob:shared_key@alice","operation":"-","opTime":"2020-10-26 09:44:54.382219Z","commitId":1}]
 ```
 
-The `notify` verb
+### The `notify` verb
 
 The `notify` verb enables us to notify the atsign user of some data event.
 
