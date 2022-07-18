@@ -515,6 +515,7 @@ NA
 The scan verb is used to see the keys in an atSign's secondary server. 
 
 Following regex represents the syntax of the `scan` verb:
+
 ```r'^scan$|scan(:showhidden:(?<showhidden>true|false))?(:(?<forAtSign>@[^:@\s]+))?(:page:(?<page>\d+))?( (?<regex>\S+))?$'```
 
 **Response:**
