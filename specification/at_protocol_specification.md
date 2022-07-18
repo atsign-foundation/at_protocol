@@ -893,7 +893,7 @@ If the user is the owner, returns a list of received notifications. If a user is
 
 ```data:[{"id":"0e5e9e89-c9cb-423b-8972-8c5487215990","from":"@alice","to":"@bob","key":"@bob:phone@alice","value":12345,"operation":"update","epochMillis":1603714122636}]```
 
-The `monitor` Verb
+### The `monitor` Verb
 
 **Synopsis:**
 
