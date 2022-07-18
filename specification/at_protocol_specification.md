@@ -508,6 +508,22 @@ The `pol` verb follows the `from` verb. 'pol' indicates another secondary that t
 
 NA
 
+### The `scan` verb
+
+**Synopsis:**
+
+The scan verb is used to see the keys in an atSign's secondary server. 
+
+Following regex represents the syntax of the `scan` verb:
+
+```r'^scan$|scan(:showhidden:(?<showhidden>true|false))?(:(?<forAtSign>@[^:@\s]+))?(:page:(?<page>\d+))?( (?<regex>\S+))?$'```
+
+**Response:**
+
+The Secondary Server should return the keys within the secondary server if the scan verb executed succesfully. The Secondary Server will respond accordingly to whether the atSign is authenticated or not.
+
+```data:[<keys>]```
+
 ### The `update` verb
 
 **Synopsis:**
@@ -856,7 +872,7 @@ data:[{"atKey":"@bob:phone@alice","operation":"+","opTime":"2020-10-26 11:57:43.
 {"atKey":"@bob:shared_key@alice","operation":"-","opTime":"2020-10-26 09:44:54.382219Z","commitId":1}]
 ```
 
-The `notify` verb
+### The `notify` verb
 
 The `notify` verb enables us to notify the atsign user of some data event.
 
@@ -893,7 +909,7 @@ If the user is the owner, returns a list of received notifications. If a user is
 
 ```data:[{"id":"0e5e9e89-c9cb-423b-8972-8c5487215990","from":"@alice","to":"@bob","key":"@bob:phone@alice","value":12345,"operation":"update","epochMillis":1603714122636}]```
 
-The `monitor` Verb
+### The `monitor` Verb
 
 **Synopsis:**
 
