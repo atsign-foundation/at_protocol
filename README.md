@@ -1,6 +1,7 @@
 <img width=250px src="https://atsign.dev/assets/img/atPlatform_logo_gray.svg?sanitize=true">
 
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://github.com/atsign-foundation/at_protocol/blob/trunk/LICENSE)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/atsign-foundation/at_protocol/badge)](https://api.securityscorecards.dev/projects/github.com/atsign-foundation/at_protocol)
 
 # The At Protocol Specification
 
