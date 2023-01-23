@@ -3,7 +3,7 @@
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://github.com/atsign-foundation/at_protocol/blob/trunk/LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/atsign-foundation/at_protocol/badge)](https://api.securityscorecards.dev/projects/github.com/atsign-foundation/at_protocol)
 
-# The At Protocol Specification
+# The atProtocol Specification
 
 This repository is home to the [open source specification for The atProtocol](specification/at_protocol_specification.md) as well as supporting documentation.
 
