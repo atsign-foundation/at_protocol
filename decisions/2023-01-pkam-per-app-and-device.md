@@ -213,7 +213,7 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
       - **Deny:**
         - `enroll:deny:<approvalID>`
           - atServer updates the enrollment request record's "approval" field, e.g.
-          ```json
+          ```
             "approval": {
               "state":"denied",
               "approverAppName": "ExistingApp",
