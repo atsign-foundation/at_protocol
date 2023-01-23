@@ -6,21 +6,20 @@
 per app+device
 
 <!-- TOC -->
-### Table of contents
-* [Context & Problem Statement](#context--problem-statement)
-* [Goals](#goals)
-* [Non-goals](#non-goals)
-* [Other considerations](#other-considerations)
-* [Proposal Summary](#proposal-summary)
-* [Proposal In Detail](#proposal-in-detail)
-  * [Initial bootstrap - onboard FirstApp](#initial-bootstrap---onboard-firstapp)
-  * [Subsequent runs of FirstApp](#subsequent-runs-of-firstapp)
-  * [Enrollment flow](#enrollment-flow)
-    * [Overview](#overview)
-    * [Details](#details)
-* [Foo](#foo)
-  * [SecondApp](#secondapp)
-  * [Other details](#other-details)
+* [PKAMs per app+device](#pkams-per-appdevice)
+  * [Context & Problem Statement](#context--problem-statement)
+  * [Goals](#goals)
+    * [Non-goals](#non-goals)
+  * [Other considerations](#other-considerations)
+  * [Proposal Summary](#proposal-summary)
+  * [Proposal In Detail](#proposal-in-detail)
+    * [Initial bootstrap - onboard FirstApp](#initial-bootstrap---onboard-firstapp)
+    * [Subsequent runs of FirstApp](#subsequent-runs-of-firstapp)
+    * [Enrollment flow](#enrollment-flow)
+      * [Overview](#overview)
+      * [Details](#details)
+    * [SecondApp](#secondapp)
+    * [Other details](#other-details)
 <!-- TOC -->
 * TODO
   * Add mermaid sequence diagrams for all the interaction flows below
@@ -232,6 +231,7 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
 
 ### Other details
 - `info` verb will additionally include details of the APKAM's namespace access
+- All existing verb implementations must change to respect APKAM namespace access controls
 - `enroll` verb should be rate-limited
 - `__global` namespace is ONLY used for storing globally accessible keys. It is
   not usable by any other verb lookup/update/delete/notify/etc
@@ -239,4 +239,8 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
   - newEnrollment
   - overrideEnrollment (app wanting to enroll a new public key)
   - changeNamespaceAccess
-- MPKAMs need access to all encryption private keys
+- MPKAM apps need access to all encryption private keys
+  - If an app being enrolled requires __manage access, then share all encryption private keys with them
+  - So they can share the relevant subset with other apps as they enroll
+  - Corollary: When an encryption keypair is created in a namespace, it must be shared (1) with all apps which 
+    have access to the namespace (2) with all apps who have the MPKAM access (__shared namespace)
