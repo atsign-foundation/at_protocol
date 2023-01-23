@@ -5,6 +5,8 @@
 * **Objective:** Define protocol interactions required to have different PKAMs
 per app+device
 
+* TODO
+  * Add mermaid sequence diagrams for all the interaction flows below
 
 ## Context & Problem Statement
 Current PKAM (Public Key Authentication Method) supports only a single keypair.
@@ -33,6 +35,7 @@ Current PKAM (Public Key Authentication Method) supports only a single keypair.
 
 ### Non-goals
 
+## Other considerations
 
 ## Proposal Summary
 This proposal is based upon, and expands upon, [this summary proposal](https://docs.google.com/presentation/d/1Yo30hVGfasBEZqeYGNlhhuqLbLLE-l6Qm8RpbBGvNBs/edit#slide=id.gd1dd4acffa_0_5)
@@ -221,4 +224,3 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
   - overrideEnrollment (app wanting to enroll a new public key)
   - changeNamespaceAccess
 
-## Other considerations

@@ -1,22 +1,24 @@
-<!-- This template is based on https://github.com/GoogleCloudPlatform/emblem/tree/main/docs/decisions -->
+<!-- This template is inspired by https://github.com/GoogleCloudPlatform/emblem/tree/main/docs/decisions -->
 # Title
 
-* **Status:** Draft / Approved / Rejected / Superceded
+* **Status:** Draft / Approved / Rejected / Superseded
 * **Last Updated:** YYYY-MM-DD
 * **Objective:** Single sentence summary
 
 ## Context & Problem Statement
 
+## Goals
 
-## Priorities & Constraints <!-- optional -->
+### Non-goals
 
+## Other considerations <!-- optional -->
 
-## Considered Options
-
+## Considered Options <!-- optional -->
 - ### Option 1
 - ### Option 2
 
-## Decision
+## Proposal Summary
 
+## Proposal in Detail
 
 ### Expected Consequences <!-- optional -->
