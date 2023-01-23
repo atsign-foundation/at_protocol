@@ -5,6 +5,23 @@
 * **Objective:** Define protocol interactions required to have different PKAMs
 per app+device
 
+<!-- TOC -->
+### Table of contents
+* [Context & Problem Statement](#context--problem-statement)
+* [Goals](#goals)
+* [Non-goals](#non-goals)
+* [Other considerations](#other-considerations)
+* [Proposal Summary](#proposal-summary)
+* [Proposal In Detail](#proposal-in-detail)
+  * [Initial bootstrap - onboard FirstApp](#initial-bootstrap---onboard-firstapp)
+  * [Subsequent runs of FirstApp](#subsequent-runs-of-firstapp)
+  * [Enrollment flow](#enrollment-flow)
+    * [Overview](#overview)
+    * [Details](#details)
+* [Foo](#foo)
+  * [SecondApp](#secondapp)
+  * [Other details](#other-details)
+<!-- TOC -->
 * TODO
   * Add mermaid sequence diagrams for all the interaction flows below
 
@@ -182,18 +199,17 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
           ```
         - Make all encryption private keys available to NewApp
           - Retrieve all encryption keypairs' private keys
-            - `keys:get:private:for:<appName>:<deviceName>`
+            - `keys:get:private`
               - Retrieves everything from the `__private_keys.__global` namespace
-              - Retrieves everything from `__private_keys.$namespace` for each $namespace to
-                which this app has access
-            - (Recall that these are encrypted with FirstApp's APKAM private key)
-              ```
-              keys:put:private:app:<appName>:device:<deviceName>
-                :keyName:firstKey:namespace:__global
-                :<encryptedEncryptionPrivateKey
-              ```
-      
-## Foo
+              - Retrieves everything from `__private_keys.$namespace` for EVERY $namespace to
+                which NewApp app will have access
+            - (Recall that these are encrypted with ExistingApp's APKAM private key)
+          - Fetch NewApp's APKAM public key
+          - Encrypt each private key and store for NewApp
+            ```
+            keys:put:private:app:<appName>:device:<deviceName>
+              :keyName:<keyName>:namespace:<namespace>
+              :<encryptedEncryptionPrivateKey>
       - **Deny:**
         - `enroll:deny:<approvalID>`
           - atServer updates the enrollment request record's "approval" field, e.g.
@@ -223,4 +239,4 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
   - newEnrollment
   - overrideEnrollment (app wanting to enroll a new public key)
   - changeNamespaceAccess
-
+- MPKAMs need access to all encryption private keys
