@@ -37,18 +37,18 @@ Given a client which has access to keys from a completed onboarding, provide a d
 of how the client can securely exchange data with another atSign.
 
 ### Non-goals
-- This document does not cover client onboarding.
+- This document does not cover client onboarding. 
+  - TODO: Create such a document
 
-* TODO: Create such a document
-
-## Specification
-### Core prerequisites
+## Technical prerequisites
 Ability to
 - create RSA encryption public/private keypairs and use them to do encryption and decryption
 - cryptographically sign data using a private key, and verify signatures using a public key
 - create AES encryption keys and use them to do encryption and decryption
 - establish a TLS socket connection, and be able to use it to send and receive data
+- base64 encoding/decoding
 
+## Specification
 ### "Sending" atSign
 Given an already-onboarded client (i.e. access to authentication private key and encryption private key) for atsign 
 `@alice`
