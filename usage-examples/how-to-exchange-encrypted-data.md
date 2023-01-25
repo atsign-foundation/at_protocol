@@ -16,8 +16,8 @@
     * ["Sending" atSign](#-sending--atsign)
       * [1. Lookup address of the _@alice_ atServer](#1-lookup-address-of-the-alice-atserver)
       * [2. Authenticate to _@alice_ atServer](#2-authenticate-to-alice-atserver)
-      * [3a. Fetch existing shared symmetric key if it has already been created](#3a-fetch-existing-shared-symmetric-key-if-it-has-already-been-created)
-      * [3b. Or create a new shared symmetric key](#3b-or-create-a-new-shared-symmetric-key)
+      * [3a. Fetch existing shared symmetric key if it has already been created,](#3a-fetch-existing-shared-symmetric-key-if-it-has-already-been-created)
+      * [3b. or create a new shared symmetric key](#3b-or-create-a-new-shared-symmetric-key)
       * [4. Encrypt some data](#4-encrypt-some-data)
       * [5. Share the data with _@bob_](#5-share-the-data-with-bob)
     * ["Receiving" atSign](#-receiving--atsign)
@@ -77,7 +77,7 @@ Given an already-onboarded client (i.e. access to authentication private key and
   - Send `pkam:<signature>`
   - Expect response `data:success` (or `error:<errorMessage>` if the signature could not be verified by the atServer
     using the corresponding PKAM public key)
-#### 3a. Fetch existing shared symmetric key if it has already been created
+#### 3a. Fetch existing shared symmetric key if it has already been created,
 - Send `llookup:shared_key.bob@alice` // This is a copy of the symmetric key which is encrypted with `@alice`'s 
   public encryption key
 - If response like `data:<base64EncodedEncryptedSharedKey>`
@@ -87,7 +87,7 @@ Given an already-onboarded client (i.e. access to authentication private key and
   - base64-decode the symmetric key => $sharedAESKey
 - Else if response like `error:error:AT0015-key not found : @bob:shared_key@alice does not exist in keystore` we
   need to create a symmetric key and share it wih `@bob`
-#### 3b. Or create a new shared symmetric key
+#### 3b. or create a new shared symmetric key
 - Create a new AES-256 symmetric key => $sharedAESKey and base64-encode it => $base64EncodedSharedAESKey
 - Save for our own use in future
   - Encrypt $base64EncodedSharedAESKey with our public encryption key and base64-encode the result => 
