@@ -1,5 +1,5 @@
 <!-- This template is inspired by https://github.com/GoogleCloudPlatform/emblem/tree/main/docs/decisions -->
-# Title
+## Title
 
 * **Status:** Draft / Approved / Rejected / Superseded
 * **Last Updated:** YYYY-MM-DD
