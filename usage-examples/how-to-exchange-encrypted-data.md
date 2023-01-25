@@ -1,10 +1,27 @@
-# How to exchange encrypted data
+## How to exchange encrypted data
 
 * **Status:** **Draft** / Approved / Rejected / Superseded
 * **Last Updated:** 2023-01-25
 * **Objective:** Explain how an authenticated atSign client exchanges data with another atSign
 
-TODO Finish cleaning up, and add diagrams
+**TODO**: Add diagrams
+
+<!-- TOC -->
+  * [How to exchange encrypted data](#how-to-exchange-encrypted-data)
+  * [Context & Problem Statement](#context--problem-statement)
+  * [Goals](#goals)
+    * [Non-goals](#non-goals)
+  * [Specification](#specification)
+    * [Core prerequisites](#core-prerequisites)
+    * ["Sending" atSign](#-sending--atsign)
+      * [- Lookup address of the `@alice` atServer](#--lookup-address-of-the-alice-atserver)
+      * [- Authenticate to `@alice` atServer](#--authenticate-to-alice-atserver)
+      * [- Fetch existing shared symmetric key if it has already been created](#--fetch-existing-shared-symmetric-key-if-it-has-already-been-created)
+      * [- Or create a new shared symmetric key](#--or-create-a-new-shared-symmetric-key)
+      * [- Encrypt and share some data](#--encrypt-and-share-some-data)
+    * ["Receiving" atSign](#-receiving--atsign)
+  * [Other resources](#other-resources)
+<!-- TOC -->
 
 ## Context & Problem Statement
 
@@ -24,9 +41,7 @@ of how the client can securely exchange data with another atSign.
 
 * TODO: Create such a document
 
-## Specification Summary
-
-## Specification in Detail
+## Specification
 ### Core prerequisites
 Ability to
 - create RSA encryption public/private keypairs and use them to do encryption and decryption
@@ -118,3 +133,4 @@ Given an already-onboarded client (i.e. access to authentication private key and
       return new String(decrypted);
   }
   ```
+## Other resources
