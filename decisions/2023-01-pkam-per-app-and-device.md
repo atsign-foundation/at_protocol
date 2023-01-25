@@ -1,4 +1,4 @@
-# PKAMs per app+device
+## PKAMs per app+device
 
 * **Status:** Draft
 * **Last Updated:** 2023-01
@@ -6,7 +6,7 @@
 per app+device
 
 <!-- TOC -->
-* [PKAMs per app+device](#pkams-per-appdevice)
+  * [PKAMs per app+device](#pkams-per-appdevice)
   * [Context & Problem Statement](#context--problem-statement)
   * [Goals](#goals)
     * [Non-goals](#non-goals)
@@ -21,7 +21,7 @@ per app+device
     * [SecondApp](#secondapp)
     * [Other details](#other-details)
 <!-- TOC -->
-* TODO
+**TODO**
   * Add mermaid sequence diagrams for all the interaction flows below
 
 ## Context & Problem Statement
