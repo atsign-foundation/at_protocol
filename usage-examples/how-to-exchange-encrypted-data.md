@@ -4,6 +4,8 @@
 * **Last Updated:** 2023-01-25
 * **Objective:** Explain how an authenticated atSign client exchanges data with another atSign
 
+TODO Finish cleaning up, and add diagrams
+
 ## Context & Problem Statement
 
 Some details of how the atPlatform works are not specified in detail by the atProtocol itself, but are
@@ -18,8 +20,7 @@ Given a client which has access to keys from a completed onboarding, provide a d
 of how the client can securely exchange data with another atSign.
 
 ### Non-goals
-
-This document does not cover client onboarding.
+- This document does not cover client onboarding.
 
 * TODO: Create such a document
 
@@ -33,14 +34,14 @@ Ability to
 - create AES encryption keys and use them to do encryption and decryption
 - establish a TLS socket connection, and be able to use it to send and receive data
 
-### Flow
+### "Sending" atSign
 Given an already-onboarded client (i.e. access to authentication private key and encryption private key) for atsign 
 `@alice`
-- Lookup address of the `@alice` atServer
+#### - Lookup address of the `@alice` atServer
   - Establish TLS connection to root.atsign.org:64
   - Send `alice\n`
   - Expect response in form `<someDomain.example.com>:<port>`
-- Authenticate to `@alice` atServer
+#### - Authenticate to `@alice` atServer
   - Establish TLS connection 
   - do PKAM authentication
     - Send `from:@alice`
@@ -49,25 +50,71 @@ Given an already-onboarded client (i.e. access to authentication private key and
       - Dart code example
       ```dart
         var key = RSAPrivateKey.fromString(privateKey);
-        var sha256signature =
-            key.createSHA256Signature(utf8.encode(challengeText) as Uint8List);
+        var sha256signature = key.createSHA256Signature(utf8.encode(challengeText) as Uint8List);
         var signature = base64Encode(sha256signature);
       ```
     - Send `pkam:<signature>`
     - Expect response `data:success` (or `error:<errorMessage>` if the signature could not be verified by the atServer
       using the corresponding PKAM public key)
+#### - Fetch existing shared symmetric key if it has already been created
+  - Send `llookup:shared_key.bob@alice` // This is a copy of the symmetric key which is encrypted with `@alice`'s 
+    public encryption key
+  - If response like `data:<base64EncodedEncryptedSharedKey>`
+    - Decode from bas64, then decrypt using our private encryption key. The result will be a symmetric key, 
+      base64-encoded. **NB** _Currently we use RSA asymmetric keypairs, and AES-256 symmetric keys. We will be 
+      supporting other ciphers and modes in future._
+    - base64-decode the symmetric key => $sharedAESKey
+  - Else if response like `error:error:AT0015-key not found : @bob:shared_key@alice does not exist in keystore` we
+    need to create a symmetric key and share it wih `@bob`
+#### - Or create a new shared symmetric key
+  - Create a new AES-256 symmetric key => $sharedAESKey and base64-encode it => $base64EncodedSharedAESKey
+  - Save for our own use in future
+    - Encrypt $base64EncodedSharedAESKey with our public encryption key and base64-encode the result => 
+      $base64EncodedEncryptedForAliceSharedAESKey
+    - Store in the atServer
+      - Send `update:shared_key.bob@alice $base64EncodedEncryptedForAliceSharedAESKey` and handle the response
+  - Share with `@bob`
+    - Fetch `@bob`'s public encryption key
+      - Send `plookup:publickey@bob`
+      - Successful response `data:<bobsBase64EncodedPublicKey>`
+    - Encrypt $base64EncodedSharedAESKey with bobsBase64EncodedPublicKey and base64-encode the result =>
+      $base64EncodedEncryptedForBobSharedAESKey
+    - Store in the atServer
+      - Send `update:ttr:86400:@bob:shared_key@alice $base64EncodedEncryptedForBobSharedAESKey` and handle the 
+        response
+#### - Encrypt and share some data
+  - Encrypt your $data with $sharedAESKey and base64-encode the result => $base64EncodedEncryptedData
+    - We currently use the CTR (aka SIC) mode of the AES cipher, with PKCS7Padding. Java example:
+      ```java
+      public String aesEncryptToBase64(String clearText, String keyBase64, byte[] iv) {
+          SecretKey key = _aesKeyFromBase64(keyBase64);
+          Cipher cipher = Cipher.getInstance("AES/SIC/PKCS7Padding", "BC");
+          cipher.init(Cipher.ENCRYPT_MODE, key, iv);
+          byte[] encrypted = cipher.doFinal(clearText.getBytes());
+          return Base64.getEncoder().encodeToString(encrypted);
+      }
+      ```
+  - Send `update:<optional metadata attributes:>@bob:some.key_name.in.some.namespace@alice $base64EncodedEncryptedData` 
+    and handle the response
 
-TODO Clean up the rest of this and add diagrams
-
-- share an AES key with another atSign. Assuming you are alice and you want to talk to bob this is: (1) cut an AES
-key, (2) lookup bob's public key (3) encrypt the AES key (4) use
-update verb to save it as @bob:shared_key@alice (5) encrypt the AES key with your own encryption private key for your
-own use, and (6) use update verb to save it as
-shared_key.bob@alice 
-- share data encrypted with that AES key. Encrypt your data with the AES key, use update verb to save it as @bob:
-some.key_name.in.some.namespace@alice
-
-And conversely an already-onboarded client which wants to receive data needs to be able to (1) PKAM authenticate (2)
-lookup some data e.g. @bob:
-some.key_name.in.some.namespace@alice (3) retrieve the AES key by looking up @bob:shared_key@alice (4) decrypt the data
-using the AES key
+### "Receiving" atSign
+- PKAM authenticate
+- lookup the data which `@alice` stored above at `@bob:some.key_name.in.some.namespace@alice`
+  - Send `lookup:some.key_name.in.some.namespace@alice` // NB do not include `@bob:`
+  - Successful response will be `data:$base64EncodedEncryptedData`
+- retrieve the base64-encoded shared symmetric key by looking up `@bob:shared_key@alice`
+  - Send `lookup:shared_key@alice` // NB do not include `@bob:`
+  - Successful response will be `data:$base64EncodedEncryptedForBobSharedAESKey`
+  - base64-decode $base64EncodedEncryptedForBobSharedAESKey => $encryptedForBobSharedAESKey
+  - decrypt $encryptedForBobSharedAESKey using Bob's private encryption key
+  - base64-decode the result, and construct an AES key
+- base64-decode the $base64EncodedEncryptedData, and decrypt it using the shared symmetric key. Java example:
+  ```java
+  public static String aesDecryptFromBase64(String cipherTextBase64, String keyBase64, byte[] iv) {
+      SecretKey key = _aesKeyFromBase64(keyBase64);
+      Cipher cipher = Cipher.getInstance("AES/SIC/PKCS7Padding", "BC");
+      cipher.init(Cipher.DECRYPT_MODE, key, iv);
+      byte[] decrypted = cipher.doFinal(Base64.getDecoder().decode(cipherTextBase64));
+      return new String(decrypted);
+  }
+  ```
