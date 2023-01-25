@@ -8,7 +8,7 @@
 
 <!-- TOC -->
   * [How to exchange encrypted data](#how-to-exchange-encrypted-data)
-  * [Context & Problem Statement](#context--problem-statement)
+  * [Background](#background)
   * [Goals](#goals)
     * [Non-goals](#non-goals)
   * [Technical prerequisites](#technical-prerequisites)
@@ -29,13 +29,13 @@
   * [Other resources](#other-resources)
 <!-- TOC -->
 
-## Context & Problem Statement
+## Background
 
 Some details of how the atPlatform works are not specified in detail by the atProtocol itself, but are
 usage conventions which are embedded in the client SDKs. As a result, building new client software, be
 it in a new language or building alternative client software for a language for which client software
-is already available, requires the engineer to base their efforts upon existing client libraries rather
-than a language-agnostic specification of the minimum functionality required.
+is already available, currently requires the engineer to base their efforts upon existing client libraries
+rather than a language-agnostic specification of the minimum functionality required.
 
 ## Goals
 
