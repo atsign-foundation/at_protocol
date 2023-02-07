@@ -731,7 +731,7 @@ The response structure should be exactly the same as the `lookup` verb.
 
 If the other atServer on which the `lookup` needs to be performed is not available, then the atServer should return the following error and keep the connection alive.
 
-```error:AT0007-atServer not found.```
+```error:AT0007- Secondary Server not found.```
 
 If the `lookup` command is not valid, then the atServer should return the following error and close the connection:
 
@@ -759,7 +759,7 @@ The response structure should be exactly the same as the `lookup` verb.
 
 If the other atServer on which the lookup needs to be performed is down then the atServer should return the following error and keep the connection alive.
 
-```error:AT0007-atServer not found.```
+```error:AT0007- Secondary Server not found.```
 
 > If the lookup command is not valid, then the atServer should return the following error and close the connection:
 
