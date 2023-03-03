@@ -17,13 +17,13 @@
   <tr>
    <td><strong>Revision</strong>
    </td>
-   <td>v0.1.1 (draft)
+   <td>v0.1.2 (draft)
    </td>
   </tr>
   <tr>
    <td><strong>Date</strong>
    </td>
-   <td>Feb, 6, 2023
+   <td>Mar, 3, 2023
    </td>
   </tr>
 </table>
@@ -856,7 +856,7 @@ data:[{"atKey":"@bob:phone@alice","operation":"+","opTime":"2020-10-26 11:57:43.
 {"atKey":"@bob:shared_key@alice","operation":"-","opTime":"2020-10-26 09:44:54.382219Z","commitId":1}]
 ```
 
-The `notify` verb
+### The `notify` verb
 
 The `notify` verb enables us to notify the atSign user of some data event.
 
@@ -893,7 +893,7 @@ If the user is the owner, returns a list of received notifications. If a user is
 
 ```data:[{"id":"0e5e9e89-c9cb-423b-8972-8c5487215990","from":"@alice","to":"@bob","key":"@bob:phone@alice","value":12345,"operation":"update","epochMillis":1603714122636}]```
 
-The `monitor` Verb
+### The `monitor` Verb
 
 **Synopsis:**
 
