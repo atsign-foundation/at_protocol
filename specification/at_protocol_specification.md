@@ -508,6 +508,22 @@ The `pol` verb follows the `from` verb. 'pol' indicates another atServer that th
 
 NA
 
+### The `scan` verb
+
+**Synopsis:**
+
+The scan verb is used to see the keys in an atSign's secondary server. 
+
+Following regex represents the syntax of the `scan` verb:
+
+```r'^scan$|scan(:showhidden:(?<showhidden>true|false))?(:(?<forAtSign>@[^:@\s]+))?(:page:(?<page>\d+))?( (?<regex>\S+))?$'```
+
+**Response:**
+
+The Secondary Server should return the keys within the secondary server if the scan verb executed succesfully. The Secondary Server will respond accordingly to whether the atSign is authenticated or not.
+
+```data:[<keys>]```
+
 ### The `update` verb
 
 **Synopsis:**
