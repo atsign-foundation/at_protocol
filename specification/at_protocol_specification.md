@@ -17,13 +17,13 @@
   <tr>
    <td><strong>Revision</strong>
    </td>
-   <td>v0.1.2 (draft)
+   <td>v0.1.3 (draft)
    </td>
   </tr>
   <tr>
    <td><strong>Date</strong>
    </td>
-   <td>Mar, 3, 2023
+   <td>Mar, 14, 2023
    </td>
   </tr>
 </table>
@@ -879,14 +879,23 @@ The `notify` verb enables us to notify the atSign user of some data event.
 The Following is the regex for the `notify` verb
 
 
-```notify:((?<operation>update|delete):)?(ttl:(?<ttl>\d+):)?(ttb:(?<ttb>\d+):)?(ttr:(?<ttr>(-)?\d+):)?(ccd:(?<ccd>true|false):)?(@(?<forAtSign>[^@:\s]-)):(?<atKey>[^:]((?!:{2})[^@])+)@(?<atSign>[^@:\s]+)(:(?<value>.+))?```
+```
+notify:((?<operation>update|delete):)?(ttl:(?<ttl>\d+):)?(ttb:(?<ttb>\d+):)?(ttr:(?<ttr>(-)?\d+):)?(ccd:(?<ccd>true|false):)?(@(?<forAtSign>[^@:\s]-)):(?<atKey>[^:]((?!:{2})[^@])+)@(?<atSign>[^@:\s]+)(:(?<value>.+))?
+```
+
+**Example:**
+
+```
+notify:update:ttr:-1:@{RECIPIENT}:{KEY}.{NAMESPACE}@{SENDER}:{BASE64ENCODED_CYPHERTEXT}
+```
 
 **Response:**
 
-When a key is notified successfully, returns 
+When a key is notified successfully, returns `data:{ID}` e.g.
 
-
-```data:success```
+```
+data:fccf2ddc-9316-4302-a11b-3dd214857431
+```
 
 **Description:**
 
