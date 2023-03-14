@@ -17,13 +17,13 @@
   <tr>
    <td><strong>Revision</strong>
    </td>
-   <td>v0.1.2 (draft)
+   <td>v0.1.3 (draft)
    </td>
   </tr>
   <tr>
    <td><strong>Date</strong>
    </td>
-   <td>Mar, 3, 2023
+   <td>Mar, 14, 2023
    </td>
   </tr>
 </table>
