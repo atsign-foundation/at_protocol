@@ -11,19 +11,19 @@
   <tr>
    <td><strong>Author(s)</strong>
    </td>
-   <td>Colin Constable, Kevin Nickels, Jagannadh Vanghuri
+   <td>Colin Constable, Kevin Nickels, Jagannadh Vanghuri, Gary Casey, Chris Swan
    </td>
   </tr>
   <tr>
    <td><strong>Revision</strong>
    </td>
-   <td>v0.1.3 (draft)
+   <td>v0.2.0 (draft)
    </td>
   </tr>
   <tr>
    <td><strong>Date</strong>
    </td>
-   <td>Mar, 14, 2023
+   <td>Mar, 15, 2023
    </td>
   </tr>
 </table>
@@ -417,15 +417,23 @@ The `from` verb is used to tell an atServer whom you claim to be.
 
 Following regex represents the syntax of the `from` verb:
 
-**Example:**
+**Syntax:**
 
 ```r'^from:(?<@sign>@?[^@\s]+$)' ```
+
+**Example:**
+
+```from:alice```
 
 **Response:**
 
 If the user who is trying to connect is the owner of the atServer, then the `from` verb should respond with the following response.
 
-```key:<sessionId@sign:uuid>```
+```data:<sessionId@atSign:uuid>```
+
+e.g:
+
+```data:_4af24c03-d732-48f8-a9a2-570e8fb6a01c@alice:d6cac849-9c29-42b0-b0c5-493db62728b9```
 
 If the user who is trying to connect is not the owner of the atServer, then the `from` verb should respond with the following response.
 
@@ -940,6 +948,54 @@ notification: {"id":"773e226d-dac2-4269-b1ee-64d7ce93a42f","from":"@bob","to":"@
 
 The `monitor` verb accepts an optional parameter to filter the notifications by passing filter criteria as regex to `monitor` verb.
 
+## Beta verbs
+
+### The `info` Verb
+
+**Synopsis:**
+
+The `info` verb provides runtime information about the atServer.
+
+Regex:
+```^info(:brief)?$```
+
+**Examples:**
+
+`info`
+
+```
+data:{"version":"3.0.28","uptimeAsWords":"1 hours 35 minutes 29 seconds","features":[{"name":"noop:","status":"Beta","description":"The No-Op verb simply does nothing for the requested number of milliseconds. The requested number of milliseconds may not be greater than 5000. Upon completion, the noop verb sends 'ok' as a response to the client.","syntax":"^noop:(?<delayMillis>\\d+)$"},{"name":"info:","status":"Beta","description":"The Info verb returns some information about the server including uptime and some info about available features. ","syntax":"^info(:brief)?$"}]}
+```
+
+`info:brief`
+
+```
+data:{"version":"3.0.28","uptimeAsMillis":5855295}
+```
+
+### The `noop` Verb
+
+**Synopsis:**
+
+The `noop` verb does nothing for up to 5 seconds before returning a `data:ok` response.
+
+Regex:
+```^noop:(?<delayMillis>\\d+)$```
+
+**Examples:**
+
+`noop:123`
+
+After 123ms:
+
+```data:ok```
+
+`noop:5001`
+
+```
+error:AT0022-Exception: noop:<durationInMillis> where the duration maximum is 5000 milliseconds
+```
+
 ## Error Codes
 
 <table>
@@ -1087,6 +1143,14 @@ The `monitor` verb accepts an optional parameter to filter the notifications by 
    <td>Unable to connect to atServer
    </td>
    <td>This exception will occur when we are unable to connect to an atServer. 
+   </td>
+  </tr>
+  <tr>
+   <td>AT0022
+   </td>
+   <td>noop:<durationInMillis> where the duration maximum is 5000 milliseconds
+   </td>
+   <td>A noop command has been issued with a duration outside of 0-5000ms
    </td>
   </tr>
 </table>
