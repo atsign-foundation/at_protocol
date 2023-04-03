@@ -1,4 +1,4 @@
-# PKAMs per app+device
+# PKAMs per app per device
 
 * **Status:** Draft
 * **Last Updated:** 2023-01
@@ -6,7 +6,7 @@
 per app+device
 
 <!-- TOC -->
-* [PKAMs per app+device](#pkams-per-appdevice)
+* [PKAMs per app per device](#pkams-per-app-per-device)
   * [Context & Problem Statement](#context--problem-statement)
   * [Goals](#goals)
     * [Non-goals](#non-goals)
@@ -20,6 +20,12 @@ per app+device
       * [Details](#details)
     * [SecondApp](#secondapp)
     * [Other details](#other-details)
+  * [Diagrams - current flows](#diagrams---current-flows)
+    * [First client onboarding](#first-client-onboarding)
+    * [Subsequent client onboarding](#subsequent-client-onboarding)
+  * [Diagrams - proposed new flows](#diagrams---proposed-new-flows)
+    * [Initial client enrolment](#initial-client-enrolment)
+    * [Subsequent client enrolment](#subsequent-client-enrolment)
 <!-- TOC -->
 * TODO
   * Add mermaid sequence diagrams for all the interaction flows below
@@ -353,7 +359,7 @@ sequenceDiagram
     Server-->>NewClient: ${serverChallenge}
     NewClient->>Server: enroll:request<br/>:app:<appName><br/>:device:<deviceName><br/>:namespaces:<...><br/>:apkamPublicKey:<apkamPublicKey>
     note over Server,ExistingPrivilegedClient: Server sends encrypted notification <br/>to ExistingPrivilegedClient asking <br/>for the enrolment request <br/>to be approved or denied
-    Server->>Server: Mark enrolement request PENDING
+    Server->>Server: Mark enrolment request PENDING
     Server->>ExistingPrivilegedClient: Approve or deny
     note over NewClient: Meanwhile, NewClient will try periodically to authenticate
     alt Pending
@@ -361,20 +367,20 @@ sequenceDiagram
         NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
         Server->>NewClient: Authentication failed - approval PENDING
     else Denied
-        note over NewClient,Server: If explicitly denied, authentication will fail permanently <br/>until a new enrolement request is sent
+        note over NewClient,Server: If explicitly denied, authentication will fail permanently <br/>until a new enrolment request is sent
         ExistingPrivilegedClient->>Server: Denied
-        Server->>Server: Mark enrolement request DENIED
+        Server->>Server: Mark enrolment request DENIED
         NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
         Server->>NewClient: Authentication failed - approval DENIED
     else Timeout
-        note over NewClient,Server: If the approval request times out, authentication will fail permanently <br/>until a new enrolement request is sent
+        note over NewClient,Server: If the approval request times out, authentication will fail permanently <br/>until a new enrolment request is sent
         NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
-        Server->>Server: If timeout has expired, Mark enrolement request TIMED OUT
+        Server->>Server: If timeout has expired, Mark enrolment request TIMED OUT
         Server->>NewClient: Authentication failed - approval request TIMED OUT
     else Approved
         note over NewClient,Server: If approved, authentication will succeed
         ExistingPrivilegedClient->>Server: Approved
-        Server->>Server: Mark enrolement request APPROVED
+        Server->>Server: Mark enrolment request APPROVED
         NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
         Server-->>NewClient: SUCCESS
     end
