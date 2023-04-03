@@ -1,12 +1,14 @@
-## PKAMs per app+device
+# PKAMs per app per device
 
 * **Status:** Draft
-* **Last Updated:** 2023-01
+* **Created:** 2023-01
+* **Changelog:**
+  * 2023-04-03 Added mermaid sequence diagrams of current and proposed new flows
 * **Objective:** Define protocol interactions required to have different PKAMs
 per app+device
 
 <!-- TOC -->
-  * [PKAMs per app+device](#pkams-per-appdevice)
+* [PKAMs per app per device](#pkams-per-app-per-device)
   * [Context & Problem Statement](#context--problem-statement)
   * [Goals](#goals)
     * [Non-goals](#non-goals)
@@ -20,9 +22,13 @@ per app+device
       * [Details](#details)
     * [SecondApp](#secondapp)
     * [Other details](#other-details)
+  * [Diagrams - current flows](#diagrams---current-flows)
+    * [First client onboarding](#first-client-onboarding)
+    * [Subsequent client onboarding](#subsequent-client-onboarding)
+  * [Diagrams - proposed new flows](#diagrams---proposed-new-flows)
+    * [Initial client enrolment](#initial-client-enrolment)
+    * [Subsequent client enrolment](#subsequent-client-enrolment)
 <!-- TOC -->
-**TODO**
-  * Add mermaid sequence diagrams for all the interaction flows below
 
 ## Context & Problem Statement
 Current PKAM (Public Key Authentication Method) supports only a single keypair.
@@ -244,3 +250,160 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
   - So they can share the relevant subset with other apps as they enroll
   - Corollary: When an encryption keypair is created in a namespace, it must be shared (1) with all apps which 
     have access to the namespace (2) with all apps who have the MPKAM access (__shared namespace)
+
+## Diagrams - current flows
+
+* Clients need to store PKAM private key, encryption private key, and AES key for private data (aka 'self' encryption
+  key)
+
+### First client onboarding
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Server
+
+    note over Client,Server: CRAM Authentication
+
+    Client->>Server: from:@alice
+    Server->>Server: store digest <SHA512(${cramSecret}${serverChallenge})>
+    Server-->>Client: ${serverChallenge}
+    Client->>Server: cram:<SHA512(${cramSecret}${serverChallenge})>
+    Server->>Server: fetch stored digest
+    Server->>Server: Compare digests
+    alt digests do not match
+        Server-->>Client: Authentication failed
+        Client->>Client: Exit
+    else digests match
+        Server-->>Client: Success
+    end
+
+    note over Client,Server: Onboarding
+    Client->>Client: Generate PKAM keypair
+    Client->>Server: Store PKAM public key
+    Server->>Server: Store PKAM public key
+    Client->>Server: Delete CRAM secret
+    Server->>Server: Delete CRAM secret
+    Client->>Client: Generate encryption keypair
+    Client->>Server: Store encryption public key
+    Server->>Server: Store encryption public key
+    Client->>Client: Generate AES key for private data
+    Client->>Client: Generate and store atKeys file
+```
+### Subsequent client onboarding
+Use the PKAM keys from the atKeys file which was generated during first client onboarding
+
+```mermaid
+sequenceDiagram
+    participant NewClient
+    participant Server
+
+    NewClient->>Server: from:@alice
+    Server-->>NewClient: ${serverChallenge}
+    NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
+    Server->>Server: Verify signature using the stored PKAM public key
+    alt Verified
+        Server->>NewClient: Authentication SUCCESS
+    else Not verified
+        Server->>NewClient: Authentication FAILED
+    end
+```
+
+
+## Diagrams - proposed new flows
+Clients retain only a PKAM private key
+
+### Initial client enrolment
+
+Very similar to how things are now except
+1. clients encrypt, with their PKAM public key, and then store on the server
+   1. the encryption private key and
+   2. the 'self' encryption key
+2. clients only need to store their PKAM private key
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Server
+
+    note over Client,Server: CRAM Authentication
+
+    Client->>Server: from:@alice
+    Server->>Server: store digest <SHA512(${cramSecret}${serverChallenge})>
+    Server-->>Client: ${serverChallenge}
+    Client->>Server: cram:<SHA512(${cramSecret}${serverChallenge})>
+    Server->>Server: fetch stored digest
+    Server->>Server: Compare digests
+    alt digests do not match
+        Server-->>Client: Authentication failed
+        Client->>Client: Exit
+    else digests match
+        Server-->>Client: Success
+    end
+
+    note over Client,Server: Onboarding
+    Client->>Client: Generate PKAM keypair (ideally on a secure element of some sort)
+    Client->>Server: Store PKAM public key
+    Server->>Server: Store PKAM public key
+    note over Server: New - mark this PKAM key as privileged to enrol subsequent clients
+    Server->>Server: Mark this PKAM public key as privileged
+    Client->>Server: Delete CRAM secret
+    Server->>Server: Delete CRAM secret
+    Client->>Client: Generate encryption keypair
+    Client->>Server: Store encryption public key
+    Server->>Server: Store encryption public key
+    Client->>Client: Generate AES key for private data
+    note over Client,Server: New
+    Client->>Client: Encrypt (a) encryption private key and (b) 'self' AES key using PKAM public key
+    Client->>Server: Store encrypted encryption keys
+    Server->>Server: Store encrypted encryption keys
+    note over Client: Client now only needs access to the PKAM private key
+    note over Client: Client no longer creates an 'atKeys' file
+```
+
+
+### Subsequent client enrolment
+This is _**substantially**_ different from how things are now.
+
+```mermaid
+sequenceDiagram
+    participant NewClient
+    participant Server
+    participant ExistingPrivilegedClient
+
+    note over NewClient,ExistingPrivilegedClient: Subsequent client onboarding
+    NewClient->>NewClient: Generate PKAM keypair (ideally on a secure element of some sort)
+    NewClient->>Server: from:@alice
+    Server-->>NewClient: ${serverChallenge}
+    NewClient->>Server: enroll:request<br/>:app:<appName><br/>:device:<deviceName><br/>:namespaces:<...><br/>:apkamPublicKey:<apkamPublicKey>
+    note over Server,ExistingPrivilegedClient: Server sends encrypted notification <br/>to ExistingPrivilegedClient asking <br/>for the enrolment request <br/>to be approved or denied
+    Server->>Server: Mark enrolment request PENDING
+    Server->>ExistingPrivilegedClient: Approve or deny
+    note over NewClient: Meanwhile, NewClient will try periodically to authenticate
+    alt Pending
+        note over NewClient,Server: While pending but not timed out, authentication will fail <br/>but may be reattempted
+        NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
+        Server->>NewClient: Authentication failed - approval PENDING
+    else Denied
+        note over NewClient,Server: If explicitly denied, authentication will fail permanently <br/>until a new enrolment request is sent
+        ExistingPrivilegedClient->>Server: Denied
+        Server->>Server: Mark enrolment request DENIED
+        NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
+        Server->>NewClient: Authentication failed - approval DENIED
+    else Timeout
+        note over NewClient,Server: If the approval request times out, authentication will fail permanently <br/>until a new enrolment request is sent
+        NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
+        Server->>Server: If timeout has expired, Mark enrolment request TIMED OUT
+        Server->>NewClient: Authentication failed - approval request TIMED OUT
+    else Approved
+        note over NewClient,Server: If approved, authentication will succeed
+        ExistingPrivilegedClient->>Server: Approved
+        Server->>Server: Mark enrolment request APPROVED
+        NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
+        Server->>Server: Verify signature using the PKAM public key presented in the enroll request earlier
+        alt Verified
+            Server->>NewClient: Authentication SUCCESS
+        else Not verified
+            Server->>NewClient: Authentication FAILED
+        end
+    end
+```
