@@ -244,3 +244,56 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
   - So they can share the relevant subset with other apps as they enroll
   - Corollary: When an encryption keypair is created in a namespace, it must be shared (1) with all apps which 
     have access to the namespace (2) with all apps who have the MPKAM access (__shared namespace)
+
+## Diagrams - current flows
+* Clients retain PKAM private key, encryption private key, and AES key for data just for this atSign (not shared with others)
+### First client onboarding
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Server
+
+    note over Client,Server: CRAM Authentication
+
+    Client->>Server: from:@alice
+    Server->>Server: store digest <SHA512(${cramSecret}${serverChallenge})>
+    Server-->>Client: ${serverChallenge}
+    Client->>Server: cram:<SHA512(${cramSecret}${serverChallenge})>
+    Server->>Server: fetch stored digest
+    Server->>Server: Compare digests
+    alt digests do not match
+        Server-->>Client: Authentication failed
+        Client->>Client: Exit
+    else digests match
+        Server-->>Client: Success
+    end
+
+    note over Client,Server: Onboarding
+    Client->>Client: Generate PKAM keypair
+    Client->>Server: Store PKAM public key
+    Server->>Server: Store PKAM public key
+    Client->>Server: Delete CRAM secret
+    Server->>Server: Delete CRAM secret
+    Client->>Client: Generate encryption keypair
+    Client->>Server: Store encryption public key
+    Server->>Server: Store encryption public key
+```
+
+Generate PKAM keypair and store public key on server
+Generate encryption keypair and store public key on server
+Generate atKeys file which contains PKAM and encryption keypairs
+### Subsequent client onboarding
+Use the atKeys file generated during first client onboarding 
+
+## Diagrams - proposed new flows
+Clients retain only a PKAM private key
+
+### Initial client enrolment
+Authenticate with CRAM
+Generate PKAM keypair and store public key on server
+Generate encryption keypair and store public key on server
+Also store encryption private key, encrypted using the PKAM private key
+Generate atKeys file which contains PKAM and encryption keypairs
+
+### Subsequent client enrolment
+### Un-enrolment of clients
