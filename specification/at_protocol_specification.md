@@ -1,67 +1,67 @@
-# The @protocol Specification
+# The atProtocol Specification
 <br>
 <table>
   <tr>
    <td>
    <strong>Subject</strong>
    </td>
-   <td>@protocol specification
+   <td>atProtocol specification
    </td>
   </tr>
   <tr>
    <td><strong>Author(s)</strong>
    </td>
-   <td>Colin Constable, Kevin Nickels, Jagannadh Vanghuri
+   <td>Colin Constable, Kevin Nickels, Jagannadh Vanghuri, Gary Casey, Chris Swan
    </td>
   </tr>
   <tr>
    <td><strong>Revision</strong>
    </td>
-   <td>v0.1.0 (draft)
+   <td>v0.2.0 (draft)
    </td>
   </tr>
   <tr>
    <td><strong>Date</strong>
    </td>
-   <td>July 5, 2021
+   <td>Mar, 15, 2023
    </td>
   </tr>
 </table>
 <br>
 
-## Root Server
-A Root Server should provide a lookup of where a Secondary Server for an @sign is running. This is similar to a DNS server.
+## atDirectory
+The atDirectory provides a lookup of where an atServer for an atsign is running. This is similar to a DNS server.
 
-When asking a Root Server for the lookup of a particular @sign the Root Server should respond with a null if the name does not exist and if the name exists the DNS name or address of the @server and the IP port number for that @sign should be returned.
+When asking an atDirectory for the lookup of a particular atSign the atDirectory should respond with a null if the name does not exist and if the name exists the DNS name or address of the atServer and the IP port number for that atSign should be returned.
 
 **Response:** 
 
 ```<host>:<port>```
 
-The Root Server only has one verb - `@exit` and all other inputs are considered to be lookup requests.
+The atDirectory only has one verb - `@exit` and all other inputs are considered to be lookup requests.
 
-## Secondary Server
-A Secondary Server is where an @sign user's personal data should be stored. One interacts with a secondary using the verbs exposed by the protocol.
+## atServer
+An atServer is where an atSign user's personal data should be stored. One interacts with an atServer using the verbs exposed by the protocol.
 
-A Secondary Server should have 4 major sub components:
+An atServer should have 4 major sub components:
 1. Key Store
 2. Commit Log
 3. Access Log
 4. Notification Log
 
-Verbs described in the document should be used to create, update, delete and retrieve information from the above sub components.
+Verbs described in the document should be used to create, update, delete, and retrieve information from the above sub components.
 
 ### 1. Key Store
 
-Key store is a place where user data in a Secondary Server should be saved as key and value pairs. Apart from the value, an @sign user should be able to add certain metadata for a key. 
+Key store is a place where user data in a atServer should be saved as key and value pairs. Apart from the value, an atSign user should be able to add certain metadata for a key. 
     
 #### **Key**
 
-A key in the @protocol can be formed by using any alphanumeric and special characters (UTF-8) excluding "@", ":" and a white space (" "). A key in a secondary can be any of the following 5 types:
+A key in the atProtocol can be formed by using any alphanumeric and special characters (UTF-8) excluding "@", ":" and a white space (" "). A key in an atServer can be any of the following 5 types:
 
 1. Public Key
 
-    - A public key is a key which can be looked up by any @sign user.
+    - A public key is a key which can be looked up by any atSign owner.
 
     - A public key should be part of the <em><span style="text-decoration:underline;">scan</span></em> verb result.
 
@@ -71,12 +71,12 @@ A key in the @protocol can be formed by using any alphanumeric and special chara
 
     ```public:location@alice```
 
-    > The owner of the secondary should be allowed to update or delete the value of a public key.
+    > The owner of the atServer should be allowed to update or delete the value of a public key.
 
 
 2. Private Key
         
-    - A private key is a key which cannot be looked up any @sign user other than the one created it.
+    - A private key is a key which cannot be looked up any atSign user other than the one created it.
     
     - A private key should not be returned in a <em><span style="text-decoration:underline;">scan</span></em> verb result.
     
@@ -86,11 +86,11 @@ A key in the @protocol can be formed by using any alphanumeric and special chara
 
     ```privatekey:pk1@alice```
 
-    > The owner of the secondary should be allowed to update or delete the value of a private key.
+    > The owner of the atServer should be allowed to update or delete the value of a private key.
 
 
 3. User key
-    - A user key can only be looked up by an @sign user with whom the data has been shared.
+    - A user key can only be looked up by an atSign owner with whom the data has been shared.
     - A user key should be part of the <em><span style="text-decoration:underline;">scan</span></em> verb result only for the user who created it and the specific user it has been shared with.
     - Format of the key shared with someone else should be <strong><Shared with @sign>:<identifier>:<Created by @sign></strong>
 
@@ -100,21 +100,21 @@ A key in the @protocol can be formed by using any alphanumeric and special chara
     
     > Note: Above Key should be part of scan verb result for only @alice and @bob 
 
-    > The owner of the secondary should be allowed to update or delete the value of a user key.
+    > The owner of the atServer should be allowed to update or delete the value of a user key.
 
 
 4. Internal Key
 
-    - Internal keys start with an underscore(_) and are not displayed in scan results. Internal keys can be looked up only by the owner of the secondary
+    - Internal keys start with an underscore(_) and are not displayed in scan results. Internal keys can be looked up only by the owner of the atServer.
 
 
 5. Cached Key
 
-    - A cached key is a key that was originally created by another @sign user but is now cached on the Secondary Server of another user's @sign as he/she was given permission to cache it. 
+    - A cached key is a key that was originally created by another atSign user but is now cached on the atServer of another user's atSign as he/she was given permission to cache it. 
 
     <!-- - A user should be able to enable/disable caching of someone else's key by virtue of the "enableKeyCaching" config parameter. <TO DO: Kevin, Colin - We need to discuss. We don't have this yet -->
 
-    - A cached key should be listed in the <em><span style="text-decoration:underline;">scan</span></em> verb result for the @sign user who cached it.
+    - A cached key should be listed in the <em><span style="text-decoration:underline;">scan</span></em> verb result for the atSign user who cached it.
 
     - Format of the key shared with someone else should be <strong>cached:<Shared with @sign>:<identifier>:<Created by @sign></strong>
 
@@ -124,30 +124,30 @@ A key in the @protocol can be formed by using any alphanumeric and special chara
 
     > The user who has cached the key should not be allowed to update the cached key.
 
-    > An @sign user who has created and shared the key should be allowed to update a cached key, and if the "autoNotify" config parameters is set to true, the updated value should be notified (please refer to the `notify` verb) and the cached key updated with the new value.
+    > An atSign owner who has created and shared the key should be allowed to update a cached key, and if the "autoNotify" config parameters is set to true, the updated value should be notified (please refer to the `notify` verb) and the cached key updated with the new value.
 
     > If the user who originally shared the keys set the CCD (Cascade delete) to true, the cached key will be deleted when the original key is deleted.
 
 #### **Value**
 
-Text or binary values can be saved in a Secondary Server. The size of the value saved in a secondary is bound by the config parameter "maxBufferSize".
+Text or binary values can be saved in an atServer. The size of the value saved in an atServer is bound by the config parameter "maxBufferSize".
 <!-- <TO DO: Kevin, Colin - We need to discuss. Do we need this.> -->
 
 > A user should be made aware of this limitation by using the `stats` verb.
 
 <!-- <TODO: Ex: @stats:10 should return the max size permitted by a secondary as a single value in bytes> -->
 
-> If a binary value is being saved on a Secondary Server, the "isBinary" attribute on the metadata should be set to true by the convention.
+> If a binary value is being saved on a atServer, the "isBinary" attribute on the metadata should be set to true by the convention.
 
 1. Reference Value
 
-    A Secondary Server should support referencing another key's value.
+    An atServer should support referencing another key's value.
     
     A reference value should be in the format "atsign://<key>".
 
     For example, 'phone@bob(key)' is 1234 (value). Now another key called altPhone@bob can refer to phone@bob by referencing it as altPhone@bob = atsign://phone@bob.
 
-    When the user does a lookup on the key that contains a reference, the Secondary Server should return a fully resolved value.
+    When the user does a lookup on the key that contains a reference, the atServer should return a fully resolved value.
 
     <!-- <TO DO: Caching referenced keys is tricky. We have not yet implemented this yet.> -->
 
@@ -178,7 +178,7 @@ Text or binary values can be saved in a Secondary Server. The size of the value 
     </td>
     <td>Yes
     </td>
-    <td>@sign that has created the key
+    <td>atSign that has created the key
     </td>
     </tr>
     <tr>
@@ -194,7 +194,7 @@ Text or binary values can be saved in a Secondary Server. The size of the value 
     </td>
     <td>No
     </td>
-    <td>@sign of the user with whom the key has been shared. Can be null if not shared with anyone.
+    <td>atSign of the user with whom the key has been shared. Can be null if not shared with anyone.
     </td>
     </tr>
     <tr>
@@ -226,7 +226,7 @@ Text or binary values can be saved in a Secondary Server. The size of the value 
     </td>
     <td>Yes
     </td>
-    <td>A Date and Time derived from the ttl (now + ttl). A Key should be only available after availableFrom.
+    <td>A Date and Time derived from the ttb (now + ttb). A Key should be only available after availableFrom.
     </td>
     </tr>
     <tr>
@@ -234,7 +234,7 @@ Text or binary values can be saved in a Secondary Server. The size of the value 
     </td>
     <td>No
     </td>
-    <td>True if the key can be cached by another @sign user.
+    <td>True if the key can be cached by another atSign user.
     </td>
     </tr>
     <tr>
@@ -258,7 +258,7 @@ Text or binary values can be saved in a Secondary Server. The size of the value 
     </td>
     <td>No
     </td>
-    <td>Indicates if a cached key needs to be deleted when the @sign user who has originally shared it deletes it.
+    <td>Indicates if a cached key needs to be deleted when the atSign user who has originally shared it deletes it.
     </td>
     </tr>
     <tr>
@@ -282,24 +282,24 @@ Text or binary values can be saved in a Secondary Server. The size of the value 
 
 ### 2. Commit Log
 
-A Secondary Server should record any create, update and delete operations in a commit log. The Commit Log should record these operations with a unique commit id so that users of the secondary can lookup operations that happened on or after a given commit id.
+An atServer should record any create, update and delete operations in a commit log. The Commit Log should record these operations with a unique commit id so that users of the atServer can lookup operations that happened on or after a given commit id.
 
-A Secondary Server should provide a way to compact the Commit Log based on time and size.
+An atServer should provide a way to compact the Commit Log based on time and size.
 
 ### 3. Access Log
 
-A Secondary Server should record the following user actions: user login, user authentication and lookup. The Access Log should record these operations so that users of the secondary can retrieve various statistics such as the most visited @sign or most visited keys.
+An atServer should record the following user actions: user login, user authentication, and lookup. The Access Log should record these operations so that users of the atServer can retrieve various statistics such as the most visited atSign or most visited keys.
 
-A Secondary Server should provide a way to compact the Access Log based on time and size.
+An atServer should provide a way to compact the Access Log based on time and size.
 
 ### 4. Notification Log
 
-A Secondary Server should record any notifications that have been received and sent. Please check the `notify` verb specification for details on how a notification should be sent.
+An atServer should record any notifications that have been received and sent. Please check the `notify` verb specification for details on how a notification should be sent.
 
-A Secondary Server should provide a way to compact the Notification Log based on time and size.
+An atServer should provide a way to compact the Notification Log based on time and size.
 
 ## Standard Keys
-A Secondary Server should have the following standard keys:
+An atServer should have the following standard keys:
 
 <table>
   <tr>
@@ -312,7 +312,7 @@ A Secondary Server should have the following standard keys:
   <tr>
    <td>public:publickey@<atsign>
    </td>
-   <td>Public key used by other atsigns for encryption.
+   <td>Public key used by other atSigns for encryption.
    </td>
   </tr>
   <tr>
@@ -330,13 +330,13 @@ A Secondary Server should have the following standard keys:
   <tr>
    <td><atsign>:shared_key@<atsign>
    </td>
-   <td>Symmetric key used to encrypt/decrypt self atsign data
+   <td>Symmetric key used to encrypt/decrypt self atSign data
    </td>
   </tr>
 </table>
 
 ## Configuration Parameters
-A Secondary Server should honor the following configuration parameters.
+An atServer should honor the following configuration parameters.
 
 <!-- <TO DO: Ideally these parameters should be set using some verb so that the user can control them. config verb can be extended to accomplish the same. Config verb also has the list option, so we can set/reset/list the configuration using the same> -->
 
@@ -355,7 +355,7 @@ A Secondary Server should honor the following configuration parameters.
    </td>
    <td>true/false
    </td>
-   <td>If set to true, a Secondary Server should automatically notify another @sign user when a key has been shared with him/her. Please refer to the <em><span style="text-decoration:underline;">notify </span></em>verb spec for details.
+   <td>If set to true, an atServer should automatically notify another atSign user when a key has been shared with him/her. Please refer to the <em><span style="text-decoration:underline;">notify </span></em>verb spec for details.
    </td>
   </tr>
   <tr>
@@ -363,7 +363,7 @@ A Secondary Server should honor the following configuration parameters.
    </td>
    <td>Number of bytes
    </td>
-   <td>Maximum size of a value for a key that can be transferred to a Secondary Server
+   <td>Maximum size of a value for a key that can be transferred to an atServer
    </td>
   </tr>
   <tr>
@@ -371,7 +371,7 @@ A Secondary Server should honor the following configuration parameters.
    </td>
    <td>An Integer
    </td>
-   <td>Maximum number of inbound connections that a Secondary Server can accept
+   <td>Maximum number of inbound connections that a atServer can accept
    </td>
   </tr>
   <tr>
@@ -379,7 +379,7 @@ A Secondary Server should honor the following configuration parameters.
    </td>
    <td>An Integer
    </td>
-   <td>Maximum number of outbound connections that a secondary can make to another Secondary Server
+   <td>Maximum number of outbound connections that an atServer can make to another atServer
    </td>
   </tr>
   <tr>
@@ -401,11 +401,11 @@ A Secondary Server should honor the following configuration parameters.
 </table>
 
 ## Block List
-A user of the Secondary Server should be able to decide who is allowed to connect to a Secondary Server. The `config` verb should be used to configure this. Once added, a Secondary Server should honor the list at the time of accepting new connections from an @sign user using the `from` verb.
+A user of the atServer should be able to decide who is allowed to connect to a atServer. The `config` verb should be used to configure this. Once added, a atServer should honor the list at the time of accepting new connections from an atSign owner using the `from` verb.
 
 <!-- ## Life Cycle -->
 
-<!-- <TO DO: TBD: What I want to write is, A User of the secondary should be able to control pausing and resuming of a Secondary Server> -->
+<!-- <TO DO: TBD: What I want to write is, A User of the secondary should be able to control pausing and resuming of an atServer> -->
 
 ## Verbs
 
@@ -413,45 +413,53 @@ A user of the Secondary Server should be able to decide who is allowed to connec
 
 **Synopsis:**
 
-The `from` verb is used to tell a secondary whom you claim to be.
+The `from` verb is used to tell an atServer whom you claim to be.
 
 Following regex represents the syntax of the `from` verb:
 
-**Example:**
+**Syntax:**
 
 ```r'^from:(?<@sign>@?[^@\s]+$)' ```
 
+**Example:**
+
+```from:alice```
+
 **Response:**
 
-If the user who is trying to connect is the owner of the Secondary Server, then the `from` verb should respond with the following response.
+If the user who is trying to connect is the owner of the atServer, then the `from` verb should respond with the following response.
 
-```key:<sessionId@sign:uuid>```
+```data:<sessionId@atSign:uuid>```
 
-If the user who is trying to connect is not the owner of the Secondary Server, then the `from` verb should respond with the following response.
+e.g:
+
+```data:_4af24c03-d732-48f8-a9a2-570e8fb6a01c@alice:d6cac849-9c29-42b0-b0c5-493db62728b9```
+
+If the user who is trying to connect is not the owner of the atServer, then the `from` verb should respond with the following response.
 
 ```proof:<sessionid>@<@sign>:<UUID>```
 
-If the user is not allowed to connect to the Secondary Server, then it should respond back with the following error and close the connection to the server.
+If the user is not allowed to connect to the atServer, then it should respond back with the following error and close the connection to the server.
 
 ```error:AT0013-Connection Exception```
 
 **Description:**
 
-The `from` verb is used to tell the Secondary Server what @sign you claim to be. With the `from` verb, one can connect to one's own Secondary Server or someone else's Secondary Server. In both cases, the Secondary Server responds back with a challenge to prove that you are who you claim to be. This is part of the authentication mechanism of the @protocol. 
+The `from` verb is used to tell the atServer what atSign you claim to be. With the `from` verb, one can connect to one's own atServer or someone else's atServer. In both cases, the atServer responds back with a challenge to prove that you are who you claim to be. This is part of the authentication mechanism of the atProtocol. 
 
-This authentication mechanism varies based on whether you are connecting to your own secondary (cram) or someone else's secondary (pol).
+This authentication mechanism varies based on whether you are connecting to your own atServer (cram) or someone else's atServer (pol).
 
 **OPTIONS:**
 
 ```<@sign>``` 
 Required: Yes
-Description: @sign with which you are connecting to a Secondary Server.
+Description: atSign with which you are connecting to a atServer.
 
 ### The `cram` verb
 
 **Synopsis:**
 
-The `cram` verb is used to boostrap authenticate one's own self as an owner of a Secondary Server. It is 
+The `cram` verb is used to boostrap authenticate one's own self as an owner of an atServer. It is 
 intended to be used once until a set of PKI keys are cut on the owner's mobile device and from then on 
 we use the `pkam` verb.
 
@@ -461,7 +469,7 @@ The following regex represents the syntax of the `cram` verb:
 
 **Response:**
 
-If the user gets the challenge right, the prompt should change to the @sign of the user.
+If the user gets the challenge right, the prompt should change to the atSign of the user.
 
 ```<@sign>@```
 
@@ -471,7 +479,7 @@ If the user gets the cram authentication wrong, then it should respond back with
 
 **Description:**
 
-The `cram` verb follows the `from` verb. As an owner of the Secondary Server, you should be able to take the challenge thrown by the `from` verb and encrypt using the shared key that the server has been bound with. Upon receiving the `cram` verb along with the digest, the server decrypts the digest using the shared key and matches it with the challenge. If they are the same, then the secondary lets you connect to the Secondary Server and changes the prompt to your @sign.
+The `cram` verb follows the `from` verb. As an owner of the atServer, you should be able to take the challenge thrown by the `from` verb and encrypt using the shared key that the server has been bound with. Upon receiving the `cram` verb along with the digest, the server decrypts the digest using the shared key and matches it with the challenge. If they are the same, then the atServer lets you connect to the atServer and changes the prompt to your atSign.
 
 **OPTIONS:**
 
@@ -483,7 +491,7 @@ Description: Encrypted challenge
 
 **Synopsis:**
 
-The `pol` verb is part of the `pkam` process to authenticate oneself while connecting to someone else's Secondary Server. The term
+The `pol` verb is part of the `pkam` process to authenticate oneself while connecting to someone else's atServer. The term
 'pol' means 'proof of life' as it provides a near realtime assurance that the requestor is who it claims to be.
 
 Following regex represents the syntax of the `pol` verb:
@@ -492,7 +500,7 @@ Following regex represents the syntax of the `pol` verb:
 
 **Response:**
 
-If the user gets the challenge right the prompt should change to the @sign of the user.
+If the user gets the challenge right the prompt should change to the atSign of the user.
 
 ```<@sign>@```
 
@@ -502,17 +510,33 @@ If the user gets the cram authentication wrong then it should respond back with 
 
 **Description:**
 
-The `pol` verb follows the `from` verb. 'pol' indicates another secondary that the user who is trying to connect is ready to authenticate himself. For example, if @bob is trying to connect to @alice, @bob would take the key and value from the proof response of the verb and create a public key and value which then can be looked up by @alice. After @alice looks up @bob's secondary @alices secondary should change the prompt to @bob.
+The `pol` verb follows the `from` verb. 'pol' indicates another atServer that the user who is trying to connect is ready to authenticate himself. For example, if @bob is trying to connect to @alice, @bob would take the key and value from the proof response of the verb and create a public key and value which then can be looked up by @alice. After @alice looks up @bob's atServer @alices atServer should change the prompt to @bob.
 
 **OPTIONS:**
 
 NA
 
+### The `scan` verb
+
+**Synopsis:**
+
+The scan verb is used to see the keys in an atSign's secondary server. 
+
+Following regex represents the syntax of the `scan` verb:
+
+```r'^scan$|scan(:showhidden:(?<showhidden>true|false))?(:(?<forAtSign>@[^:@\s]+))?(:page:(?<page>\d+))?( (?<regex>\S+))?$'```
+
+**Response:**
+
+The Secondary Server should return the keys within the secondary server if the scan verb executed succesfully. The Secondary Server will respond accordingly to whether the atSign is authenticated or not.
+
+```data:[<keys>]```
+
 ### The `update` verb
 
 **Synopsis:**
 
-The `update` verb is used to insert key/value pairs into a Key Store. An update can only be run by the owner of a Secondary Server on his/her own Secondary Server.
+The `update` verb is used to insert key/value pairs into a Key Store. An update can only be run by the owner of a atServer on his/her own atServer.
 
 Following regex represents the syntax of the `update` verb:
 
@@ -520,19 +544,19 @@ Following regex represents the syntax of the `update` verb:
 
 **Response:**
 
-The Secondary Server should return the commit id from Commit Log if the update is successful.
+The atServer should return the commit id from Commit Log if the update is successful.
 
 ```data:<CommitId>```
 
-If the user provides the invalid update command, then it should respond with the following error and close the connection to the server
+If the user provides the invalid update command, then it should respond with the following error and close the connection to the server.
 
 ```error:AT0003-Invalid Syntax```
 
 **Description:**
 
-The `update` verb should be used to perform create/update operations on the Secondary Server. The `update` verb requires the owner of the secondary to authenticate himself/herself to the Secondary Server using `from` and `cram` verbs.
+The `update` verb should be used to perform create/update operations on the atServer. The `update` verb requires the owner of the atServer to authenticate himself/herself to the atServer using `from` and `cram` verbs.
 
-If a key has been created for another @sign user, the Secondary Server should honor "autoNotify" configuration parameter.
+If a key has been created for another atSign user, the atServer should honor "autoNotify" configuration parameter.
 
 **OPTIONS:**
 
@@ -551,15 +575,15 @@ Description: Time to refresh in milliseconds.
 
 `<ccd>` 
 Required: No
-Description: A value of "true" indicates that the cached key needs to be deleted when the @sign user who has originally shared it deletes it.
+Description: A value of "true" indicates that the cached key needs to be deleted when the atSign user who has originally shared it deletes it.
 
 `<for@sign>`
 Required: Yes (Not required when the key is a public key)
-Description: @sign of the user with whom the key has been shared
+Description: atSign of the user with whom the key has been shared
 
 `<@sign>`
 Required: Yes 
-Description: @sign of the owner
+Description: atSign of the owner
 
 `<value>`
 Required: Yes
@@ -569,7 +593,7 @@ Description: Value for the key
 
 **Synopsis:**
 
-The `update:meta` verb should be used to update the metadata of a key @sign user without having to send or save the value again.
+The `update:meta` verb should be used to update the metadata of a key atSign user without having to send or save the value again.
 
 Following is the regex for the `update:meta` verb
 
@@ -577,7 +601,7 @@ Following is the regex for the `update:meta` verb
 
 **Response:**
 
-The Secondary Server should return the commit id from Commit Log if the update is successful.
+The atServer should return the commit id from Commit Log if the update is successful.
 
 ```data:<CommitId>```
 
@@ -588,9 +612,9 @@ If the user provides the invalid update meta command, then it should respond wit
 
 **Description:**
 
-The `update:meta` verb should be used to perform create/update operations on the Secondary Server. The `update:meta` verb requires the owner of the secondary to authenticate himself/herself to the Secondary Server using `from` and `cram` verbs.
+The `update:meta` verb should be used to perform create/update operations on the atServer. The `update:meta` verb requires the owner of the atServer to authenticate himself/herself to the atServer using `from` and `cram` verbs.
 
-The Secondary Server should allow creation of keys with null values. If a key has been created for another @sign user, the Secondary Server should honor "autoNotify" configuration parameter.
+The atServer should allow creation of keys with null values. If a key has been created for another atSign user, the atServer should honor "autoNotify" configuration parameter.
 
 **OPTIONS:**
 
@@ -609,21 +633,21 @@ Description: Time to refresh in milliseconds.
 
 `<ccd>` 
 Required: No
-Description: A value of "true" indicates that the cached key needs to be deleted when the @sign user who has originally shared it deletes it.
+Description: A value of "true" indicates that the cached key needs to be deleted when the atSign user who has originally shared it deletes it.
 
 `<for@sign>`
 Required: Yes (Not required when the key is a public key)
-Description: @sign of the user with whom the key has been shared
+Description: atSign of the user with whom the key has been shared
 
 `<@sign>`
 Required: Yes 
-Description: @sign of the owner
+Description: atSign of the owner
 
 ### The `lookup` verb
 
 **Synopsis:**
 
-The `lookup` verb should be used to lookup the value shared by another @sign user.
+The `lookup` verb should be used to lookup the value shared by another atSign user.
 
 The following is the regex of the `lookup` verb:
 
@@ -631,7 +655,7 @@ The following is the regex of the `lookup` verb:
 
 **Response:**
 
-If the operation is not specified the Secondary Server should just respond back with the value saved by the user as is.
+If the operation is not specified the atServer should just respond back with the value saved by the user as is.
 
 ```data:<value>```
 
@@ -694,30 +718,30 @@ data:
 }
 ```
 
-If the other Secondary Server on which the lookup needs to be performed is down then the secondary should return the following error and keep the connection alive.
+If the other atServer on which the lookup needs to be performed is down then the atServer should return the following error and keep the connection alive.
 
 
-```error:AT0007-Secondary Server not found.```
+```error:AT0007-atServer not found.```
 
-If the lookup command is not valid, then the Secondary Server should return the following error and close the connection:
+If the lookup command is not valid, then the atServer should return the following error and close the connection:
 
 
 ```error:AT0003-Invalid Syntax```
 
-For whatever reasons, If the handshake with another secondary fails, then the Secondary Server should return the following error:
+For whatever reasons, If the handshake with another atServer fails, then the atServer should return the following error:
 
 
 ```data:AT0008-Handshake failure```
 
 **Description:**:
 
-The `lookup` verb should be used to fetch the value of the key shared by another @sign user. If there is a public and user key with the same name then the result should be based on whether the user is trying to lookup is authenticated or not. If the user is authenticated then the user key has to be returned, otherwise the public key has to be returned.
+The `lookup` verb should be used to fetch the value of the key shared by another atSign user. If there is a public and user key with the same name then the result should be based on whether the user is trying to lookup is authenticated or not. If the user is authenticated then the user key has to be returned, otherwise the public key has to be returned.
 
 ### The `plookup` verb:
 
 **Synopsis:**
 
-The `plookup` verb enables to lookup the value of the public key shared by another @sign user.
+The `plookup` verb enables to lookup the value of the public key shared by another atSign user.
 
 Following is the regex of the `plookup` verb:
 
@@ -725,27 +749,27 @@ Following is the regex of the `plookup` verb:
 
 **Response:**
 
-The Secondary Server should return the value or metadata or the value and metadata together based on the option specified. 
+The atServer should return the value or metadata or the value and metadata together based on the option specified. 
 
 The response structure should be exactly the same as the `lookup` verb.
 
-If the other Secondary Server on which the `lookup` needs to be performed is not available, then the secondary should return the following error and keep the connection alive.
+If the other atServer on which the `lookup` needs to be performed is not available, then the atServer should return the following error and keep the connection alive.
 
-```error:AT0007-Secondary Server not found.```
+```error:AT0007- Secondary Server not found.```
 
-If the `lookup` command is not valid, then the Secondary Server should return the following error and close the connection:
+If the `lookup` command is not valid, then the atServer should return the following error and close the connection:
 
 ```error:AT0003-Invalid Syntax```
 
 **Description:**:
 
-The `plookup` verb should be used to fetch the value of the public key shared by another @sign user. 
+The `plookup` verb should be used to fetch the value of the public key shared by another atSign user. 
 
 ### The `llookup` verb
 
 **Synopsis:**
 
-The `llookup` verb should be used to look up one's own secondary and this should return the value as is (i.e. without any resolution).
+The `llookup` verb should be used to look up one's own atServer and this should return the value as is (i.e. without any resolution).
 
 The Following is the regex of the `llookup` verb:
 
@@ -753,22 +777,22 @@ The Following is the regex of the `llookup` verb:
 
 **Response:**
 
-The Secondary Server should return the value or metadata or the value and metadata together based on the option specified. 
+The atServer should return the value or metadata or the value and metadata together based on the option specified. 
 
 The response structure should be exactly the same as the `lookup` verb.
 
-If the other Secondary Server on which the lookup needs to be performed is down then the secondary should return the following error and keep the connection alive.
+If the other atServer on which the lookup needs to be performed is down then the atServer should return the following error and keep the connection alive.
 
-```error:AT0007-Secondary Server not found.```
+```error:AT0007- Secondary Server not found.```
 
-> If the lookup command is not valid, then the Secondary Server should return the following error and close the connection:
+> If the lookup command is not valid, then the atServer should return the following error and close the connection:
 
 
 ```error:AT0003-Invalid Syntax```
 
 **Description:**:
 
-The `llookup` verb should be used to fetch the value of the key in the owners secondary store as is without resolving it. For example if a key contains a reference as a value, the `lookup` verb should resolve it to a value whereas llookup should return the value as is.
+The `llookup` verb should be used to fetch the value of the key in the owners atServer store as is without resolving it. For example if a key contains a reference as a value, the `lookup` verb should resolve it to a value whereas llookup should return the value as is.
 
 **Example:**    
 
@@ -779,7 +803,7 @@ then `lookup` of altphone@bob should return "1234" whereas `llookup` of altphone
 
 **Synopsis:**
 
-The `pkam` verb is used to authenticate one's own self as an owner of a Secondary Server using a PKI style authentication.
+The `pkam` verb is used to authenticate one's own self as an owner of a atServer using a PKI style authentication.
 
 Following regex represents the syntax of the `pkam` verb:
 
@@ -787,7 +811,7 @@ Following regex represents the syntax of the `pkam` verb:
 
 **Response:**
 
-If the user gets the challenge right, the prompt should change to the @sign of the user.
+If the user gets the challenge right, the prompt should change to the atSign of the user.
 
 ```<@sign>@```
 
@@ -797,7 +821,7 @@ If the user gets the pkam authentication wrong then it should respond back with 
 
 **Description:**
 
-The `pkam` verb follows the `from` verb. As an owner of the Secondary Server, you should be able to take the challenge thrown by the `from` verb and encrypt using the private key of the RSA key pair with what the server has been bound with. Upon receiving the `cram` verb along with the digest, the server decrypts the digest using the public key and matches it with the challenge. If they are the same then the secondary lets you connect to the Secondary Server and changes the prompt to your @sign.
+The `pkam` verb follows the `from` verb. As an owner of the atServer, you should be able to take the challenge thrown by the `from` verb and encrypt using the private key of the RSA key pair with what the server has been bound with. Upon receiving the `cram` verb along with the digest, the server decrypts the digest using the public key and matches it with the challenge. If they are the same then the atServer lets you connect to the atServer  and changes the prompt to your atSign.
 
 **OPTIONS:**
 
@@ -809,7 +833,7 @@ Description: Encrypted challenge
 
 **Synopsis:**
 
-The `stats` verb should be used to get the statistics of an atsign.
+The `stats` verb should be used to get the statistics of an atSign.
 
 Following is the regex of the `stats` verb
 
@@ -841,7 +865,7 @@ data: [{"id":"1","name":"activeInboundConnections","value":"1"}]
 
 **Synopsis:**
 
-The `sync` verb enables to synchronize the keys between the local Secondary Server and remote Secondary Server.
+The `sync` verb enables to synchronize the keys between the local atServer and remote atServer.
 
 Following is the regex:
 
@@ -856,25 +880,34 @@ data:[{"atKey":"@bob:phone@alice","operation":"+","opTime":"2020-10-26 11:57:43.
 {"atKey":"@bob:shared_key@alice","operation":"-","opTime":"2020-10-26 09:44:54.382219Z","commitId":1}]
 ```
 
-The `notify` verb
+### The `notify` verb
 
-The `notify` verb enables us to notify the atsign user of some data event.
+The `notify` verb enables us to notify the atSign user of some data event.
 
 The Following is the regex for the `notify` verb
 
 
-```notify:((?<operation>update|delete):)?(ttl:(?<ttl>\d+):)?(ttb:(?<ttb>\d+):)?(ttr:(?<ttr>(-)?\d+):)?(ccd:(?<ccd>true|false):)?(@(?<forAtSign>[^@:\s]-)):(?<atKey>[^:]((?!:{2})[^@])+)@(?<atSign>[^@:\s]+)(:(?<value>.+))?```
+```
+notify:((?<operation>update|delete):)?(ttl:(?<ttl>\d+):)?(ttb:(?<ttb>\d+):)?(ttr:(?<ttr>(-)?\d+):)?(ccd:(?<ccd>true|false):)?(@(?<forAtSign>[^@:\s]-)):(?<atKey>[^:]((?!:{2})[^@])+)@(?<atSign>[^@:\s]+)(:(?<value>.+))?
+```
+
+**Example:**
+
+```
+notify:update:ttr:-1:@{RECIPIENT}:{KEY}.{NAMESPACE}@{SENDER}:{BASE64ENCODED_CYPHERTEXT}
+```
 
 **Response:**
 
-When a key is notified successfully, returns 
+When a key is notified successfully, returns `data:{ID}` e.g.
 
-
-```data:success```
+```
+data:fccf2ddc-9316-4302-a11b-3dd214857431
+```
 
 **Description:**
 
-When an atsign user notifies the key to another atsign user, an entry has to be created in received notifications list on the user who has shared the key and an entry has to be created in sent notifications list on the user to whom the key is to be notified. When auto notify is set to true, when a key is created/updated and deleted notification is triggered to another atsign user.
+When an atSign owner notifies the key to another atSign owner, an entry has to be created in received notifications list on the user who has shared the key and an entry has to be created in sent notifications list on the user to whom the key is to be notified. When auto notify is set to true, when a key is created/updated and deleted notification is triggered to another atSign user.
 
 
 ### Notify List
@@ -893,7 +926,7 @@ If the user is the owner, returns a list of received notifications. If a user is
 
 ```data:[{"id":"0e5e9e89-c9cb-423b-8972-8c5487215990","from":"@alice","to":"@bob","key":"@bob:phone@alice","value":12345,"operation":"update","epochMillis":1603714122636}]```
 
-The `monitor` Verb
+### The `monitor` Verb
 
 **Synopsis:**
 
@@ -914,6 +947,54 @@ notification: {"id":"773e226d-dac2-4269-b1ee-64d7ce93a42f","from":"@bob","to":"@
 **Description:**
 
 The `monitor` verb accepts an optional parameter to filter the notifications by passing filter criteria as regex to `monitor` verb.
+
+## Beta verbs
+
+### The `info` Verb
+
+**Synopsis:**
+
+The `info` verb provides runtime information about the atServer.
+
+Regex:
+```^info(:brief)?$```
+
+**Examples:**
+
+`info`
+
+```
+data:{"version":"3.0.28","uptimeAsWords":"1 hours 35 minutes 29 seconds","features":[{"name":"noop:","status":"Beta","description":"The No-Op verb simply does nothing for the requested number of milliseconds. The requested number of milliseconds may not be greater than 5000. Upon completion, the noop verb sends 'ok' as a response to the client.","syntax":"^noop:(?<delayMillis>\\d+)$"},{"name":"info:","status":"Beta","description":"The Info verb returns some information about the server including uptime and some info about available features. ","syntax":"^info(:brief)?$"}]}
+```
+
+`info:brief`
+
+```
+data:{"version":"3.0.28","uptimeAsMillis":5855295}
+```
+
+### The `noop` Verb
+
+**Synopsis:**
+
+The `noop` verb does nothing for up to 5 seconds before returning a `data:ok` response.
+
+Regex:
+```^noop:(?<delayMillis>\\d+)$```
+
+**Examples:**
+
+`noop:123`
+
+After 123ms:
+
+```data:ok```
+
+`noop:5001`
+
+```
+error:AT0022-Exception: noop:<durationInMillis> where the duration maximum is 5000 milliseconds
+```
 
 ## Error Codes
 
@@ -972,15 +1053,15 @@ The `monitor` verb accepts an optional parameter to filter the notifications by 
    </td>
    <td>Outbound connection limit exceeded
    </td>
-   <td>Exception occurs when the number of open connections to other secondaries reaches the maximum limit configured. 
+   <td>Exception occurs when the number of open connections to other atServers reaches the maximum limit configured. 
    </td>
   </tr>
   <tr>
    <td>AT0007
    </td>
-   <td>Secondary Server not found
+   <td>atServer not found
    </td>
-   <td>Exception occurs when a secondary tries to connect to another secondary which is not available in the root directory or not yet instantiated. 
+   <td>Exception occurs when an atServer tries to connect to another atServer which is not available in the atDirectory or not yet instantiated. 
    </td>
   </tr>
   <tr>
@@ -988,7 +1069,7 @@ The `monitor` verb accepts an optional parameter to filter the notifications by 
    </td>
    <td>Handshake failure
    </td>
-   <td>This exception is for any exception during the handshake process of two secondaries.
+   <td>This exception is for any exception during the handshake process of two atServers.
    </td>
   </tr>
   <tr>
@@ -997,7 +1078,7 @@ The `monitor` verb accepts an optional parameter to filter the notifications by 
    <td>UnAuthorized client in the request
    </td>
    <td>UnAuthorized Exception
-   <p>will occur when an unsuccessful handshake happens between two secondaries.</p>
+   <p>will occur when an unsuccessful handshake happens between two atServers.</p>
    </td>
   </tr>
   <tr>
@@ -1037,7 +1118,7 @@ The `monitor` verb accepts an optional parameter to filter the notifications by 
    </td>
    <td>Connection Exception
    </td>
-   <td>This will occur when a blocked user tries to connect to the secondary.
+   <td>This will occur when a blocked user tries to connect to the atServer.
    </td>
   </tr>
   <tr>
@@ -1059,24 +1140,32 @@ The `monitor` verb accepts an optional parameter to filter the notifications by 
   <tr>
    <td>AT0021
    </td>
-   <td>Unable to connect to secondary
+   <td>Unable to connect to atServer
    </td>
-   <td>This exception will occur when we are unable to connect to secondary. 
+   <td>This exception will occur when we are unable to connect to an atServer. 
+   </td>
+  </tr>
+  <tr>
+   <td>AT0022
+   </td>
+   <td>noop:<durationInMillis> where the duration maximum is 5000 milliseconds
+   </td>
+   <td>A noop command has been issued with a duration outside of 0-5000ms
    </td>
   </tr>
 </table>
 
 Glossary
-> @protocol (Pronounced, at protocol)
+> atProtocol (Pronounced, at protocol)
 <TO DO>
 
-> @sign (Pronounced, at sign)
-@sign is a unique name that a user gets when enrolled with @sign.com 
+> atSign (Pronounced, at sign)
+atSign is a unique name that a user gets when enrolled with atsign.com 
 
-> Root Server
+> atDirectory
 <TO DO>
 
-> Secondary Server
+> atServer
 <TO DO>
 
 > Verb

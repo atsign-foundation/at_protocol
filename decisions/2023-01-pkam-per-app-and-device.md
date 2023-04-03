@@ -27,8 +27,6 @@ per app+device
     * [Initial client enrolment](#initial-client-enrolment)
     * [Subsequent client enrolment](#subsequent-client-enrolment)
 <!-- TOC -->
-* TODO
-  * Add mermaid sequence diagrams for all the interaction flows below
 
 ## Context & Problem Statement
 Current PKAM (Public Key Authentication Method) supports only a single keypair.
