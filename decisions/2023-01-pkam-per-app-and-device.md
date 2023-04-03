@@ -246,7 +246,10 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
     have access to the namespace (2) with all apps who have the MPKAM access (__shared namespace)
 
 ## Diagrams - current flows
-* Clients retain PKAM private key, encryption private key, and AES key for data just for this atSign (not shared with others)
+
+* Clients need to store PKAM private key, encryption private key, and AES key for private data (aka 'self' encryption
+  key)
+
 ### First client onboarding
 ```mermaid
 sequenceDiagram
@@ -277,11 +280,9 @@ sequenceDiagram
     Client->>Client: Generate encryption keypair
     Client->>Server: Store encryption public key
     Server->>Server: Store encryption public key
+    Client->>Client: Generate AES key for private data
+    Client->>Client: Generate and store atKeys file
 ```
-
-Generate PKAM keypair and store public key on server
-Generate encryption keypair and store public key on server
-Generate atKeys file which contains PKAM and encryption keypairs
 ### Subsequent client onboarding
 Use the atKeys file generated during first client onboarding 
 
@@ -289,11 +290,55 @@ Use the atKeys file generated during first client onboarding
 Clients retain only a PKAM private key
 
 ### Initial client enrolment
-Authenticate with CRAM
-Generate PKAM keypair and store public key on server
-Generate encryption keypair and store public key on server
-Also store encryption private key, encrypted using the PKAM private key
-Generate atKeys file which contains PKAM and encryption keypairs
+
+Very similar to how things are now except
+1. clients encrypt, with their PKAM public key, and then store on the server
+   1. the encryption private key and
+   2. the 'self' encryption key
+2. clients only need to store their PKAM private key
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Server
+
+    note over Client,Server: CRAM Authentication
+
+    Client->>Server: from:@alice
+    Server->>Server: store digest <SHA512(${cramSecret}${serverChallenge})>
+    Server-->>Client: ${serverChallenge}
+    Client->>Server: cram:<SHA512(${cramSecret}${serverChallenge})>
+    Server->>Server: fetch stored digest
+    Server->>Server: Compare digests
+    alt digests do not match
+        Server-->>Client: Authentication failed
+        Client->>Client: Exit
+    else digests match
+        Server-->>Client: Success
+    end
+
+    note over Client,Server: Onboarding
+    Client->>Client: Generate PKAM keypair (ideally on a secure element of some sort)
+    Client->>Server: Store PKAM public key
+    Server->>Server: Store PKAM public key
+    note over Server: New - mark this PKAM key as privileged to enrol subsequent clients
+    Server->>Server: Mark this PKAM public key as privileged
+    Client->>Server: Delete CRAM secret
+    Server->>Server: Delete CRAM secret
+    Client->>Client: Generate encryption keypair
+    Client->>Server: Store encryption public key
+    Server->>Server: Store encryption public key
+    Client->>Client: Generate AES key for private data
+    note over Client,Server: New
+    Client->>Client: Encrypt (a) encryption private key and (b) 'self' AES key using PKAM public key
+    Client->>Server: Store encrypted encryption keys
+    Server->>Server: Store encrypted encryption keys
+    note over Client: Client now only needs access to the PKAM private key
+    note over Client: Client no longer creates an 'atKeys' file
+```
+
 
 ### Subsequent client enrolment
-### Un-enrolment of clients
+This is _**substantially**_ different from how things are now.
+
+Assuming an app which 
