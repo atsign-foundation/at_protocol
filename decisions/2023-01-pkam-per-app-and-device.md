@@ -290,7 +290,24 @@ sequenceDiagram
     Client->>Client: Generate and store atKeys file
 ```
 ### Subsequent client onboarding
-Use the atKeys file generated during first client onboarding 
+Use the PKAM keys from the atKeys file which was generated during first client onboarding
+
+```mermaid
+sequenceDiagram
+    participant NewClient
+    participant Server
+
+    NewClient->>Server: from:@alice
+    Server-->>NewClient: ${serverChallenge}
+    NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
+    Server->>Server: Verify signature using the stored PKAM public key
+    alt Verified
+        Server->>NewClient: Authentication SUCCESS
+    else Not verified
+        Server->>NewClient: Authentication FAILED
+    end
+```
+
 
 ## Diagrams - proposed new flows
 Clients retain only a PKAM private key
@@ -382,6 +399,11 @@ sequenceDiagram
         ExistingPrivilegedClient->>Server: Approved
         Server->>Server: Mark enrolment request APPROVED
         NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
-        Server-->>NewClient: SUCCESS
+        Server->>Server: Verify signature using the PKAM public key presented in the enroll request earlier
+        alt Verified
+            Server->>NewClient: Authentication SUCCESS
+        else Not verified
+            Server->>NewClient: Authentication FAILED
+        end
     end
 ```
