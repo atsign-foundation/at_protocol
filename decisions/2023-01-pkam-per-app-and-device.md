@@ -341,4 +341,41 @@ sequenceDiagram
 ### Subsequent client enrolment
 This is _**substantially**_ different from how things are now.
 
-Assuming an app which 
+```mermaid
+sequenceDiagram
+    participant NewClient
+    participant Server
+    participant ExistingPrivilegedClient
+
+    note over NewClient,ExistingPrivilegedClient: Subsequent client onboarding
+    NewClient->>NewClient: Generate PKAM keypair (ideally on a secure element of some sort)
+    NewClient->>Server: from:@alice
+    Server-->>NewClient: ${serverChallenge}
+    NewClient->>Server: enroll:request<br/>:app:<appName><br/>:device:<deviceName><br/>:namespaces:<...><br/>:apkamPublicKey:<apkamPublicKey>
+    note over Server,ExistingPrivilegedClient: Server sends encrypted notification <br/>to ExistingPrivilegedClient asking <br/>for the enrolment request <br/>to be approved or denied
+    Server->>Server: Mark enrolement request PENDING
+    Server->>ExistingPrivilegedClient: Approve or deny
+    note over NewClient: Meanwhile, NewClient will try periodically to authenticate
+    alt Pending
+        note over NewClient,Server: While pending but not timed out, authentication will fail <br/>but may be reattempted
+        NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
+        Server->>NewClient: Authentication failed - approval PENDING
+    else Denied
+        note over NewClient,Server: If explicitly denied, authentication will fail permanently <br/>until a new enrolement request is sent
+        ExistingPrivilegedClient->>Server: Denied
+        Server->>Server: Mark enrolement request DENIED
+        NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
+        Server->>NewClient: Authentication failed - approval DENIED
+    else Timeout
+        note over NewClient,Server: If the approval request times out, authentication will fail permanently <br/>until a new enrolement request is sent
+        NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
+        Server->>Server: If timeout has expired, Mark enrolement request TIMED OUT
+        Server->>NewClient: Authentication failed - approval request TIMED OUT
+    else Approved
+        note over NewClient,Server: If approved, authentication will succeed
+        ExistingPrivilegedClient->>Server: Approved
+        Server->>Server: Mark enrolement request APPROVED
+        NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
+        Server-->>NewClient: SUCCESS
+    end
+```
