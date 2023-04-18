@@ -113,11 +113,11 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
     ```
     keys:put:private:app:<appName>:device:<deviceName>
       :keyName:firstKey:namespace:__global
-      :<encryptedEncryptionPrivateKey
+      :<encryptedEncryptionPrivateKey>
     ```
     - appName and deviceName must match what was used in PKAM
     - Creates key `private:<appName>.<deviceName>.<keyName>.__private_keys.__global@atSign`
-      - with value being <encryptedEncryptionPrivateKey>
+      - with value being `<encryptedEncryptionPrivateKey>`
 - Create a default 'self' encryption key
   - FirstApp cuts new symmetricSelfEncryptionKey (e.g. an AES key)
   - Encrypts it using default global encryption public key e.g. firstKey
@@ -195,13 +195,13 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
       - **Approve:**
         - `enroll:approving:<approvalID>`
           - atServer updates the enrollment request record's "approval" field, e.g.
-          ```
-            "approval": {
-              "state":"approving",
-              "approverAppName": "ExistingApp",
-              "approvedDeviceName": "<deviceName>"
-            }
-          ```
+            ```
+              "approval": {
+                "state":"approving",
+                "approverAppName": "ExistingApp",
+                "approvedDeviceName": "<deviceName>"
+              }
+            ```
         - Make all encryption private keys available to NewApp
           - Retrieve all encryption keypairs' private keys
             - `keys:get:private`
@@ -218,13 +218,13 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
       - **Deny:**
         - `enroll:deny:<approvalID>`
           - atServer updates the enrollment request record's "approval" field, e.g.
-          ```
-            "approval": {
-              "state":"denied",
-              "approverAppName": "ExistingApp",
-              "approvedDeviceName": "<deviceName>"
-            }
-          ```
+            ```
+              "approval": {
+                "state":"denied",
+                "approverAppName": "ExistingApp",
+                "approvedDeviceName": "<deviceName>"
+              }
+            ```
       - atServer will set timers to expire approval requests after a suitable configurable
         interval (e.g. 90 seconds). Expired approval requests will be deleted.
       - Upon startup, atServer will load all approval requests with approval state "requested",
