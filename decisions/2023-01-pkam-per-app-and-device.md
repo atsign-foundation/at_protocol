@@ -138,7 +138,7 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
     - Retrieves everything from the `__private_keys.__global` namespace
     - Retrieves everything from `__private_keys.$namespace` for each $namespace to
       which this app has access
-  - (Recall that these are encrypted with FirstApp's APKAM private key)
+  - (Recall that these are encrypted with FirstApp's APKAM public key)
 - Retrieve all self encryption keys
   - `keys:get:self`
     - Retrieves everything from the `__self_keys.__global` namespace
