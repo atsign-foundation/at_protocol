@@ -208,7 +208,7 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
               - Retrieves everything from the `__private_keys.__global` namespace
               - Retrieves everything from `__private_keys.$namespace` for EVERY $namespace to
                 which NewApp app will have access
-            - (Recall that these are encrypted with ExistingApp's APKAM private key)
+            - (Recall that these are encrypted with ExistingApp's APKAM public key)
           - Fetch NewApp's APKAM public key
           - Encrypt each private key and store for NewApp
             ```
@@ -281,6 +281,8 @@ sequenceDiagram
     Client->>Client: Generate PKAM keypair
     Client->>Server: Store PKAM public key
     Server->>Server: Store PKAM public key
+    Client->>Server: PKAM authentication
+    Server-->>Client: Auth passed
     Client->>Server: Delete CRAM secret
     Server->>Server: Delete CRAM secret
     Client->>Client: Generate encryption keypair
@@ -346,6 +348,8 @@ sequenceDiagram
     Server->>Server: Store PKAM public key
     note over Server: New - mark this PKAM key as privileged to enrol subsequent clients
     Server->>Server: Mark this PKAM public key as privileged
+    Client->>Server: PKAM authentication
+    Server-->>Client: Auth passed
     Client->>Server: Delete CRAM secret
     Server->>Server: Delete CRAM secret
     Client->>Client: Generate encryption keypair
