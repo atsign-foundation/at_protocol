@@ -695,26 +695,26 @@ If the operation is to lookup the metadata and the data together then the result
 ``` json
 data:
 {
-	"key":"@alice:country@bob",
-	"data":"USA",
-	"metaData":
-	{
-	 "createdBy":"@bob",
-       "updatedBy":"@bob",
-       "createdAt":"2020-10-21 09:46:48.982Z",
-       "updatedAt":"2020-10-21 09:46:48.982Z",
-       "availableAt":"null",
-       "expiresAt":"null",
-       "refreshAt":"2020-10-21 09:46:58.982Z",
-       "status":"active",
-       "version":0,
-       "ttl":null,
-       "ttb":null,
-       "ttr":10000,
-       "ccd":false,
-       "isBinary":false,
-       "isEncrypted":false
-     }
+    "key":"@alice:country@bob",
+    "data":"USA",
+    "metaData":
+    {
+        "createdBy":"@bob",
+        "updatedBy":"@bob",
+        "createdAt":"2020-10-21 09:46:48.982Z",
+        "updatedAt":"2020-10-21 09:46:48.982Z",
+        "availableAt":"null",
+        "expiresAt":"null",
+        "refreshAt":"2020-10-21 09:46:58.982Z",
+        "status":"active",
+        "version":0,
+        "ttl":null,
+        "ttb":null,
+        "ttr":10000,
+        "ccd":false,
+        "isBinary":false,
+        "isEncrypted":false
+    }
 }
 ```
 
