@@ -70,7 +70,7 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
   - apps to request that their app+device be approved and have their APKAM public key
     stored on the atServer
   - requests to be approved or denied by another existing app with the appropriate authority
-- Encryption private keys are made available to the new app by encrypting with their APKAM public key
+- Encryption private keys are made available to the new app by encrypting with their APKAM public key or a new AES key if the APKAM private key is in a secure element(e.g sim card)
 - 'Self' encryption keys are made available to the new app; these are encrypted with the encryption
   public keys corresponding with the above-mentioned encryption private keys
 - There must be a way to cease use of old encryption keypairs in favour of newer ones
@@ -209,8 +209,8 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
               - Retrieves everything from `__private_keys.$namespace` for EVERY $namespace to
                 which NewApp app will have access
             - (Recall that these are encrypted with ExistingApp's APKAM public key)
-          - Fetch NewApp's APKAM public key
-          - Encrypt each private key and store for NewApp
+          - Fetch NewApp's APKAM public key or generate a new AES Key(if APKAM private key is in secure element)
+          - Encrypt each private key with APKAM public key/new AES key and store for NewApp
             ```
             keys:put:private:app:<appName>:device:<deviceName>
               :keyName:<keyName>:namespace:<namespace>
@@ -356,11 +356,12 @@ sequenceDiagram
     Client->>Server: Store encryption public key
     Server->>Server: Store encryption public key
     Client->>Client: Generate AES key for private data
+    Client->>Client: Generate new AES key if APKAM private key is in secure element
     note over Client,Server: New
-    Client->>Client: Encrypt (a) encryption private key and (b) 'self' AES key using PKAM public key
+    Client->>Client: Encrypt (a) encryption private key and (b) 'self' AES key using PKAM public key/new AES key
     Client->>Server: Store encrypted encryption keys
     Server->>Server: Store encrypted encryption keys
-    note over Client: Client now only needs access to the PKAM private key
+    note over Client: Client now only needs access to the PKAM private key/AES key to decrypt the encryption keys
     note over Client: Client no longer creates an 'atKeys' file
 ```
 
