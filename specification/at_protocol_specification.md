@@ -1103,9 +1103,17 @@ Deletes a notification from the notificaiton log. Note that this is different fr
 
 The `monitor` verb streams received notifications.
 
+**Syntax:**
+
 Following is the regex
 
 ```^monitor$|^monitor ?(?<regex>.-)?)$```
+
+**Example:**
+
+`monitor`
+
+`monitor @bob`
 
 **Response:**
 
@@ -1118,6 +1126,12 @@ notification: {"id":"773e226d-dac2-4269-b1ee-64d7ce93a42f","from":"@bob","to":"@
 **Description:**
 
 The `monitor` verb accepts an optional parameter to filter the notifications by passing filter criteria as regex to `monitor` verb.
+
+**Options:**
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<regex>` | No | The regex to filter the notificaitons during the monitor session |
 
 ## Beta verbs
 
