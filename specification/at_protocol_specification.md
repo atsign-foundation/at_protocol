@@ -558,7 +558,7 @@ If the user gets the cram authentication wrong then it should respond back with 
 
 The `pol` verb follows the `from` verb. 'pol' indicates another atServer that the user who is trying to connect is ready to authenticate himself. For example, if @bob is trying to connect to @alice, @bob would take the key and value from the proof response of the verb and create a public key and value which then can be looked up by @alice. After @alice looks up @bob's atServer @alices atServer should change the prompt to @bob.
 
-**OPTIONS:**
+**Options:**
 
 NA
 
