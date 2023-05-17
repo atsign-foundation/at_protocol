@@ -415,6 +415,8 @@ A user of the atServer should be able to decide who is allowed to connect to a a
 
 The `from` verb is used to tell an atServer whom you claim to be.
 
+**Syntax:**
+
 Following regex represents the syntax of the `from` verb:
 
 **Syntax:**
@@ -449,10 +451,14 @@ The `from` verb is used to tell the atServer what atSign you claim to be. With t
 
 This authentication mechanism varies based on whether you are connecting to your own atServer (cram) or someone else's atServer (pol).
 
-**OPTIONS:**
+**Options:**
 
-```<@sign>``` 
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<@sign>` | Yes | The atSign you are claiming to be |
+
 Required: Yes
+
 Description: atSign with which you are connecting to a atServer.
 
 ### The `cram` verb
