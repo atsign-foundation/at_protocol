@@ -806,14 +806,35 @@ The `lookup` verb should be used to fetch the value of the key shared by another
 | `<atKey>` | Yes | the key to be looked up |
 | `<@sign>` | Yes | the atSign owner of the key |
 
+### The `plookup` verb
 
 **Synopsis:**
 
 The `plookup` verb enables to lookup the value of the public key shared by another atSign user.
 
+**Syntax:**
+
 Following is the regex of the `plookup` verb:
 
 ```^plookup:((?<operation>meta|all):)?(?<atKey>[^@\s]+)@(?<@sign>[^@\s]+)$```
+
+**Example:**
+
+Look up the value of the key `public:publickey@alice` (the key is created and shared by `@alice` and lives on their atServer where the key is public).
+
+`plookup:publickey@alice`
+
+Look up the metadata of the public key
+
+`plookup:meta:publickey@alice`
+
+Look up both the value and the metadata of the public key
+
+`plookup:all:publickey@alice`
+
+Look up the value and metadata of the public key while bypassing the cache (i.e. the value will be fetched directly from the atServer instead of first checking for a cached key on your secondary).
+
+`plookup:bypassCache:true:all:publickey@alice`
 
 **Response:**
 
@@ -829,9 +850,17 @@ If the `lookup` command is not valid, then the atServer should return the follow
 
 ```error:AT0003-Invalid Syntax```
 
-**Description:**:
+**Description:**
 
 The `plookup` verb should be used to fetch the value of the public key shared by another atSign user. 
+
+**Options:**
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<operation>` | No | `meta` - returns the metadata of the AtKey, `all` - returns both the data and the metadata of the AtKey |
+| `<atKey>` | Yes | the key to be looked up |
+| `<@sign>` | Yes | the atSign owner of the key |
 
 ### The `llookup` verb
 
