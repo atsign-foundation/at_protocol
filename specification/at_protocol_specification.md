@@ -967,9 +967,15 @@ TODO -->
 
 The `sync` verb enables to synchronize the keys between the local atServer and remote atServer.
 
+**Syntax:**
+
 Following is the regex:
 
 ```sync:(?<from_commit_seq>[0-9]+$|-1)```
+
+<!-- **Example:**
+
+TODO -->
 
 **Response:**
 
@@ -979,6 +985,14 @@ The `sync` verb returns a json array of the commit entries from the given commit
 data:[{"atKey":"@bob:phone@alice","operation":"+","opTime":"2020-10-26 11:57:43.732","commitId":0,"value":"12345","metadata":{"ttr":"36000000","ccd":"false"}},
 {"atKey":"@bob:shared_key@alice","operation":"-","opTime":"2020-10-26 09:44:54.382219Z","commitId":1}]
 ```
+
+<!-- **Description:**
+
+TODO -->
+
+<!-- **Options:**
+
+TODO -->
 
 ### The `notify` verb
 
