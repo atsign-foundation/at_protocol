@@ -415,9 +415,9 @@ A user of the atServer should be able to decide who is allowed to connect to a a
 
 The `from` verb is used to tell an atServer whom you claim to be.
 
-Following regex represents the syntax of the `from` verb:
-
 **Syntax:**
+
+Following regex represents the syntax of the `from` verb:
 
 ```r'^from:(?<@sign>@?[^@\s]+$)' ```
 
@@ -449,10 +449,14 @@ The `from` verb is used to tell the atServer what atSign you claim to be. With t
 
 This authentication mechanism varies based on whether you are connecting to your own atServer (cram) or someone else's atServer (pol).
 
-**OPTIONS:**
+**Options:**
 
-```<@sign>``` 
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<@sign>` | Yes | The atSign you are claiming to be |
+
 Required: Yes
+
 Description: atSign with which you are connecting to a atServer.
 
 ### The `cram` verb
@@ -463,9 +467,15 @@ The `cram` verb is used to boostrap authenticate one's own self as an owner of a
 intended to be used once until a set of PKI keys are cut on the owner's mobile device and from then on 
 we use the `pkam` verb.
 
+**Syntax:**
+
 The following regex represents the syntax of the `cram` verb:
 
 ```r'^cram:(?<digest>.+$)'```
+
+**Example:**
+
+```cram:<digest>```
 
 **Response:**
 
@@ -481,11 +491,43 @@ If the user gets the cram authentication wrong, then it should respond back with
 
 The `cram` verb follows the `from` verb. As an owner of the atServer, you should be able to take the challenge thrown by the `from` verb and encrypt using the shared key that the server has been bound with. Upon receiving the `cram` verb along with the digest, the server decrypts the digest using the shared key and matches it with the challenge. If they are the same, then the atServer lets you connect to the atServer and changes the prompt to your atSign.
 
-**OPTIONS:**
+**Options:**
 
-```<digest> ```
-Required: Yes
-Description: Encrypted challenge
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<digest>` | Yes | encrypted challenge |
+
+### The `pkam` verb
+
+**Synopsis:**
+
+The `pkam` verb is used to authenticate one's own self as an owner of a atServer using a PKI style authentication.
+
+**Syntax:**
+
+Following regex represents the syntax of the `pkam` verb:
+
+```^pkam:(?<signature>.+$)```
+
+**Response:**
+
+If the user gets the challenge right, the prompt should change to the atSign of the user.
+
+```<@sign>@```
+
+If the user gets the pkam authentication wrong then it should respond back with the following error and close the connection to the server.
+
+```error:AT0401-Client authentication failed```
+
+**Description:**
+
+The `pkam` verb follows the `from` verb. As an owner of the atServer, you should be able to take the challenge thrown by the `from` verb and encrypt using the private key of the RSA key pair with what the server has been bound with. Upon receiving the `cram` verb along with the digest, the server decrypts the digest using the public key and matches it with the challenge. If they are the same then the atServer lets you connect to the atServer  and changes the prompt to your atSign.
+
+**Options:**
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<digest>` | Yes | encrypted challenge |
 
 ### The `pol` verb
 
@@ -493,6 +535,8 @@ Description: Encrypted challenge
 
 The `pol` verb is part of the `pkam` process to authenticate oneself while connecting to someone else's atServer. The term
 'pol' means 'proof of life' as it provides a near realtime assurance that the requestor is who it claims to be.
+
+**Syntax:**
 
 Following regex represents the syntax of the `pol` verb:
 
@@ -512,7 +556,7 @@ If the user gets the cram authentication wrong then it should respond back with 
 
 The `pol` verb follows the `from` verb. 'pol' indicates another atServer that the user who is trying to connect is ready to authenticate himself. For example, if @bob is trying to connect to @alice, @bob would take the key and value from the proof response of the verb and create a public key and value which then can be looked up by @alice. After @alice looks up @bob's atServer @alices atServer should change the prompt to @bob.
 
-**OPTIONS:**
+**Options:**
 
 NA
 
@@ -522,15 +566,29 @@ NA
 
 The scan verb is used to see the keys in an atSign's secondary server. 
 
+**Syntax:**
+
 Following regex represents the syntax of the `scan` verb:
 
-```r'^scan$|scan(:showhidden:(?<showhidden>true|false))?(:(?<forAtSign>@[^:@\s]+))?(:page:(?<page>\d+))?( (?<regex>\S+))?$'```
+```r'^scan$|scan(:showhidden:(?<showhidden>true|false))?(:(?<forAtSign>@[^:@\s]+))?( (?<regex>\S+))?$'```
 
 **Response:**
 
-The Secondary Server should return the keys within the secondary server if the scan verb executed succesfully. The Secondary Server will respond accordingly to whether the atSign is authenticated or not.
-
 ```data:[<keys>]```
+
+**Description:**
+
+The Secondary Server should return the keys within the secondary server if the scan verb executed succesfully.
+
+The Secondary Server will respond accordingly to whether the atSign is authenticated or not.
+
+**Options:**
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<showhidden`> | No | If true, will show hidden internal keys |
+| `<forAtSign>` | No | Filter keys that are created by the atSign |
+
 
 ### The `update` verb
 
@@ -538,9 +596,25 @@ The Secondary Server should return the keys within the secondary server if the s
 
 The `update` verb is used to insert key/value pairs into a Key Store. An update can only be run by the owner of a atServer on his/her own atServer.
 
+**Syntax:**
+
 Following regex represents the syntax of the `update` verb:
 
 ```r'^update:(?:ttl:(?<ttl>\d+):)?(?:ttb:(?<ttb>\d+):)?(?:ttr:(?<ttr>(-?)\d+):)?(ccd:(?<ccd>true|false):)?((?:public:)|(@(?<for@sign>[^@:\s]-):))?(?<atKey>[^:@]((?!:{2})[^@])+)(?:@(?<@sign>[^@\s]-))? (?<value>.+$)'```
+
+**Example:**
+
+Put a key/value pair into the atServer with key location@bob and value bob's location value. This operation will create a new key if it does not already exist. If it already exists, it will overwrite the existing value.
+
+`update:location@bob bob's location value`
+
+Put a key/value pair into the atServer with key location@bob and value bob's location value but key expires in 10 minutes. The time to live of this key is 10 minutes.
+
+`update:ttl:600000:location@bob bob's location value but key expires in 10 minutes`
+
+Put a shared key/value pair into the atServer with key @alice:phone@bob (shared with @alice and shared by @bob) with value bob's phone number shared to @alice.
+
+`update:@alice:phone@bob bob's phone number shared to @alice`
 
 **Response:**
 
@@ -558,36 +632,17 @@ The `update` verb should be used to perform create/update operations on the atSe
 
 If a key has been created for another atSign user, the atServer should honor "autoNotify" configuration parameter.
 
-**OPTIONS:**
+**Options:**
 
-`<ttl>` 
-Required: No
-Description: Time to live in milliseconds
-
-`<ttb>` 
-Required: No
-Description: Time to birth in milliseconds
-
-`<ttr>` 
-Required: No
-Description: Time to refresh in milliseconds. 
-> -1 is a valid value which indicates that the user with whom the key has been shared can keep it forever and the value for this key won't change forever.
-
-`<ccd>` 
-Required: No
-Description: A value of "true" indicates that the cached key needs to be deleted when the atSign user who has originally shared it deletes it.
-
-`<for@sign>`
-Required: Yes (Not required when the key is a public key)
-Description: atSign of the user with whom the key has been shared
-
-`<@sign>`
-Required: Yes 
-Description: atSign of the owner
-
-`<value>`
-Required: Yes
-Description: Value for the key
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<ttl>`  | No       | Time to live in milliseconds |
+| `<ttb>`  | No       | Time to birth in milliseconds |
+| `<ttr>`  | No       | Time to refresh in milliseconds. ttr > -1 is a valid value which indicates that the user with whom the key has been shared can keep it forever and the value for this key won't change forever. |
+| `<ccd>`  | No       | A value of "true" indicates that the cached key needs to be deleted when the atSign user who has originally shared it deletes it. |
+| `<for@sign>` | Yes (Not required when the key is a public key or a self key) | atSign of the user with whom the key has been shared |
+| `<@sign>` | Yes | atSign of the owner of the key |
+| `<value>` | Yes | Value for the key |
 
 ### The `update:meta` verb
 
@@ -595,9 +650,21 @@ Description: Value for the key
 
 The `update:meta` verb should be used to update the metadata of a key atSign user without having to send or save the value again.
 
+**Syntax:**
+
 Following is the regex for the `update:meta` verb
 
 ```^update:meta:((?:public:)|((?<forAtSign>@?[^@\s]-):))?(?<atKey>((?!:{2})[^@])+)@(?<atSign>[^@:\s]-)(:ttl:(?<ttl>\d+))?(:ttb:(?<ttb>\d+))?(:ttr:(?<ttr>\d+))?(:ccd:(?<ccd>true|false))?(:isBinary:(?<isBinary>true|false))?(:isEncrypted:(?<isEncrypted>true|false))?$```
+
+**Example:**
+
+Update the metadata of key `phone@bob` setting `isBinary:true` while keeping all other metadata as it is.
+
+`update:meta:phone@bob:isBinary:true`
+
+Update the metadata of the shared key `@alicephone@bob` (shared with `@alice` & shared by `@bob`) setting `ttl:600000`, setting `isBinary:true` and `isEncrypted:true` while keeping all other metadata as it is.
+
+`update:meta:@alice:phone@bob:ttl:600000:isBinary:true:isEncrypted:true`
 
 **Response:**
 
@@ -606,7 +673,6 @@ The atServer should return the commit id from Commit Log if the update is succes
 ```data:<CommitId>```
 
 If the user provides the invalid update meta command, then it should respond with the following error and close the connection to the server
-
 
 ```error:AT0003-Invalid Syntax```
 
@@ -618,30 +684,14 @@ The atServer should allow creation of keys with null values. If a key has been c
 
 **OPTIONS:**
 
-`<ttl>` 
-Required: No
-Description: Time to live in milliseconds
-
-`<ttb> `
-Required: No
-Description: Time to birth in milliseconds
-
-`<ttr> `
-Required: No
-Description: Time to refresh in milliseconds. 
-> -1 is a valid value which indicates that the user with whom the key has been shared can keep it forever and the value for this key won't change forever.
-
-`<ccd>` 
-Required: No
-Description: A value of "true" indicates that the cached key needs to be deleted when the atSign user who has originally shared it deletes it.
-
-`<for@sign>`
-Required: Yes (Not required when the key is a public key)
-Description: atSign of the user with whom the key has been shared
-
-`<@sign>`
-Required: Yes 
-Description: atSign of the owner
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<ttl>`| No       | Time to live in milliseconds |
+| `<ttb>`| No       | Time to birth in milliseconds |
+| `<ttr>`| No       | Time to refresh in milliseconds |
+| `<ccd>`| No       | A value of "true" indicates that the cached key needs to be deleted when the atSign user who has originally shared it deletes it. |
+| `<for@sign>` | Yes (Not required when the key is a public key) | atSign of the user with whom the key has been shared |
+| `<@sign>` | Yes | atSign of the owner |
 
 ### The `lookup` verb
 
@@ -649,21 +699,27 @@ Description: atSign of the owner
 
 The `lookup` verb should be used to lookup the value shared by another atSign user.
 
+**Syntax:**
+
 The following is the regex of the `lookup` verb:
 
 ```lookup:((?<operation>meta|all):)?(?<atKey>(?:[^:]).+)@(?<@sign>[^@\s]+)$```
 
-**Response:**
-
-If the operation is not specified the atServer should just respond back with the value saved by the user as is.
-
-```data:<value>```
-
-If the operation is to lookup the metadata only then the result should be wrapped in a JSON in the following format:
-
-```data:<Metadata in a JSON>```
-
 **Example:**    
+
+Look up the value of the key `@<you>:phone@alice` (the key is created and shared by @alice and lives on their atServer where the key is intentionally shared with you).
+
+`lookup:phone@alice`
+
+Look up the metadata of the key `@<you>:phone@alice` (key shared by `@alice` and shared with you).
+
+`lookup:meta:phone@alice`
+
+Look up both the value and the metadata of the key `@<you>:phone@alice` (key shared by `@alice` and shared with you).
+
+`lookup:all:phone@alice`
+
+**Response:**
 
 ``` json 
 data: 
@@ -688,9 +744,7 @@ data:
 
 If the operation is to lookup the metadata and the data together then the result should be wrapped in a JSON in the following format:
 
-```data:<Value and Metadata in a JSON>```
-
-**Example:**    
+```data:<Value and Metadata in a JSON>```    
 
 ``` json
 data:
@@ -720,32 +774,65 @@ data:
 
 If the other atServer on which the lookup needs to be performed is down then the atServer should return the following error and keep the connection alive.
 
-
 ```error:AT0007-atServer not found.```
 
 If the lookup command is not valid, then the atServer should return the following error and close the connection:
-
 
 ```error:AT0003-Invalid Syntax```
 
 For whatever reasons, If the handshake with another atServer fails, then the atServer should return the following error:
 
-
 ```data:AT0008-Handshake failure```
 
-**Description:**:
+If the operation is not specified the atServer should just respond back with the value saved by the user as is.
+
+```data:<value>```
+
+If the operation is to lookup the metadata only then the result should be wrapped in a JSON in the following format:
+
+```data:<Metadata in a JSON>```
+
+**Description:**
 
 The `lookup` verb should be used to fetch the value of the key shared by another atSign user. If there is a public and user key with the same name then the result should be based on whether the user is trying to lookup is authenticated or not. If the user is authenticated then the user key has to be returned, otherwise the public key has to be returned.
 
-### The `plookup` verb:
+**Options:**
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<operation>` | No | `meta` - returns the metadata of the AtKey, `all` - returns both the data and the metadata of the AtKey |
+| `<atKey>` | Yes | the key to be looked up |
+| `<@sign>` | Yes | the atSign owner of the key |
+
+### The `plookup` verb
 
 **Synopsis:**
 
 The `plookup` verb enables to lookup the value of the public key shared by another atSign user.
 
+**Syntax:**
+
 Following is the regex of the `plookup` verb:
 
 ```^plookup:((?<operation>meta|all):)?(?<atKey>[^@\s]+)@(?<@sign>[^@\s]+)$```
+
+**Example:**
+
+Look up the value of the key `public:publickey@alice` (the key is created and shared by `@alice` and lives on their atServer where the key is public).
+
+`plookup:publickey@alice`
+
+Look up the metadata of the public key
+
+`plookup:meta:publickey@alice`
+
+Look up both the value and the metadata of the public key
+
+`plookup:all:publickey@alice`
+
+Look up the value and metadata of the public key while bypassing the cache (i.e. the value will be fetched directly from the atServer instead of first checking for a cached key on your secondary).
+
+`plookup:bypassCache:true:all:publickey@alice`
 
 **Response:**
 
@@ -761,9 +848,17 @@ If the `lookup` command is not valid, then the atServer should return the follow
 
 ```error:AT0003-Invalid Syntax```
 
-**Description:**:
+**Description:**
 
 The `plookup` verb should be used to fetch the value of the public key shared by another atSign user. 
+
+**Options:**
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<operation>` | No | `meta` - returns the metadata of the AtKey, `all` - returns both the data and the metadata of the AtKey |
+| `<atKey>` | Yes | the key to be looked up |
+| `<@sign>` | Yes | the atSign owner of the key |
 
 ### The `llookup` verb
 
@@ -771,9 +866,25 @@ The `plookup` verb should be used to fetch the value of the public key shared by
 
 The `llookup` verb should be used to look up one's own atServer and this should return the value as is (i.e. without any resolution).
 
+**Syntax:**
+
 The Following is the regex of the `llookup` verb:
 
 ```^llookup:((?<operation>meta|all):)?(?:cached:)?((?:public:)|(@(?<for@sign>[^@:\s]-):))?(?<atKey>[^:]((?!:{2})[^@])+)@(?<@sign>[^@\s]+)$```
+
+**Example:**
+
+Lookup the value of a public key that lives on your atServer
+
+`llookup:public:publickey@<you>`
+
+Lookup both the value and the metadata of a self key that lives on your atServer
+
+`llookup:all:phone@<you>`
+
+Lookup both the value and the metadata of a shared key (that is shared with `@alice` and created by `@<you>`)
+
+`llookup:all:@alice:phone@<you>`
 
 **Response:**
 
@@ -787,47 +898,19 @@ If the other atServer on which the lookup needs to be performed is down then the
 
 > If the lookup command is not valid, then the atServer should return the following error and close the connection:
 
-
 ```error:AT0003-Invalid Syntax```
 
 **Description:**:
 
 The `llookup` verb should be used to fetch the value of the key in the owners atServer store as is without resolving it. For example if a key contains a reference as a value, the `lookup` verb should resolve it to a value whereas llookup should return the value as is.
 
-**Example:**    
+**Options:**
 
-If phone@bob is "1234" and altphone@bob is "atsign://phone@bob",
-then `lookup` of altphone@bob should return "1234" whereas `llookup` of altphone@bob should return "atsign://phone@bob".
-
-### The `pkam` verb
-
-**Synopsis:**
-
-The `pkam` verb is used to authenticate one's own self as an owner of a atServer using a PKI style authentication.
-
-Following regex represents the syntax of the `pkam` verb:
-
-```^pkam:(?<signature>.+$)```
-
-**Response:**
-
-If the user gets the challenge right, the prompt should change to the atSign of the user.
-
-```<@sign>@```
-
-If the user gets the pkam authentication wrong then it should respond back with the following error and close the connection to the server.
-
-```error:AT0401-Client authentication failed```
-
-**Description:**
-
-The `pkam` verb follows the `from` verb. As an owner of the atServer, you should be able to take the challenge thrown by the `from` verb and encrypt using the private key of the RSA key pair with what the server has been bound with. Upon receiving the `cram` verb along with the digest, the server decrypts the digest using the public key and matches it with the challenge. If they are the same then the atServer lets you connect to the atServer  and changes the prompt to your atSign.
-
-**OPTIONS:**
-
-`<digest> `
-Required: Yes
-Description: Encrypted challenge
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<operation>` | No | `meta` - returns the metadata of the AtKey, `all` - returns both the data and the metadata of the AtKey |
+| `<atKey>` | Yes | the key to be looked up |
+| `<@sign>` | Yes | the atSign owner of the key |
 
 ### The `stats` verb
 
@@ -835,9 +918,15 @@ Description: Encrypted challenge
 
 The `stats` verb should be used to get the statistics of an atSign.
 
+**Syntax:**
+
 Following is the regex of the `stats` verb
 
 ```stats(?<statId>:((?!0)\d+)?(,(\d+))-)?```
+
+**Example:**
+
+`stats`
 
 **Response:**
 
@@ -861,15 +950,30 @@ Individual statistics can be retrieved using the respective Id.
 data: [{"id":"1","name":"activeInboundConnections","value":"1"}]
 ```
 
+<!-- **Description:**
+
+TODO -->
+
+<!-- **Options:**
+
+| Option | Required | Description |
+|--------|----------|-------------| -->
+
 ### The `sync` verb
 
 **Synopsis:**
 
 The `sync` verb enables to synchronize the keys between the local atServer and remote atServer.
 
+**Syntax:**
+
 Following is the regex:
 
 ```sync:(?<from_commit_seq>[0-9]+$|-1)```
+
+<!-- **Example:**
+
+TODO -->
 
 **Response:**
 
@@ -880,12 +984,23 @@ data:[{"atKey":"@bob:phone@alice","operation":"+","opTime":"2020-10-26 11:57:43.
 {"atKey":"@bob:shared_key@alice","operation":"-","opTime":"2020-10-26 09:44:54.382219Z","commitId":1}]
 ```
 
+<!-- **Description:**
+
+TODO -->
+
+<!-- **Options:**
+
+TODO -->
+
 ### The `notify` verb
+
+**Synopsis:**
 
 The `notify` verb enables us to notify the atSign user of some data event.
 
-The Following is the regex for the `notify` verb
+**Syntax:**
 
+The Following is the regex for the `notify` verb
 
 ```
 notify:((?<operation>update|delete):)?(ttl:(?<ttl>\d+):)?(ttb:(?<ttb>\d+):)?(ttr:(?<ttr>(-)?\d+):)?(ccd:(?<ccd>true|false):)?(@(?<forAtSign>[^@:\s]-)):(?<atKey>[^:]((?!:{2})[^@])+)@(?<atSign>[^@:\s]+)(:(?<value>.+))?
@@ -896,6 +1011,20 @@ notify:((?<operation>update|delete):)?(ttl:(?<ttl>\d+):)?(ttb:(?<ttb>\d+):)?(ttr
 ```
 notify:update:ttr:-1:@{RECIPIENT}:{KEY}.{NAMESPACE}@{SENDER}:{BASE64ENCODED_CYPHERTEXT}
 ```
+
+**Example:**
+
+Notify @alice that you have a shared key `@alice:test@<you>` with an updated value waiting for them to lookup.
+
+`notify:update:@alice:test@<you>`
+
+Notify @alice that you have a shared key `@alice:test@<you>` that was deleted.
+
+`notify:delete:@alice:test@<you>`
+
+Notify @alice with a message my sample message to bob.
+
+`notify:messageType:text:@<you>:my sample message to bob`
 
 **Response:**
 
@@ -910,15 +1039,21 @@ data:fccf2ddc-9316-4302-a11b-3dd214857431
 When an atSign owner notifies the key to another atSign owner, an entry has to be created in received notifications list on the user who has shared the key and an entry has to be created in sent notifications list on the user to whom the key is to be notified. When auto notify is set to true, when a key is created/updated and deleted notification is triggered to another atSign user.
 
 
-### Notify List
+### The `notify:list` verb
 
 **Synopsis:**
 
 Notify list returns a list of notifications.
 
+**Syntax:**
+
 Following is the regex
 
 ```notify:(list (?<regex>.-)|list$)```
+
+**Example:**
+
+`notify:list`
 
 **Response:**
 
@@ -926,15 +1061,57 @@ If the user is the owner, returns a list of received notifications. If a user is
 
 ```data:[{"id":"0e5e9e89-c9cb-423b-8972-8c5487215990","from":"@alice","to":"@bob","key":"@bob:phone@alice","value":12345,"operation":"update","epochMillis":1603714122636}]```
 
+### The `notify:remove` verb
+
+**Synopsis:**
+
+Notify remove removes a notification from the notification log.
+
+**Syntax:**
+
+Following is the regex
+
+`notify:(remove:(?<notificationId>[^:]+$))`
+
+**Example:**
+
+Remove a notification that you received that has id `0e5e9e89-c9cb-423b-8972-8c5487215990`.
+
+`notify:remove:0e5e9e89-c9cb-423b-8972-8c5487215990`
+
+**Response:**
+
+If successful, returns
+
+`data:success`
+
+**Description:**
+
+Deletes a notification from the notificaiton log. Note that this is different from `notify:delete`, which sends a notification relating to the deletion of a key.
+
+**Options:**
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<notificationId>` | Yes | The id of the notification |
+
 ### The `monitor` Verb
 
 **Synopsis:**
 
 The `monitor` verb streams received notifications.
 
+**Syntax:**
+
 Following is the regex
 
 ```^monitor$|^monitor ?(?<regex>.-)?)$```
+
+**Example:**
+
+`monitor`
+
+`monitor @bob`
 
 **Response:**
 
@@ -947,6 +1124,12 @@ notification: {"id":"773e226d-dac2-4269-b1ee-64d7ce93a42f","from":"@bob","to":"@
 **Description:**
 
 The `monitor` verb accepts an optional parameter to filter the notifications by passing filter criteria as regex to `monitor` verb.
+
+**Options:**
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<regex>` | No | The regex to filter the notificaitons during the monitor session |
 
 ## Beta verbs
 
