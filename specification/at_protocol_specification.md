@@ -799,6 +799,34 @@ The `llookup` verb should be used to fetch the value of the key in the owners at
 If phone@bob is "1234" and altphone@bob is "atsign://phone@bob",
 then `lookup` of altphone@bob should return "1234" whereas `llookup` of altphone@bob should return "atsign://phone@bob".
 
+### The `delete` verb
+
+**Synopsis:**
+
+The `delete` verb should be used to delete an atKey in the atServer. Only authenticated atSigns can use the `delete` verb. 
+
+The Following is the regex of the `delete` verb:
+
+```^delete:(?:cached:)?((?:public:)|(@(?<for@sign>[^@:\s]-):))?(?<atKey>[^:]((?!:{2})[^@])+)@(?<@sign>[^@\s]+)$```
+
+**Response:**
+
+The atServer should return the commit id. 
+
+```
+data:<commitId>
+```
+
+**Description:**
+
+The `delete` verb only can be used for atKeys you own. Deleting a cached key will not delete the original copy of the atKey. 
+
+**Example:**    
+
+```delete:@alice:test.namespace@bob```
+
+Deletes an atKey named "@alice:test.namespace@bob" from the atServer. 
+
 ### The `pkam` verb
 
 **Synopsis:**
