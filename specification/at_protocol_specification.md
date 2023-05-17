@@ -1041,15 +1041,21 @@ data:fccf2ddc-9316-4302-a11b-3dd214857431
 When an atSign owner notifies the key to another atSign owner, an entry has to be created in received notifications list on the user who has shared the key and an entry has to be created in sent notifications list on the user to whom the key is to be notified. When auto notify is set to true, when a key is created/updated and deleted notification is triggered to another atSign user.
 
 
-### Notify List
+### The `notify:list` verb
 
 **Synopsis:**
 
 Notify list returns a list of notifications.
 
+**Syntax:**
+
 Following is the regex
 
 ```notify:(list (?<regex>.-)|list$)```
+
+**Example:**
+
+`notify:list`
 
 **Response:**
 
