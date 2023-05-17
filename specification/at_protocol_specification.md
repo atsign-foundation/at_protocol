@@ -868,9 +868,25 @@ The `plookup` verb should be used to fetch the value of the public key shared by
 
 The `llookup` verb should be used to look up one's own atServer and this should return the value as is (i.e. without any resolution).
 
+**Syntax:**
+
 The Following is the regex of the `llookup` verb:
 
 ```^llookup:((?<operation>meta|all):)?(?:cached:)?((?:public:)|(@(?<for@sign>[^@:\s]-):))?(?<atKey>[^:]((?!:{2})[^@])+)@(?<@sign>[^@\s]+)$```
+
+**Example:**
+
+Lookup the value of a public key that lives on your atServer
+
+`llookup:public:publickey@<you>`
+
+Lookup both the value and the metadata of a self key that lives on your atServer
+
+`llookup:all:phone@<you>`
+
+Lookup both the value and the metadata of a shared key (that is shared with `@alice` and created by `@<you>`)
+
+`llookup:all:@alice:phone@<you>`
 
 **Response:**
 
@@ -884,47 +900,19 @@ If the other atServer on which the lookup needs to be performed is down then the
 
 > If the lookup command is not valid, then the atServer should return the following error and close the connection:
 
-
 ```error:AT0003-Invalid Syntax```
 
 **Description:**:
 
 The `llookup` verb should be used to fetch the value of the key in the owners atServer store as is without resolving it. For example if a key contains a reference as a value, the `lookup` verb should resolve it to a value whereas llookup should return the value as is.
 
-**Example:**    
+**Options:**
 
-If phone@bob is "1234" and altphone@bob is "atsign://phone@bob",
-then `lookup` of altphone@bob should return "1234" whereas `llookup` of altphone@bob should return "atsign://phone@bob".
-
-### The `pkam` verb
-
-**Synopsis:**
-
-The `pkam` verb is used to authenticate one's own self as an owner of a atServer using a PKI style authentication.
-
-Following regex represents the syntax of the `pkam` verb:
-
-```^pkam:(?<signature>.+$)```
-
-**Response:**
-
-If the user gets the challenge right, the prompt should change to the atSign of the user.
-
-```<@sign>@```
-
-If the user gets the pkam authentication wrong then it should respond back with the following error and close the connection to the server.
-
-```error:AT0401-Client authentication failed```
-
-**Description:**
-
-The `pkam` verb follows the `from` verb. As an owner of the atServer, you should be able to take the challenge thrown by the `from` verb and encrypt using the private key of the RSA key pair with what the server has been bound with. Upon receiving the `cram` verb along with the digest, the server decrypts the digest using the public key and matches it with the challenge. If they are the same then the atServer lets you connect to the atServer  and changes the prompt to your atSign.
-
-**OPTIONS:**
-
-`<digest> `
-Required: Yes
-Description: Encrypted challenge
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<operation>` | No | `meta` - returns the metadata of the AtKey, `all` - returns both the data and the metadata of the AtKey |
+| `<atKey>` | Yes | the key to be looked up |
+| `<@sign>` | Yes | the atSign owner of the key |
 
 ### The `stats` verb
 
