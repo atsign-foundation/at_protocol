@@ -538,6 +538,8 @@ The `pkam` verb follows the `from` verb. As an owner of the atServer, you should
 The `pol` verb is part of the `pkam` process to authenticate oneself while connecting to someone else's atServer. The term
 'pol' means 'proof of life' as it provides a near realtime assurance that the requestor is who it claims to be.
 
+**Syntax:**
+
 Following regex represents the syntax of the `pol` verb:
 
 ```r'^pol$'```
