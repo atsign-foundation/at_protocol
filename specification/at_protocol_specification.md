@@ -920,9 +920,15 @@ The `llookup` verb should be used to fetch the value of the key in the owners at
 
 The `stats` verb should be used to get the statistics of an atSign.
 
+**Syntax:**
+
 Following is the regex of the `stats` verb
 
 ```stats(?<statId>:((?!0)\d+)?(,(\d+))-)?```
+
+**Example:**
+
+`stats`
 
 **Response:**
 
@@ -945,6 +951,15 @@ Individual statistics can be retrieved using the respective Id.
 @alice@stats:1
 data: [{"id":"1","name":"activeInboundConnections","value":"1"}]
 ```
+
+<!-- **Description:**
+
+TODO -->
+
+<!-- **Options:**
+
+| Option | Required | Description |
+|--------|----------|-------------| -->
 
 ### The `sync` verb
 
