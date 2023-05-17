@@ -598,9 +598,25 @@ The Secondary Server will respond accordingly to whether the atSign is authentic
 
 The `update` verb is used to insert key/value pairs into a Key Store. An update can only be run by the owner of a atServer on his/her own atServer.
 
+**Syntax:**
+
 Following regex represents the syntax of the `update` verb:
 
 ```r'^update:(?:ttl:(?<ttl>\d+):)?(?:ttb:(?<ttb>\d+):)?(?:ttr:(?<ttr>(-?)\d+):)?(ccd:(?<ccd>true|false):)?((?:public:)|(@(?<for@sign>[^@:\s]-):))?(?<atKey>[^:@]((?!:{2})[^@])+)(?:@(?<@sign>[^@\s]-))? (?<value>.+$)'```
+
+**Example:**
+
+Put a key/value pair into the atServer with key location@bob and value bob's location value. This operation will create a new key if it does not already exist. If it already exists, it will overwrite the existing value.
+
+`update:location@bob bob's location value`
+
+Put a key/value pair into the atServer with key location@bob and value bob's location value but key expires in 10 minutes. The time to live of this key is 10 minutes.
+
+`update:ttl:600000:location@bob bob's location value but key expires in 10 minutes`
+
+Put a shared key/value pair into the atServer with key @alice:phone@bob (shared with @alice and shared by @bob) with value bob's phone number shared to @alice.
+
+`update:@alice:phone@bob bob's phone number shared to @alice`
 
 **Response:**
 
@@ -618,11 +634,17 @@ The `update` verb should be used to perform create/update operations on the atSe
 
 If a key has been created for another atSign user, the atServer should honor "autoNotify" configuration parameter.
 
-**OPTIONS:**
+**Options:**
 
-`<ttl>` 
-Required: No
-Description: Time to live in milliseconds
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<ttl>`  | No       | Time to live in milliseconds |
+| `<ttb>`  | No       | Time to birth in milliseconds |
+| `<ttr>`  | No       | Time to refresh in milliseconds. ttr > -1 is a valid value which indicates that the user with whom the key has been shared can keep it forever and the value for this key won't change forever. |
+| `<ccd>`  | No       | A value of "true" indicates that the cached key needs to be deleted when the atSign user who has originally shared it deletes it. |
+| `<for@sign>` | Yes (Not required when the key is a public key or a self key) | atSign of the user with whom the key has been shared |
+| `<@sign>` | Yes | atSign of the owner of the key |
+| `<value>` | Yes | Value for the key |
 
 `<ttb>` 
 Required: No
