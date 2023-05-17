@@ -419,8 +419,6 @@ The `from` verb is used to tell an atServer whom you claim to be.
 
 Following regex represents the syntax of the `from` verb:
 
-**Syntax:**
-
 ```r'^from:(?<@sign>@?[^@\s]+$)' ```
 
 **Example:**
