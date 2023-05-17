@@ -1063,6 +1063,40 @@ If the user is the owner, returns a list of received notifications. If a user is
 
 ```data:[{"id":"0e5e9e89-c9cb-423b-8972-8c5487215990","from":"@alice","to":"@bob","key":"@bob:phone@alice","value":12345,"operation":"update","epochMillis":1603714122636}]```
 
+### The `notify:remove` verb
+
+**Synopsis:**
+
+Notify remove removes a notification from the notification log.
+
+**Syntax:**
+
+Following is the regex
+
+`notify:(remove:(?<notificationId>[^:]+$))`
+
+**Example:**
+
+Remove a notification that you received that has id `0e5e9e89-c9cb-423b-8972-8c5487215990`.
+
+`notify:remove:0e5e9e89-c9cb-423b-8972-8c5487215990`
+
+**Response:**
+
+If successful, returns
+
+`data:success`
+
+**Description:**
+
+Deletes a notification from the notificaiton log. Note that this is different from `notify:delete`, which sends a notification relating to the deletion of a key.
+
+**Options:**
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<notificationId>` | Yes | The id of the notification |
+
 ### The `monitor` Verb
 
 **Synopsis:**
