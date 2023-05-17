@@ -469,9 +469,15 @@ The `cram` verb is used to boostrap authenticate one's own self as an owner of a
 intended to be used once until a set of PKI keys are cut on the owner's mobile device and from then on 
 we use the `pkam` verb.
 
+**Syntax:**
+
 The following regex represents the syntax of the `cram` verb:
 
 ```r'^cram:(?<digest>.+$)'```
+
+**Example:**
+
+```cram:<digest>```
 
 **Response:**
 
@@ -487,11 +493,43 @@ If the user gets the cram authentication wrong, then it should respond back with
 
 The `cram` verb follows the `from` verb. As an owner of the atServer, you should be able to take the challenge thrown by the `from` verb and encrypt using the shared key that the server has been bound with. Upon receiving the `cram` verb along with the digest, the server decrypts the digest using the shared key and matches it with the challenge. If they are the same, then the atServer lets you connect to the atServer and changes the prompt to your atSign.
 
-**OPTIONS:**
+**Options:**
 
-```<digest> ```
-Required: Yes
-Description: Encrypted challenge
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<digest>` | Yes | encrypted challenge |
+
+### The `pkam` verb
+
+**Synopsis:**
+
+The `pkam` verb is used to authenticate one's own self as an owner of a atServer using a PKI style authentication.
+
+**Syntax:**
+
+Following regex represents the syntax of the `pkam` verb:
+
+```^pkam:(?<signature>.+$)```
+
+**Response:**
+
+If the user gets the challenge right, the prompt should change to the atSign of the user.
+
+```<@sign>@```
+
+If the user gets the pkam authentication wrong then it should respond back with the following error and close the connection to the server.
+
+```error:AT0401-Client authentication failed```
+
+**Description:**
+
+The `pkam` verb follows the `from` verb. As an owner of the atServer, you should be able to take the challenge thrown by the `from` verb and encrypt using the private key of the RSA key pair with what the server has been bound with. Upon receiving the `cram` verb along with the digest, the server decrypts the digest using the public key and matches it with the challenge. If they are the same then the atServer lets you connect to the atServer  and changes the prompt to your atSign.
+
+**Options:**
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<digest>` | Yes | encrypted challenge |
 
 ### The `pol` verb
 
