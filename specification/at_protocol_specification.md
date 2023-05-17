@@ -646,40 +646,27 @@ If a key has been created for another atSign user, the atServer should honor "au
 | `<@sign>` | Yes | atSign of the owner of the key |
 | `<value>` | Yes | Value for the key |
 
-`<ttb>` 
-Required: No
-Description: Time to birth in milliseconds
-
-`<ttr>` 
-Required: No
-Description: Time to refresh in milliseconds. 
-> -1 is a valid value which indicates that the user with whom the key has been shared can keep it forever and the value for this key won't change forever.
-
-`<ccd>` 
-Required: No
-Description: A value of "true" indicates that the cached key needs to be deleted when the atSign user who has originally shared it deletes it.
-
-`<for@sign>`
-Required: Yes (Not required when the key is a public key)
-Description: atSign of the user with whom the key has been shared
-
-`<@sign>`
-Required: Yes 
-Description: atSign of the owner
-
-`<value>`
-Required: Yes
-Description: Value for the key
-
 ### The `update:meta` verb
 
 **Synopsis:**
 
 The `update:meta` verb should be used to update the metadata of a key atSign user without having to send or save the value again.
 
+**Syntax:**
+
 Following is the regex for the `update:meta` verb
 
 ```^update:meta:((?:public:)|((?<forAtSign>@?[^@\s]-):))?(?<atKey>((?!:{2})[^@])+)@(?<atSign>[^@:\s]-)(:ttl:(?<ttl>\d+))?(:ttb:(?<ttb>\d+))?(:ttr:(?<ttr>\d+))?(:ccd:(?<ccd>true|false))?(:isBinary:(?<isBinary>true|false))?(:isEncrypted:(?<isEncrypted>true|false))?$```
+
+**Example:**
+
+Update the metadata of key `phone@bob` setting `isBinary:true` while keeping all other metadata as it is.
+
+`update:meta:phone@bob:isBinary:true`
+
+Update the metadata of the shared key `@alicephone@bob` (shared with `@alice` & shared by `@bob`) setting `ttl:600000`, setting `isBinary:true` and `isEncrypted:true` while keeping all other metadata as it is.
+
+`update:meta:@alice:phone@bob:ttl:600000:isBinary:true:isEncrypted:true`
 
 **Response:**
 
@@ -688,7 +675,6 @@ The atServer should return the commit id from Commit Log if the update is succes
 ```data:<CommitId>```
 
 If the user provides the invalid update meta command, then it should respond with the following error and close the connection to the server
-
 
 ```error:AT0003-Invalid Syntax```
 
@@ -700,30 +686,14 @@ The atServer should allow creation of keys with null values. If a key has been c
 
 **OPTIONS:**
 
-`<ttl>` 
-Required: No
-Description: Time to live in milliseconds
-
-`<ttb> `
-Required: No
-Description: Time to birth in milliseconds
-
-`<ttr> `
-Required: No
-Description: Time to refresh in milliseconds. 
-> -1 is a valid value which indicates that the user with whom the key has been shared can keep it forever and the value for this key won't change forever.
-
-`<ccd>` 
-Required: No
-Description: A value of "true" indicates that the cached key needs to be deleted when the atSign user who has originally shared it deletes it.
-
-`<for@sign>`
-Required: Yes (Not required when the key is a public key)
-Description: atSign of the user with whom the key has been shared
-
-`<@sign>`
-Required: Yes 
-Description: atSign of the owner
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<ttl>`| No       | Time to live in milliseconds |
+| `<ttb>`| No       | Time to birth in milliseconds |
+| `<ttr>`| No       | Time to refresh in milliseconds |
+| `<ccd>`| No       | A value of "true" indicates that the cached key needs to be deleted when the atSign user who has originally shared it deletes it. |
+| `<for@sign>` | Yes (Not required when the key is a public key) | atSign of the user with whom the key has been shared |
+| `<@sign>` | Yes | atSign of the owner |
 
 ### The `lookup` verb
 
