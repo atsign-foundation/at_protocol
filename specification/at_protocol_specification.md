@@ -701,21 +701,27 @@ The atServer should allow creation of keys with null values. If a key has been c
 
 The `lookup` verb should be used to lookup the value shared by another atSign user.
 
+**Syntax:**
+
 The following is the regex of the `lookup` verb:
 
 ```lookup:((?<operation>meta|all):)?(?<atKey>(?:[^:]).+)@(?<@sign>[^@\s]+)$```
 
-**Response:**
-
-If the operation is not specified the atServer should just respond back with the value saved by the user as is.
-
-```data:<value>```
-
-If the operation is to lookup the metadata only then the result should be wrapped in a JSON in the following format:
-
-```data:<Metadata in a JSON>```
-
 **Example:**    
+
+Look up the value of the key `@<you>:phone@alice` (the key is created and shared by @alice and lives on their atServer where the key is intentionally shared with you).
+
+`lookup:phone@alice`
+
+Look up the metadata of the key `@<you>:phone@alice` (key shared by `@alice` and shared with you).
+
+`lookup:meta:phone@alice`
+
+Look up both the value and the metadata of the key `@<you>:phone@alice` (key shared by `@alice` and shared with you).
+
+`lookup:all:phone@alice`
+
+**Response:**
 
 ``` json 
 data: 
@@ -740,9 +746,7 @@ data:
 
 If the operation is to lookup the metadata and the data together then the result should be wrapped in a JSON in the following format:
 
-```data:<Value and Metadata in a JSON>```
-
-**Example:**    
+```data:<Value and Metadata in a JSON>```    
 
 ``` json
 data:
@@ -772,24 +776,36 @@ data:
 
 If the other atServer on which the lookup needs to be performed is down then the atServer should return the following error and keep the connection alive.
 
-
 ```error:AT0007-atServer not found.```
 
 If the lookup command is not valid, then the atServer should return the following error and close the connection:
-
 
 ```error:AT0003-Invalid Syntax```
 
 For whatever reasons, If the handshake with another atServer fails, then the atServer should return the following error:
 
-
 ```data:AT0008-Handshake failure```
 
-**Description:**:
+If the operation is not specified the atServer should just respond back with the value saved by the user as is.
+
+```data:<value>```
+
+If the operation is to lookup the metadata only then the result should be wrapped in a JSON in the following format:
+
+```data:<Metadata in a JSON>```
+
+**Description:**
 
 The `lookup` verb should be used to fetch the value of the key shared by another atSign user. If there is a public and user key with the same name then the result should be based on whether the user is trying to lookup is authenticated or not. If the user is authenticated then the user key has to be returned, otherwise the public key has to be returned.
 
-### The `plookup` verb:
+**Options:**
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<operation>` | No | `meta` - returns the metadata of the AtKey, `all` - returns both the data and the metadata of the AtKey |
+| `<atKey>` | Yes | the key to be looked up |
+| `<@sign>` | Yes | the atSign owner of the key |
+
 
 **Synopsis:**
 
