@@ -996,10 +996,13 @@ TODO -->
 
 ### The `notify` verb
 
+**Synopsis:**
+
 The `notify` verb enables us to notify the atSign user of some data event.
 
-The Following is the regex for the `notify` verb
+**Syntax:**
 
+The Following is the regex for the `notify` verb
 
 ```
 notify:((?<operation>update|delete):)?(ttl:(?<ttl>\d+):)?(ttb:(?<ttb>\d+):)?(ttr:(?<ttr>(-)?\d+):)?(ccd:(?<ccd>true|false):)?(@(?<forAtSign>[^@:\s]-)):(?<atKey>[^:]((?!:{2})[^@])+)@(?<atSign>[^@:\s]+)(:(?<value>.+))?
@@ -1010,6 +1013,20 @@ notify:((?<operation>update|delete):)?(ttl:(?<ttl>\d+):)?(ttb:(?<ttb>\d+):)?(ttr
 ```
 notify:update:ttr:-1:@{RECIPIENT}:{KEY}.{NAMESPACE}@{SENDER}:{BASE64ENCODED_CYPHERTEXT}
 ```
+
+**Example:**
+
+Notify @alice that you have a shared key `@alice:test@<you>` with an updated value waiting for them to lookup.
+
+`notify:update:@alice:test@<you>`
+
+Notify @alice that you have a shared key `@alice:test@<you>` that was deleted.
+
+`notify:delete:@alice:test@<you>`
+
+Notify @alice with a message my sample message to bob.
+
+`notify:messageType:text:@<you>:my sample message to bob`
 
 **Response:**
 
