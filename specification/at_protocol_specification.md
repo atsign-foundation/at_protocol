@@ -568,15 +568,29 @@ NA
 
 The scan verb is used to see the keys in an atSign's secondary server. 
 
+**Syntax:**
+
 Following regex represents the syntax of the `scan` verb:
 
-```r'^scan$|scan(:showhidden:(?<showhidden>true|false))?(:(?<forAtSign>@[^:@\s]+))?(:page:(?<page>\d+))?( (?<regex>\S+))?$'```
+```r'^scan$|scan(:showhidden:(?<showhidden>true|false))?(:(?<forAtSign>@[^:@\s]+))?( (?<regex>\S+))?$'```
 
 **Response:**
 
-The Secondary Server should return the keys within the secondary server if the scan verb executed succesfully. The Secondary Server will respond accordingly to whether the atSign is authenticated or not.
-
 ```data:[<keys>]```
+
+**Description:**
+
+The Secondary Server should return the keys within the secondary server if the scan verb executed succesfully.
+
+The Secondary Server will respond accordingly to whether the atSign is authenticated or not.
+
+**Options:**
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `<showhidden`> | No | If true, will show hidden internal keys |
+| `<forAtSign>` | No | Filter keys that are created by the atSign |
+
 
 ### The `update` verb
 
