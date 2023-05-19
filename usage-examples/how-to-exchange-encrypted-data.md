@@ -26,6 +26,8 @@
       * [3. Fetch the data which _@alice_ shared](#3-fetch-the-data-which-alice-shared)
       * [4. Fetch the symmetric key which _@alice_ shared](#4-fetch-the-symmetric-key-which-alice-shared)
       * [5. Decrypt the data using the symmetric key](#5-decrypt-the-data-using-the-symmetric-key)
+    * [Key Descriptions](#key-descriptions)
+    * [Sequence Diagram](#sequence-diagram)
   * [Other resources](#other-resources)
 <!-- TOC -->
 
@@ -147,4 +149,91 @@ Given an already-onboarded client (i.e. access to authentication private key and
       return new String(decrypted);
   }
   ```
+
+### Key descriptions
+.atKeys:
+- `aesPkamPublicKey`: used by the AtServer to verify the signature (unused by Client)
+- `aesPkamPrivateKey`: key for signing the challenge during authentication 
+- `aesEncryptPublicKey`: key that other atSigns use to encrypt messages sent to AtSign
+- `aesEncryptPrivateKey`: used to decrypt messages receive by AtSign 
+- `selfEncryptionKey`: used for encrypting AtKey specific things. E.g. A saved AES symmetric key
+
+Other:
+- `aesSymmetricalKey`: Generated for each atSign that is communicated with. This is created the first time one AtSign tries to communicate with another
+
+### Sequence diagram
+Sequence diagram of the process of sending and receiving data between two AtSigns.
+```mermaid
+sequenceDiagram
+    participant A as Alice
+    participant AAS as Alice's AtServer
+    participant D as Directory
+    participant BAS as Bob's AtServer
+    participant B as Bob
+
+    Note left of A: 1. Lookup - Get the location of<br/>Alice's AtSign server
+    A->>D: TLS: root.atsign.org:64
+    Note over A,D: @alice
+    D-->>A: Location of @alice AtServer
+    Note over D,A: <someDomain.exmaple.com>:<port>
+
+    Note left of A: 2. Authenticate with AtServer<br/>by proving we have ownership<br/>of the private key
+    A->>AAS: TLS: @alice AtServer location
+    Note over A,AAS: from:@alice
+    AAS-->>A: Challenge
+    Note over A,AAS: data:<challengeText>
+    A->>AAS: sig = SHA256 of challengeText using aesPkamPrivateKey
+    Note over A,AAS: pkam:<signature>
+    alt success
+        AAS-->>A: Challenge success
+        Note over A,AAS: data:success
+    else failure
+        AAS-->>A: Challenge failure
+        Note over A,AAS: error:<errorMessage>
+    end
+
+    Note left of A: 3. Getting symmetric key
+    alt existing shared symmetric key
+        A->>AAS: Look up @bob symmetric key (their aesEncryptPublicKey)
+        Note over A,AAS: llookup:shared_key.bob@alice
+        Note right of AAS: shared_key is a reserved atID
+        AAS-->>A: Success. Decrypt with selfEncryptionKey
+        Note over A,AAS: data:encryptedSharedKey
+    else Create new symmetric key
+        A->>A: Create aesSymmetricalKey
+        A->>AAS: Encrypt with aesEncryptPublicKey and save
+        Note over A,AAS: update:shared_key.bob@alice encryptedSymKey
+        A->>AAS: Get @bob public key
+        Note over A,AAS: plookup:publickey@bob
+        AAS-->>A: Success
+        Note over A,AAS: data:<bobPublicKey>
+        A->>AAS: Encrypt aesSymmetricalKey with @bob aesEncryptPublicKey and send
+        Note over A,AAS: Update:ttr:86400:@bob:shared_key@alice  <encryptedSymKey>
+    end
+
+    Note left of A: 4. Send data after encrypting with<br/>newly created sym key 
+    A->>A: Encrypt data with aesSymmetricalKey
+    A->>AAS: Share data with @bob
+    Note over A,AAS: Update:<metadata>@bob:record_key.namespace@alice encryptedData
+
+    Note right of B: 5. Fetch encrypted data<br/>shared with @bob 
+    B->>BAS: Lookup data for a specific AtRecord shared by @alice
+    Note over B,BAS: lookup:record_key.namespace@alice
+    BAS-->>B: Success
+    Note over B,BAS: data:encryptedData
+
+    Note right of B: 6. Fetch @alice sym key
+    B->>BAS: Fetch @alice aesSymmetricalKey
+    Note over B,BAS: lookup:shared_key@alice
+    BAS-->>B: Success
+    Note over B,BAS: data:encryptedForBobSharedKey
+
+    Note right of B: 7. Decrypt @alice sym key<br/>using @bob private key
+    B->>B: Decrypt using aesEncryptPrivateKey
+    Note over B: Decrypted data
+
+    Note right of B: 8. Decrypt message using<br/>using @alice sym key
+    B->>B: Decrypt using shared aesSymemtricalKey
+    Note over B: Decrypted message
+```
 ## Other resources
