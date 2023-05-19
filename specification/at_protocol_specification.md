@@ -940,7 +940,7 @@ data:<commitId>
 
 **Description:**
 
-The `delete` verb only can be used for atKeys you own. Deleting a cached key will not delete the original copy of the atKey. 
+The `delete` verb only can be used for AtKeys you own. Deleting a cached key will not delete the original copy of the AtKey. Deleting an AtKey that does not exist will still respond with a commit id.
 
 **Options:**
 
