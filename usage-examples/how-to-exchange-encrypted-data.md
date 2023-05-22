@@ -4,7 +4,6 @@
 * **Last Updated:** 2023-01-25
 * **Objective:** Explain how an authenticated atSign client exchanges data with another atSign
 
-**TODO**: Add diagrams
 
 <!-- TOC -->
   * [How to exchange encrypted data](#how-to-exchange-encrypted-data)
