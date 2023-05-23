@@ -922,7 +922,7 @@ The `delete` verb should be used to delete an atKey in the atServer. Only authen
 
 The following is the regex of the `delete` verb:
 
-```^delete:(?:cached:)?((?:public:)|(@(?<for@sign>[^@:\s]-):))?(?<atKey>[^:]((?!:{2})[^@])+)@(?<@sign>[^@\s]+)$```
+```^delete(:priority:(?<priority>low|medium|high))?(:cached)?(:((?<publicScope>public)|(@(?<forAtSign>[^:@\s]+))))?:(?<atKey>(([^:@\s]+)|(privatekey:at_secret)))(@(?<atSign>[^:@\s]+))?$'```
 
 **Example:**    
 
