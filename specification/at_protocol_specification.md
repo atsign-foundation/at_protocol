@@ -912,6 +912,47 @@ The `llookup` verb should be used to fetch the value of the key in the owners at
 | `<atKey>` | Yes | the key to be looked up |
 | `<@sign>` | Yes | the atSign owner of the key |
 
+### The `delete` verb
+
+**Synopsis:**
+
+The `delete` verb should be used to delete an atKey in the atServer. Only authenticated atSigns can use the `delete` verb. 
+
+**Syntax:**
+
+The following is the regex of the `delete` verb:
+
+```^delete(:priority:(?<priority>low|medium|high))?(:cached)?(:((?<publicScope>public)|(@(?<forAtSign>[^:@\s]+))))?:(?<atKey>(([^:@\s]+)|(privatekey:at_secret)))(@(?<atSign>[^:@\s]+))?$'```
+
+**Example:**    
+
+```delete:@alice:test.namespace@bob```
+
+Deletes an atKey named "@alice:test.namespace@bob" from the atServer. 
+
+**Response:**
+
+The atServer should return the commit id. 
+
+```
+data:<commitId>
+```
+
+**Description:**
+
+The `delete` verb only can be used for AtKeys you own. Deleting a cached key will not delete the original copy of the AtKey. Deleting an AtKey that does not exist will still respond with a commit id.
+
+**Options:**
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `:cached:` | No | Include `:cached:` if the key you are deleting is cached in your atServer |
+| `:public:` | No | Include `:public:` if the key you are deleting is a public key |
+| `<for@sign>` | No | The key's sharedWith atSign |
+| `<atKey>` | Yes | Key name of the AtKey |
+| `<@sign>` | Yes | The key's sharedBy atSign |
+
+
 ### The `stats` verb
 
 **Synopsis:**
