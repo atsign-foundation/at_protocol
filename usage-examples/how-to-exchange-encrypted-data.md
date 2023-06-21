@@ -193,10 +193,10 @@ sequenceDiagram
 
     Note left of A: 3. Getting symmetric key
     alt existing shared symmetric key
-        A->>AAS: Look up @bob symmetric key (their aesEncryptPublicKey)
+        A->>AAS: Look up @bob symmetric key
         Note over A,AAS: llookup:shared_key.bob@alice
         Note right of AAS: shared_key is a reserved atID
-        AAS-->>A: Success. Decrypt with selfEncryptionKey
+        AAS-->>A: Success. Decrypt with aesEncryptPrivateKey
         Note over A,AAS: data:encryptedSharedKey
     else Create new symmetric key
         A->>A: Create aesSymmetricalKey
