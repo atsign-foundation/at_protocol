@@ -1,17 +1,18 @@
 ‌# Summary​
 
-## atProtocol
+## [atProtocolSpecification](specification/at_protocol_specification.md)
 
-* [Specification](specification/at_protocol_specification.md)    
+## Usage Examples
+
+- [Exchagning encrypted data](usage-examples/how-to-exchange-encrypted-data.md)
 
 ## Decisions
 
-* [PKAM](decisions/2023-01-pkam-per-app-and-device.md)
-* [Decision Template](decisions/decision-template.md)
+- [PKAM](decisions/2023-01-pkam-per-app-and-device.md)
 
-## Info
+## Open-source Info
 
-* [README](README.md)    
-* [Contributing](CONTRIBUTING.md)    
-* [Security](SECURITY.md)   
-
+- [Code of Conduct](code_of_conduct.md)
+- [Contributing](CONTRIBUTING.md)
+- [Security](SECURITY.md)
+- [License](LICENSE)
