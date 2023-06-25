@@ -1,10 +1,10 @@
 ‌# Summary​
 
-## [atProtocolSpecification](specification/at_protocol_specification.md)
+## [atProtocol Specification](specification/at_protocol_specification.md)
 
 ## Usage Examples
 
-- [Exchagning encrypted data](usage-examples/how-to-exchange-encrypted-data.md)
+- [Exchanging encrypted data](usage-examples/how-to-exchange-encrypted-data.md)
 
 ## Decisions
 
