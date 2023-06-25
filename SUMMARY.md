@@ -11,7 +11,6 @@
 ## Decisions
 
 - [PKAM](decisions/2023-01-pkam-per-app-and-device.md)
-- [Decision Template](decisions/decision-template.md)
 
 ## Info
 
