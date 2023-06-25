@@ -1,6 +1,6 @@
 ‌# Summary​
 
-## [atProtocol Specification](specification/at_protocol_specification.md)
+[atProtocol Specification](specification/at_protocol_specification.md)
 
 ## Usage Examples
 
