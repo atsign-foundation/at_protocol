@@ -1,8 +1,5 @@
 ‌# Summary​
 
-## atProtocol
-
-- [Specification](specification/at_protocol_specification.md)
 
 ## Usage Examples
 
@@ -18,4 +15,4 @@
 - [Contributing](CONTRIBUTING.md)
 - [Security](SECURITY.md)
 - [License](LICENSE)
-- [Read Me](README.md)
+

@@ -1,5 +1,5 @@
 root: ./
 
 structure:
-  readme: README.md
+  readme: specification/at_protocol_specification.md
   summary: SUMMARY.md
