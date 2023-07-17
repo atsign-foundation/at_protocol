@@ -326,9 +326,9 @@ Clients retain only a PKAM private key
 ### Initial client enrolment
 
 Very similar to how things are now except
-1. clients encrypt, with their PKAM public key, and then store on the server
-   1. the encryption private key and
-   2. the 'self' encryption key
+1. clients store two keys on the server
+   1. symmetric self encryption key - encrypted with default encryption public key
+   2. the encryption private key - encrypted with symmetric self encryption key
 2. clients only need to store their PKAM private key
 
 ```mermaid
