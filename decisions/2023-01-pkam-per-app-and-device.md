@@ -84,6 +84,7 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
 - FirstApp does a CRAM authentication
 - FirstApp enrolls itself and its APKAM
   - Cut its APKAM encryption keypair (or get the APKAM public key from a TPM / Secure Element)
+  - Cuts a new AES key which is used to encrypt/decrypt other keys.
   - Enrolls:
     ```
     enroll:request:app:<appName>:device:<deviceName>
@@ -105,7 +106,8 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
       :<public key base64 encoded>
     ```
     - public key is stored in `public:<keyName>.__public_keys.__global@atSign`
-      - with `keyType` in the metadata
+    - `keyType` and `enrollmentId` are stored as a part of value json
+       e.g. {"value":"<rsa_public_key_value>","keyType":"rsa2048","enrollApprovalId":"a514d324-45a2-4f36-80e9-08b83a454c0e"}
     - For backwards compatibility, also stores `public:publickey@atSign` as a
       reference to `public:<keyName>.__public_keys.__global@atSign`
   - FirstApp encrypts the default encryption keypair's private key using FirstApp's
@@ -129,7 +131,8 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
       :<encryptedSymmetricSelfEncryptionKey>
     ```
     - stored in `<keyName>.__self_keys.__global@atSign`
-    - with `keyType` and `encryptionKeyName` in the metadata
+    - `keyType`, `encryptionKeyName` and `enrollmentId` are stored as a part of value json
+       e.g {"value":"<encryptedSymmetricSelfEncryptionKey>","encryptionKeyName":"<firstKey>","enrollApprovalId":"a514d324-45a2-4f36-80e9-08b83a454c0e"}
 
 ### Subsequent runs of FirstApp
 - Do APKAM authentication
