@@ -364,13 +364,13 @@ sequenceDiagram
     Client->>Client: Generate encryption keypair
     Client->>Server: Store encryption public key
     Server->>Server: Store encryption public key
-    Client->>Client: Generate AES key for private data
-    Client->>Client: Generate new AES key if APKAM private key is in secure element
+    Client->>Client: Generate new symmetric self encryption key (e.g AES key)
     note over Client,Server: New
-    Client->>Client: Encrypt (a) encryption private key and (b) 'self' AES key using PKAM public key/new AES key
+    Client->>Client: Encrypt AES key with encryption public key     
+    Client->>Client: Encrypt encryption private key with new AES key
     Client->>Server: Store encrypted encryption keys
     Server->>Server: Store encrypted encryption keys
-    note over Client: Client now only needs access to the PKAM private key/AES key to decrypt the encryption keys
+    note over Client: Client now only needs access to the AES key to decrypt the encryption keys
     note over Client: Client no longer creates an 'atKeys' file
 ```
 
