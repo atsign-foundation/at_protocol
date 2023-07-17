@@ -84,7 +84,6 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
 - FirstApp does a CRAM authentication
 - FirstApp enrolls itself and its APKAM
   - Cut its APKAM encryption keypair (or get the APKAM public key from a TPM / Secure Element)
-  - Cuts a new AES key which will be used to encrypt/decrypt other keys.
   - Enrolls:
     ```
     enroll:request:app:<appName>:device:<deviceName>
@@ -94,45 +93,48 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
   - automatically approved because app has authenticated with CRAM secret
   - and given rw access to the `__manage` namespace
 - FirstApp disconnects, creates a new connection and does APKAM authentication
-  `from:@atSign`, and then
-  `pkam:app:<appName>:device:<deviceName>:<signedChallenge>`
+ `from:@atSign`, and then
+ `pkam:app:<appName>:device:<deviceName>:<signedChallenge>`
 - Create default encryption keypair
   - FirstApp cuts a default encryption keypair and gives it a name e.g. firstKey
   - FirstApp stores the default encryption keypair's public key
     ```
     keys:put:public
-      :keyName:firstKey:namespace:__global
+      :keyName:encryption_<enrollmentId>:namespace:__global
       :keyType:<RSA-2048|eccxyz|etc>
       :<public key base64 encoded>
     ```
-    - public key is stored in `public:<keyName>.__public_keys.__global@atSign`
+    - public key is stored in `public:encryption_<enrollmentId>.__public_keys.__global@atSign`
     - `keyType` and `enrollmentId` are stored as a part of value json
-       e.g. {"value":"<rsa_public_key_value>","keyType":"rsa2048","enrollApprovalId":"a514d324-45a2-4f36-80e9-08b83a454c0e"}
+      e.g. {"value":"<rsa_public_key_value>","keyType":"rsa2048","enrollApprovalId":"a514d324-45a2-4f36-80e9-08b83a454c0e"}
     - For backwards compatibility, also stores `public:publickey@atSign` as a
-      reference to `public:<keyName>.__public_keys.__global@atSign`
+      reference to `public:encryption_<enrollmentId>.__public_keys.__global@atSign`
+- Create a new 'self' encryption key
+  - FirstApp cuts new symmetric self encryption key (e.g. an AES key) and gives it a name e.g mySymmetricKey
+  - Encrypts it using default encryption public key
+  - Stores it
+    ```
+    keys:put:self:app:<appName>:device:<deviceName>
+    :keyName:mySymmetricKey:namespace:__global
+      :keyType:<AES-128|AES-256|etc>:encryptionKeyName:encryption_<enrollmentId>
+      :<encryptedSymmetricSelfEncryptionKey>
+    ```
+    - stored in `<appName>.<deviceName>.<keyName>.__self_keys.__global@atSign`
+    - `keyType`, `encryptionKeyName` and `enrollmentId` are stored as a part of value json
+      e.g {"keyType":"AES-128",value":"encryptedSymmetricSelfEncryptionKey","encryptionKeyName":"encryption_a514d324-45a2-4f36-80e9-08b83a454c0e","enrollApprovalId":"a514d324-45a2-4f36-80e9-08b83a454c0e"}
+
+
   - FirstApp encrypts the default encryption keypair's private key using FirstApp's
-  apkamPublicKey, and stores it for later use by FirstApp
+  symmetric self encryption key and stores it for later use by FirstApp
     ```
     keys:put:private:app:<appName>:device:<deviceName>
-      :keyName:firstKey:namespace:__global
+      :keyName:<symmetric key name e.g mySymmetricKey>:namespace:__global
       :<encryptedEncryptionPrivateKey>
     ```
     - appName and deviceName must match what was used in PKAM
     - Creates key `private:<appName>.<deviceName>.<keyName>.__private_keys.__global@atSign`
-      - with value being `<encryptedEncryptionPrivateKey>`
-- Create a default 'self' encryption key
-  - FirstApp cuts new symmetricSelfEncryptionKey (e.g. an AES key)
-  - Encrypts it using default global encryption public key e.g. firstKey
-  - Stores it
-    ```
-    keys:put:self
-    :keyName:<keyName>:namespace:__global
-      :keyType:<AES-256|XYZ-128|etc>:encryptionKeyName:<keyName e.g. firstKey>
-      :<encryptedSymmetricSelfEncryptionKey>
-    ```
-    - stored in `<keyName>.__self_keys.__global@atSign`
-    - `keyType`, `encryptionKeyName` and `enrollmentId` are stored as a part of value json
-       e.g {"value":"<encryptedSymmetricSelfEncryptionKey>","encryptionKeyName":"<firstKey>","enrollApprovalId":"a514d324-45a2-4f36-80e9-08b83a454c0e"}
+      with value being `<encryptedEncryptionPrivateKey>`
+
 
 ### Subsequent runs of FirstApp
 - Do APKAM authentication
@@ -141,13 +143,13 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
     - Retrieves everything from the `__private_keys.__global` namespace
     - Retrieves everything from `__private_keys.$namespace` for each $namespace to
       which this app has access
-  - (Recall that these are encrypted with FirstApp's APKAM public key)
+  - (Recall that these are encrypted with FirstApp's symmetric self encryption key)
 - Retrieve all self encryption keys
   - `keys:get:self`
     - Retrieves everything from the `__self_keys.__global` namespace
     - Retrieves everything from `__self_keys.$namespace` for each $namespace to
       which this app has access
-  - (Recall that these are encrypted with some encryption keypair's public key)
+  - (Recall that these are encrypted with default encryption public key)
 
 ### Enrollment flow
 #### Overview
@@ -163,7 +165,7 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
     :apkamPublicKey:<apkamPublicKey>
     ```
     - atServer creates a private keyStore entry in the `.__manage` namespace. The key for
-      the entry is `<approvalID>.new.enrollments.__manage@atSign`, where `<approvalID>` is
+      the entry is `<enrollmentId>.new.enrollments.__manage@atSign`, where `<enrollmentId>` is
       some random id and the data stored is
       ```json
       {
@@ -205,15 +207,18 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
                 "approvedDeviceName": "<deviceName>"
               }
             ```
-        - Make all encryption private keys available to NewApp
+        - Make all encryption private keys available to NewApp        
+          - Get the encrypted symmetric self encryption key from server
+          - Decrypt the self encryption key using default encryption private key
           - Retrieve all encryption keypairs' private keys
             - `keys:get:private`
               - Retrieves everything from the `__private_keys.__global` namespace
               - Retrieves everything from `__private_keys.$namespace` for EVERY $namespace to
                 which NewApp app will have access
-            - (Recall that these are encrypted with ExistingApp's APKAM public key)
-          - Fetch NewApp's APKAM public key or generate a new AES Key(if APKAM private key is in secure element)
-          - Encrypt each private key with APKAM public key/new AES key and store for NewApp
+            - (Recall that these are encrypted with ExistingApp's symmetric self encryption key)
+            - Decrypt the private keys using ExistingApp's symmetric self encryption key
+          - Generate a new symmetric self encryption key for NewApp. Encrypt with default encryption public key.
+          - Encrypt each private key with NewApp's AES key and store for NewApp
             ```
             keys:put:private:app:<appName>:device:<deviceName>
               :keyName:<keyName>:namespace:<namespace>
@@ -248,6 +253,7 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
   - newEnrollment
   - overrideEnrollment (app wanting to enroll a new public key)
   - changeNamespaceAccess
+  - revokeEnrollment
 - MPKAM apps need access to all encryption private keys
   - If an app being enrolled requires __manage access, then share all encryption private keys with them
   - So they can share the relevant subset with other apps as they enroll
