@@ -84,7 +84,7 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
 - FirstApp does a CRAM authentication
 - FirstApp enrolls itself and its APKAM
   - Cut its APKAM encryption keypair (or get the APKAM public key from a TPM / Secure Element)
-  - Cuts a new AES key which is used to encrypt/decrypt other keys.
+  - Cuts a new AES key which will be used to encrypt/decrypt other keys.
   - Enrolls:
     ```
     enroll:request:app:<appName>:device:<deviceName>
