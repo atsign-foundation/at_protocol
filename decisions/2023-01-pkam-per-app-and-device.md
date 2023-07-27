@@ -372,8 +372,7 @@ sequenceDiagram
     FirstClient->>FirstClient: Encrypt self encryption key with APKAM symmetric key - $encryptedDefaultSelfEncryptionKey
     FirstClient->>Server: enroll:request:$encryptedDefaultPrivateEncryptionKey:$encryptedDefaultSelfEncryptionKey
     Server->>FirstClient: Generate enrollmentID and approve enrollment request 
-    Server->>Server: Store encrypted default encryption keys e.g $enrollmentId.default_enc_private_key.__manage@alice, 
-    $enrollmentId.default_self_enc_key.__manage@alice
+    Server->>Server: Store encrypted default encryption keys e.g $enrollmentId.default_enc_private_key.__manage@alice, $enrollmentId.default_self_enc_key.__manage@alice
     note over FirstClient: Client now only needs access to the enrollmentID, APKAM private key and APKAM symmetric key 
 ```
 
