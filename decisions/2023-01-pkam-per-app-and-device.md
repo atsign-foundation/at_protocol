@@ -337,43 +337,43 @@ sequenceDiagram
     participant FirstClient
     participant Server
 
-    note over Client,Server: CRAM Authentication
+    note over FirstClient,Server: CRAM Authentication
 
-    Client->>Server: from:@alice
+    FirstClient->>Server: from:@alice
     Server->>Server: store digest <SHA512(${cramSecret}${serverChallenge})>
-    Server-->>Client: ${serverChallenge}
-    Client->>Server: cram:<SHA512(${cramSecret}${serverChallenge})>
+    Server-->>FirstClient: ${serverChallenge}
+    FirstClient->>Server: cram:<SHA512(${cramSecret}${serverChallenge})>
     Server->>Server: fetch stored digest
     Server->>Server: Compare digests
     alt digests do not match
-        Server-->>Client: Authentication failed
-        Client->>Client: Exit
+        Server-->>FirstClient: Authentication failed
+        FirstClient->>FirstClient: Exit
     else digests match
-        Server-->>Client: Success
+        Server-->>FirstClient: Success
     end
 
-    note over Client,Server: Onboarding
-    Client->>Client: Generate PKAM keypair (ideally on a secure element of some sort)
-    Client->>Server: Store PKAM public key
+    note over FirstClient,Server: Onboarding
+    FirstClient->>FirstClient: Generate PKAM keypair (ideally on a secure element of some sort)
+    FirstClient->>Server: Store PKAM public key
     Server->>Server: Store PKAM public key
     note over Server: New - mark this PKAM key as privileged to enrol subsequent clients
     Server->>Server: Mark this PKAM public key as privileged
-    Client->>Server: PKAM authentication
+    FirstClient->>Server: PKAM authentication
     Server-->>Client: Auth passed
-    Client->>Server: Delete CRAM secret
+    FirstClient->>Server: Delete CRAM secret
     Server->>Server: Delete CRAM secret
-    Client->>Client: Generate default encryption keypair
-    Client->>Server: Store default encryption public key
+    FirstClient->>FirstClient: Generate default encryption keypair
+    FirstClient->>Server: Store default encryption public key
     Server->>Server: Store default encryption public key
-    Client->>Client: Generate symmetric self encryption key (e.g AES key)
-    note over Client,Server: New
-    Client->>Client: Generate APKAM symmetric key     
-    Client->>Client: Encrypt default encryption private key with APKAM symmetric key
-    Client->>Client: Encrypt self encryption key with APKAM symmetric key
-    Client->>Server: enroll:request:$encryptedDefaultPrivateEncryptionKey:$encryptedDefaultSelfEncryptionKey
-    Server->>Client: Generate enrollmentID and approve enrollment request 
+    FirstClient->>FirstClient: Generate symmetric self encryption key (e.g AES key)
+    note over FirstClient,Server: New
+    FirstClient->>FirstClient: Generate APKAM symmetric key     
+    FirstClient->>FirstClient: Encrypt default encryption private key with APKAM symmetric key
+    FirstClient->>FirstClient: Encrypt self encryption key with APKAM symmetric key
+    FirstClient->>Server: enroll:request:$encryptedDefaultPrivateEncryptionKey:$encryptedDefaultSelfEncryptionKey
+    Server->>FirstClient: Generate enrollmentID and approve enrollment request 
     Server->>Server: Store encrypted default encryption keys e.g $enrollmentId.default_enc_private_key.__manage@alice, $enrollmentId.default_self_enc_key.__manage@alice
-    note over Client: Client now only needs access to the enrollmentID, APKAM private key and APKAM symmetric key 
+    note over FirstClient: Client now only needs access to the enrollmentID, APKAM private key and APKAM symmetric key 
 ```
 
 
