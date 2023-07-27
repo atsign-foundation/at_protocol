@@ -321,19 +321,20 @@ sequenceDiagram
 
 
 ## Diagrams - proposed new flows
-Clients retain only a PKAM private key
+- Clients needs only enrollmentID, APKAM private key and APKAM symmetric key
 
 ### Initial client enrolment
 
 Very similar to how things are now except
+1. client generates a APKAM symmetric key and encrypts it with default encryption public key
 1. clients store two keys on the server
-   1. symmetric self encryption key - encrypted with default encryption public key
-   2. the encryption private key - encrypted with symmetric self encryption key
-2. clients only need to store their PKAM private key
+   1. symmetric self encryption key - encrypted with APKAM symmetric key
+   2. the encryption private key - encrypted with APKAM symmetric key
+2. clients only need to store their enrollmentID, APKAM private key, APKAM symmetric key
 
 ```mermaid
 sequenceDiagram
-    participant Client
+    participant FirstClient
     participant Server
 
     note over Client,Server: CRAM Authentication
@@ -361,17 +362,18 @@ sequenceDiagram
     Server-->>Client: Auth passed
     Client->>Server: Delete CRAM secret
     Server->>Server: Delete CRAM secret
-    Client->>Client: Generate encryption keypair
-    Client->>Server: Store encryption public key
-    Server->>Server: Store encryption public key
-    Client->>Client: Generate new symmetric self encryption key (e.g AES key)
+    Client->>Client: Generate default encryption keypair
+    Client->>Server: Store default encryption public key
+    Server->>Server: Store default encryption public key
+    Client->>Client: Generate symmetric self encryption key (e.g AES key)
     note over Client,Server: New
-    Client->>Client: Encrypt AES key with encryption public key     
-    Client->>Client: Encrypt encryption private key with new AES key
-    Client->>Server: Store encrypted encryption keys
-    Server->>Server: Store encrypted encryption keys
-    note over Client: Client now only needs access to the AES key to decrypt the encryption keys
-    note over Client: Client no longer creates an 'atKeys' file
+    Client->>Client: Generate APKAM symmetric key     
+    Client->>Client: Encrypt default encryption private key with APKAM symmetric key
+    Client->>Client: Encrypt self encryption key with APKAM symmetric key
+    Client->>Server: enroll:request:$encryptedDefaultPrivateEncryptionKey:$encryptedDefaultSelfEncryptionKey
+    Server->>Client: Generate enrollmentID and approve enrollment request 
+    Server->>Server: Store encrypted default encryption keys e.g $enrollmentId.default_enc_private_key.__manage@alice, $enrollmentId.default_self_enc_key.__manage@alice
+    note over Client: Client now only needs access to the enrollmentID, APKAM private key and APKAM symmetric key 
 ```
 
 
