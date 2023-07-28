@@ -203,10 +203,7 @@ This is _**substantially**_ different from how things are now.
     - Receives and decrypts the notification.
     - Display the request details, and ask the user to approve or deny it
     - **Approve:**
-        ```
-          enroll:approve:<enrollmentId>\
-          :<encryptedDefaultEncPrivateKey:<encryptedDefaultSelfEncryptionKey>
-        ```
+        `enroll:approve:<enrollmentId>:<encryptedDefaultEncPrivateKey:<encryptedDefaultSelfEncryptionKey>`
         - atServer marks the enrollment request as `approved`
     - **Deny:**
       - `enroll:deny:<approvalID>`
