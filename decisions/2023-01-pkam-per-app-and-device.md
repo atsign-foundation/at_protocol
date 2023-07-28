@@ -359,20 +359,23 @@ sequenceDiagram
     note over Server: New - mark this PKAM key as privileged to enrol subsequent clients
     Server->>Server: Mark this PKAM public key as privileged
     FirstClient->>Server: PKAM authentication
-    Server-->>FirstClient: Auth passed
-    FirstClient->>Server: Delete CRAM secret
-    Server->>Server: Delete CRAM secret
-    FirstClient->>FirstClient: Generate default encryption keypair
-    FirstClient->>Server: Store default encryption public key
-    Server->>Server: Store default encryption public key
+    Server-->>FirstClient: Auth passed   
+    FirstClient->>FirstClient: Generate default encryption keypair    
     FirstClient->>FirstClient: Generate symmetric self encryption key (e.g AES key)
     note over FirstClient,Server: New
     FirstClient->>FirstClient: Generate APKAM symmetric key     
     FirstClient->>FirstClient: Encrypt default encryption private key with APKAM symmetric key - $encryptedDefaultPrivateEncryptionKey
     FirstClient->>FirstClient: Encrypt self encryption key with APKAM symmetric key - $encryptedDefaultSelfEncryptionKey
-    FirstClient->>Server: enroll:request:$encryptedDefaultPrivateEncryptionKey:$encryptedDefaultSelfEncryptionKey
-    Server->>FirstClient: Generate enrollmentID and approve enrollment request 
-    Server->>Server: Store encrypted default encryption keys e.g $enrollmentId.default_enc_private_key.__manage@alice, $enrollmentId.default_self_enc_key.__manage@alice
+    FirstClient->>Server: enroll:request:$encryptedDefaultPrivateEncryptionKey:$encryptedDefaultSelfEncryptionKey         
+    Server->>Server: Store encrypted default encryption private key e.g $enrollmentId.default_enc_private_key.__manage@alice
+    Server->>Server: Store encrypted default self encryption keys e.g $enrollmentId.default_self_enc_key.__manage@alice
+    FirstClient->>Server: Disconnect and attempt pkam with enrollID
+    Server-->>FirstClient: Auth passed
+    FirstClient->>Server: Store default encryption public key
+    Server->>Server: Store default encryption public key
+    FirstClient->>FirstClient: Store enrollID and apkam symmetric key(unencrypted) in atKeysFile
+    FirstClient->>Server: Delete CRAM secret
+    Server->>Server: Delete CRAM secret 
     note over FirstClient: Client now only needs access to the enrollmentID, APKAM private key and APKAM symmetric key 
 ```
 
