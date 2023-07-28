@@ -367,14 +367,14 @@ sequenceDiagram
     FirstClient->>Server: enroll:request:$encryptedDefaultPrivateEncryptionKey:$encryptedDefaultSelfEncryptionKey         
     Server->>Server: Store encrypted default encryption private key e.g $enrollmentId.default_enc_private_key.__manage@alice
     Server->>Server: Store encrypted default self encryption keys e.g $enrollmentId.default_self_enc_key.__manage@alice
-    FirstClient->>Server: Disconnect and attempt pkam with enrollID
+    FirstClient->>Server: Disconnect and attempt pkam with enrollmentId
     Server-->>FirstClient: Auth passed
     FirstClient->>Server: Store default encryption public key
     Server->>Server: Store default encryption public key
-    FirstClient->>FirstClient: Store enrollID and apkam symmetric key(unencrypted) in atKeysFile
+    FirstClient->>FirstClient: Store enrollmentId and apkam symmetric key(unencrypted) in atKeysFile
     FirstClient->>Server: Delete CRAM secret
     Server->>Server: Delete CRAM secret 
-    note over FirstClient: Client now only needs access to the enrollmentID, APKAM private key and APKAM symmetric key 
+    note over FirstClient: Client now only needs access to the enrollmentId, APKAM private key and APKAM symmetric key 
 ```
 
 
@@ -388,37 +388,47 @@ sequenceDiagram
     participant ExistingPrivilegedClient
 
     note over NewClient,ExistingPrivilegedClient: Subsequent client onboarding
-    NewClient->>NewClient: Generate PKAM keypair (ideally on a secure element of some sort)
+    NewClient->>NewClient: Generate APKAM keypair (ideally on a secure element of some sort)
+    NewClient->>NewClient: Generate new APKAM symmetric key - $apkamSymmetricKey
+    NewClient->>NewClient: Encrypt APKAM symmetric key with default encryption public key - $encryptedApkamSymmetricKey
     NewClient->>Server: from:@alice
     Server-->>NewClient: ${serverChallenge}
-    NewClient->>Server: enroll:request<br/>:app:<appName><br/>:device:<deviceName><br/>:namespaces:<...><br/>:apkamPublicKey:<apkamPublicKey>
-    note over Server,ExistingPrivilegedClient: Server sends encrypted notification <br/>to ExistingPrivilegedClient asking <br/>for the enrolment request <br/>to be approved or denied
+    NewClient->>Server: enroll:request<br/>:app:<appName><br/>:device:<deviceName><br/>:namespaces:<...><br/>:apkamPublicKey:<apkamPublicKey>:<br/>apkamSymmetricKey<encryptedApkamSymmetricKey<br/>
+    Server->>ExistingPrivilegedClient: Send notification with enrollmentID and  $encryptedApkamSymmetricKey
     Server->>Server: Mark enrolment request PENDING
     Server->>ExistingPrivilegedClient: Approve or deny
     note over NewClient: Meanwhile, NewClient will try periodically to authenticate
     alt Pending
         note over NewClient,Server: While pending but not timed out, authentication will fail <br/>but may be reattempted
-        NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
+        NewClient->>Server: pkam:enrollmentId:<enrollmentId>:<PKAM private key SHA256Signature of ${serverChallenge}>
         Server->>NewClient: Authentication failed - approval PENDING
     else Denied
         note over NewClient,Server: If explicitly denied, authentication will fail permanently <br/>until a new enrolment request is sent
         ExistingPrivilegedClient->>Server: Denied
         Server->>Server: Mark enrolment request DENIED
-        NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
+        NewClient->>Server: pkam:enrollmentId:<enrollmentId>:<PKAM private key SHA256Signature of ${serverChallenge}>
         Server->>NewClient: Authentication failed - approval DENIED
     else Timeout
         note over NewClient,Server: If the approval request times out, authentication will fail permanently <br/>until a new enrolment request is sent
-        NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
+        NewClient->>Server: pkam:enrollmentId:<enrollmentId>:<PKAM private key SHA256Signature of ${serverChallenge}>
         Server->>Server: If timeout has expired, Mark enrolment request TIMED OUT
         Server->>NewClient: Authentication failed - approval request TIMED OUT
     else Approved
         note over NewClient,Server: If approved, authentication will succeed
-        ExistingPrivilegedClient->>Server: Approved
+        ExistingPrivilegedClient->>ExistingPrivilegedClient: Decrypt $encryptedApkamSymmetricKey with default encryption private key - $apkamSymmetricKey
+        ExistingPrivilegedClient->>ExistingPrivilegedClient: Encrypt default encryption private key and default self encryption key with $apkamSymmetricKey
+        ExistingPrivilegedClient->>Server: enroll:approve:<enrollmentId>:<encryptedDefaultEncPrivateKey>:<encryptedDefaultSelfEncryptionKey>
         Server->>Server: Mark enrolment request APPROVED
-        NewClient->>Server: pkam:<PKAM private key SHA256Signature of ${serverChallenge}>
+        NewClient->>Server: pkam:enrollmentId:<enrollmentId>:<PKAM private key SHA256Signature of ${serverChallenge}>
         Server->>Server: Verify signature using the PKAM public key presented in the enroll request earlier
         alt Verified
             Server->>NewClient: Authentication SUCCESS
+            NewClient->>Server: keys:get:private
+            NewClient->>NewClient: decrypt encryption private key with $apkamSymmetricKey
+            NewClient->>Server: keys:get:self
+            NewClient->>NewClient: decrypt self encryption key with $apkamSymmetricKey
+            NewClient->>NewClient: write to atKeysFile - enrollmentId, APKAM public and private key, APKAM symmetric key
+            
         else Not verified
             Server->>NewClient: Authentication FAILED
         end
