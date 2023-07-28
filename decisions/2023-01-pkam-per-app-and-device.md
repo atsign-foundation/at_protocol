@@ -155,9 +155,7 @@ sequenceDiagram
     FirstClient->>FirstClient: Store enrollmentId and apkam symmetric key(unencrypted) in atKeysFile
     FirstClient->>Server: Delete CRAM secret
     Server->>Server: Delete CRAM secret
-    note over FirstClient: Client now only needs access to the enrollmentId, 
-    <br/>APKAM private key and APKAM symmetric key<br/> and may store them 
-    in atKeys file<br/> or keychain as appropriate 
+    note over FirstClient: Client now only needs access to the enrollmentId,<br/>APKAM private key and APKAM symmetric key<br/> and may store them in atKeys file<br/> or keychain as appropriate 
 ```
 
 ### All subsequent enrollments
@@ -174,21 +172,21 @@ This is _**substantially**_ different from how things are now.
   - atServer creates a private keyStore entry in the `.__manage` namespace. The key for
     the entry is `<enrollmentId>.new.enrollments.__manage@atSign`, where `<enrollmentId>` is
     some random id and the data stored is something like
-    ```json
-    {
-      "sessionID": "<the session ID of the NewApp connection>",
-      "appName":"<appName>",
-      "deviceName":"<deviceName>",
-      "namespaces": [
-        {"ns":"one","ac": "r"},
-        {"ns":"two","ac": "rw"},
-        {"ns":"three","ac": "r"}
-        ],
-      "APKAMPublicKey":"APKAMPublicKey",
-      "requestType": "newEnrollment",
-      "approval": {"state":"requested"}
-    }
-    ```
+      ```json
+        {
+          "sessionID": "<the session ID of the NewApp connection>",
+          "appName":"<appName>",
+          "deviceName":"<deviceName>",
+          "namespaces": [
+            {"ns":"one","ac": "r"},
+            {"ns":"two","ac": "rw"},
+            {"ns":"three","ac": "r"}
+            ],
+          "APKAMPublicKey":"APKAMPublicKey",
+          "requestType": "newEnrollment",
+          "approval": {"state":"requested"}
+        }
+      ```
   - atServer generates a notification for this keyStore entry. Only apps which have
     access to the `.__manage` namespace will receive this notification.
   - atServer responds to NewApp with the usual PKAM challenge `data:<challenge>`
