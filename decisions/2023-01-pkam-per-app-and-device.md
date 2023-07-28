@@ -415,8 +415,8 @@ sequenceDiagram
         Server->>NewClient: Authentication failed - approval request TIMED OUT
     else Approved
         note over NewClient,Server: If approved, authentication will succeed
-        ExistingPrivilegedClient->>ExistingPrivilegedClient: Decrypt $encryptedApkamSymmetricKey with default encryption private key - $apkamSymmetricKey
-        ExistingPrivilegedClient->>ExistingPrivilegedClient: Encrypt default encryption private key and default self encryption key with $apkamSymmetricKey
+        ExistingPrivilegedClient->>ExistingPrivilegedClient: Decrypt $encryptedApkamSymmetricKey <br/>with default encryption private key<br/> - $apkamSymmetricKey
+        ExistingPrivilegedClient->>ExistingPrivilegedClient: Encrypt default encryption private key<br/> and default self encryption key<br/> with $apkamSymmetricKey
         ExistingPrivilegedClient->>Server: enroll:approve:<enrollmentId>:<encryptedDefaultEncPrivateKey>:<encryptedDefaultSelfEncryptionKey>
         Server->>Server: Mark enrolment request APPROVED
         NewClient->>Server: pkam:enrollmentId:<enrollmentId>:<PKAM private key SHA256Signature of ${serverChallenge}>
