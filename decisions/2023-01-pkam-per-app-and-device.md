@@ -1,9 +1,11 @@
 # PKAMs per app per device
 
-* **Status:** Draft
+* **Status:** Release candidate
 * **Created:** 2023-01
+* **Last Updated:** 2023-07-28
 * **Changelog:**
   * 2023-04-03 Added mermaid sequence diagrams of current and proposed new flows
+  * 2023-07-28 Spec clarifications, some simplifications, some restructuring 
 * **Objective:** Define protocol interactions required to have different PKAMs
   per app+device
 
