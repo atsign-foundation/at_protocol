@@ -5,7 +5,7 @@
 * **Changelog:**
   * 2023-04-03 Added mermaid sequence diagrams of current and proposed new flows
 * **Objective:** Define protocol interactions required to have different PKAMs
-per app+device
+  per app+device
 
 <!-- TOC -->
 * [PKAMs per app per device](#pkams-per-app-per-device)
@@ -15,19 +15,18 @@ per app+device
   * [Other considerations](#other-considerations)
   * [Proposal Summary](#proposal-summary)
   * [Proposal In Detail](#proposal-in-detail)
-    * [Initial bootstrap - onboard FirstApp](#initial-bootstrap---onboard-firstapp)
-    * [Subsequent runs of FirstApp](#subsequent-runs-of-firstapp)
-    * [Enrollment flow](#enrollment-flow)
+    * [Initial bootstrap enrollment](#initial-bootstrap-enrollment)
       * [Overview](#overview)
-      * [Details](#details)
-    * [SecondApp](#secondapp)
+      * [Description](#description)
+      * [Sequence diagram](#sequence-diagram)
+    * [All subsequent enrollments](#all-subsequent-enrollments)
+      * [Overview](#overview-1)
+      * [Description](#description-1)
+      * [Sequence diagram](#sequence-diagram-1)
     * [Other details](#other-details)
-  * [Diagrams - current flows](#diagrams---current-flows)
+  * [Appendix - current flows](#appendix---current-flows)
     * [First client onboarding](#first-client-onboarding)
     * [Subsequent client onboarding](#subsequent-client-onboarding)
-  * [Diagrams - proposed new flows](#diagrams---proposed-new-flows)
-    * [Initial client enrolment](#initial-client-enrolment)
-    * [Subsequent client enrolment](#subsequent-client-enrolment)
 <!-- TOC -->
 
 ## Context & Problem Statement
@@ -48,7 +47,7 @@ Current PKAM (Public Key Authentication Method) supports only a single keypair.
 ## Goals
 - Limit likelihood of compromise of private keys
   - Limit private keys required by apps to the bare minimum - a single keypair whose
-  private key may be held on a TPM / secure element
+    private key may be held on a TPM / secure element
   - No more exporting of keys files for import by other apps+devices
   - Easy-to-use management of app access and app namespace permissions
 - Limit blast radius if private keys are compromised
@@ -64,184 +63,218 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
 - APKAM (Application PKAM) - a keypair per app+device
 - MPKAM - an APKAM which has access to the `.__manage` namespace
 - APKAM enrollment requests can be approved only by apps which have an MPKAM
-- Device/app holds only the APKAM private key
-  - and of course this private key may be held on a TPM
-- An enrollment interaction flow allows
-  - apps to request that their app+device be approved and have their APKAM public key
-    stored on the atServer
-  - requests to be approved or denied by another existing app with the appropriate authority
-- Encryption private keys are made available to the new app by encrypting with their APKAM public key or a new AES key if the APKAM private key is in a secure element(e.g sim card)
-- 'Self' encryption keys are made available to the new app; these are encrypted with the encryption
-  public keys corresponding with the above-mentioned encryption private keys
-- There must be a way to cease use of old encryption keypairs in favour of newer ones
+- Device/app stores the minimum amount of information
+  - unique enrollment ID
+  - keys
+    - the APKAM keypair
+      - the private key may be held on a TPM
+    - an APKAM symmetric key specific to this enrollment
+      - This is required because
+        - the approving app needs to be able to send private key(s) to the
+          enrolling app
+        - the APKAM private key may be on a TPM which does not support
+          using the private key for decryption but only for signing
+- An enrollment interaction flow will
+  - Allow new apps to request that their app+device be approved and have
+    their APKAM public key stored on the atServer
+  - Allow requests to be approved or denied by another existing app with the
+    appropriate authority
+  - Make encryption keypairs' private keys and symmetric keys available as
+    appropriate to the newly enrolled app by encrypting with the APKAM
+    **symmetric** key
+- After enrollment, an app needs to be able to
+  - Authenticate with APKAM keypair and enrollment id
+  - Fetch all keys which have been shared with this enrollment id
+    - And decrypt those keys using the APKAM **symmetric** key
 - There must be a way to revoke enrollment of a given APKAM
+  - an enrolled app should be able to revoke its own enrollment
 - Additions to `pkam` verb syntax
 - New verb `enroll` for enrollment management
 - New verb `keys` for management of (1) encryption keypairs (2) 'self' encryption keys
 
 ## Proposal In Detail
-### Initial bootstrap - onboard FirstApp
-- FirstApp does a CRAM authentication
-- FirstApp enrolls itself and its APKAM
-  - Cut its APKAM encryption keypair (or get the APKAM public key from a TPM / Secure Element)
-  - Enrolls:
-    ```
-    enroll:request:app:<appName>:device:<deviceName>
-    :namespaces:<one,r;two,rw;three,r[;...]
-    :apkamPublicKey:<apkamPublicKey>
-    ```
-  - automatically approved because app has authenticated with CRAM secret
-  - and given rw access to the `__manage` namespace
-- FirstApp disconnects, creates a new connection and does APKAM authentication
- `from:@atSign`, and then
- `pkam:app:<appName>:device:<deviceName>:<signedChallenge>`
-- Create default encryption keypair
-  - FirstApp cuts a default encryption keypair and gives it a name e.g. firstKey
-  - FirstApp stores the default encryption keypair's public key
-    ```
-    keys:put:public
-      :keyName:encryption_<enrollmentId>:namespace:__global
-      :keyType:<RSA-2048|eccxyz|etc>
-      :<public key base64 encoded>
-    ```
-    - public key is stored in `public:encryption_<enrollmentId>.__public_keys.__global@atSign`
-    - `keyType` and `enrollmentId` are stored as a part of value json
-      e.g. {"value":"<rsa_public_key_value>","keyType":"rsa2048","enrollApprovalId":"a514d324-45a2-4f36-80e9-08b83a454c0e"}
-    - For backwards compatibility, also stores `public:publickey@atSign` as a
-      reference to `public:encryption_<enrollmentId>.__public_keys.__global@atSign`
-- Create a new 'self' encryption key
-  - FirstApp cuts new symmetric self encryption key (e.g. an AES key) and gives it a name e.g mySymmetricKey
-  - Encrypts it using default encryption public key
-  - Stores it
-    ```
-    keys:put:self:app:<appName>:device:<deviceName>
-    :keyName:mySymmetricKey:namespace:__global
-      :keyType:<AES-128|AES-256|etc>:encryptionKeyName:encryption_<enrollmentId>
-      :<encryptedSymmetricSelfEncryptionKey>
-    ```
-    - stored in `<appName>.<deviceName>.<keyName>.__self_keys.__global@atSign`
-    - `keyType`, `encryptionKeyName` and `enrollmentId` are stored as a part of value json
-      e.g {"keyType":"AES-128",value":"encryptedSymmetricSelfEncryptionKey","encryptionKeyName":"encryption_a514d324-45a2-4f36-80e9-08b83a454c0e","enrollApprovalId":"a514d324-45a2-4f36-80e9-08b83a454c0e"}
-
-
-  - FirstApp encrypts the default encryption keypair's private key using FirstApp's
-  symmetric self encryption key and stores it for later use by FirstApp
-    ```
-    keys:put:private:app:<appName>:device:<deviceName>
-      :keyName:<symmetric key name e.g mySymmetricKey>:namespace:__global
-      :<encryptedEncryptionPrivateKey>
-    ```
-    - appName and deviceName must match what was used in PKAM
-    - Creates key `private:<appName>.<deviceName>.<keyName>.__private_keys.__global@atSign`
-      with value being `<encryptedEncryptionPrivateKey>`
-
-
-### Subsequent runs of FirstApp
-- Do APKAM authentication
-- Retrieve all encryption keypairs' private keys
-  - `keys:get:private`
-    - Retrieves everything from the `__private_keys.__global` namespace
-    - Retrieves everything from `__private_keys.$namespace` for each $namespace to
-      which this app has access
-  - (Recall that these are encrypted with FirstApp's symmetric self encryption key)
-- Retrieve all self encryption keys
-  - `keys:get:self`
-    - Retrieves everything from the `__self_keys.__global` namespace
-    - Retrieves everything from `__self_keys.$namespace` for each $namespace to
-      which this app has access
-  - (Recall that these are encrypted with default encryption public key)
-
-### Enrollment flow
+### Initial bootstrap enrollment
 #### Overview
-- An `enroll:request` command results in a keyStore entry being created in the `__manage` namespace
-  and an auto-notification being generated
+- Do CRAM and PKAM as done prior to APKAM
+- Then follow up with an `enroll` request
+
+#### Description
+In addition to what is done now (CRAM auth, PKAM auth, cutting default 
+encryption keypair and default 'self' encryption key), the client 
+also
+- generates an 'APKAM symmetric key' and encrypts it with default encryption 
+  public key
+- client stores two keys on the server via `enroll` request
+  - default self encryption key - encrypted with APKAM symmetric key
+  - default encryption private key - encrypted with APKAM symmetric key
+- client only need to store their enrollmentID, APKAM private key and APKAM
+  symmetric key - however, for backwards compatibility will store 
+  those things in addition to everything that is in the current atKeys file 
+  format
+
+#### Sequence diagram
+```mermaid
+sequenceDiagram
+    participant FirstClient
+    participant Server
+
+    note over FirstClient,Server: CRAM Authentication
+
+    FirstClient->>Server: from:@alice
+    Server->>Server: store digest <SHA512(${cramSecret}${serverChallenge})>
+    Server-->>FirstClient: ${serverChallenge}
+    FirstClient->>Server: cram:<SHA512(${cramSecret}${serverChallenge})>
+    Server->>Server: fetch stored digest
+    Server->>Server: Compare digests
+    alt digests do not match
+        Server-->>FirstClient: Authentication failed
+        FirstClient->>FirstClient: Exit
+    else digests match
+        Server-->>FirstClient: Success
+    end
+
+    note over FirstClient,Server: Onboarding
+    FirstClient->>FirstClient: Generate PKAM keypair (ideally on a secure element of some sort)
+    FirstClient->>Server: Store PKAM public key
+    Server->>Server: Store PKAM public key
+    note over Server: New - mark this PKAM key as privileged to enrol subsequent clients
+    Server->>Server: Mark this PKAM public key as privileged
+    FirstClient->>FirstClient: Generate default encryption keypair    
+    FirstClient->>FirstClient: Generate symmetric self encryption key (e.g AES key)
+    note over FirstClient,Server: New
+    FirstClient->>FirstClient: Generate APKAM symmetric key     
+    FirstClient->>FirstClient: Encrypt default encryption private key with APKAM symmetric key - $encryptedDefaultPrivateEncryptionKey
+    FirstClient->>FirstClient: Encrypt self encryption key with APKAM symmetric key - $encryptedDefaultSelfEncryptionKey
+    FirstClient->>Server: enroll:request:$encryptedDefaultPrivateEncryptionKey:$encryptedDefaultSelfEncryptionKey         
+    Server->>Server: Store encrypted default encryption private key e.g $enrollmentId.default_enc_private_key.__manage@alice
+    Server->>Server: Store encrypted default self encryption keys e.g $enrollmentId.default_self_enc_key.__manage@alice
+    FirstClient->>Server: Disconnect and attempt pkam with enrollmentId
+    Server-->>FirstClient: Auth passed
+    FirstClient->>Server: Store default encryption public key
+    Server->>Server: Store default encryption public key
+    FirstClient->>FirstClient: Store enrollmentId and apkam symmetric key(unencrypted) in atKeysFile
+    FirstClient->>Server: Delete CRAM secret
+    Server->>Server: Delete CRAM secret
+    note over FirstClient: Client now only needs access to the enrollmentId, 
+    <br/>APKAM private key and APKAM symmetric key<br/> and may store them 
+    in atKeys file<br/> or keychain as appropriate 
+```
+
+### All subsequent enrollments
+This is _**substantially**_ different from how things are now.
+
+#### Overview
+- An `enroll:request` command results in a keyStore entry being created in the
+  `__manage` namespace and a notification being generated on the server and  
+  delivered to apps which have permission to approve or deny the request
 - Apps which have access can approve or deny the request
 
-#### Details
-  - NewApp sends
+#### Description
+- NewApp sends enroll request
+  - atServer creates a private keyStore entry in the `.__manage` namespace. The key for
+    the entry is `<enrollmentId>.new.enrollments.__manage@atSign`, where `<enrollmentId>` is
+    some random id and the data stored is something like
+    ```json
+    {
+      "sessionID": "<the session ID of the NewApp connection>",
+      "appName":"<appName>",
+      "deviceName":"<deviceName>",
+      "namespaces": [
+        {"ns":"one","ac": "r"},
+        {"ns":"two","ac": "rw"},
+        {"ns":"three","ac": "r"}
+        ],
+      "APKAMPublicKey":"APKAMPublicKey",
+      "requestType": "newEnrollment",
+      "approval": {"state":"requested"}
+    }
     ```
-    enroll:request:app:<appName>:device:<deviceName>
-    :namespaces:<one,r;two,rw;three,r[;...]
-    :apkamPublicKey:<apkamPublicKey>
-    ```
-    - atServer creates a private keyStore entry in the `.__manage` namespace. The key for
-      the entry is `<enrollmentId>.new.enrollments.__manage@atSign`, where `<enrollmentId>` is
-      some random id and the data stored is
-      ```json
-      {
-        "sessionID": "<the session ID of the NewApp connection>",
-        "appName":"<appName>",
-        "deviceName":"<deviceName>",
-        "namespaces": [
-          {"ns":"one","ac": "r"},
-          {"ns":"two","ac": "rw"},
-          {"ns":"three","ac": "r"}
-          ],
-        "APKAMPublicKey":"APKAMPublicKey",
-        "requestType": "newEnrollment",
-        "approval": {"state":"requested"}
-      }
-      ```
-    - atServer generates a notification for this keyStore entry. Only apps which have
+  - atServer generates a notification for this keyStore entry. Only apps which have
     access to the `.__manage` namespace will receive this notification.
-    - atServer responds to NewApp with the usual PKAM challenge `data:<challenge>`
-    - NewApp tries `pkam`
-      - If the enrollment has not yet been approved, get an error code for "Enrollment request not yet approved"
-        and can retry `pkam` again
-      - If the enrollment has been denied, get a fatal error code for "Enrollment request denied",
-        and NewApp may no longer retry the `pkam`
-      - Once the enrollment has been approved, then the response will be accepted
-      - NewApp may then retrieve encryption private keys and self encryption keys
-        - `keys:get:private`
-        - `keys:get:self`
-    - An already-enrolled app ('ExistingApp') with access to the `.__manage` namespace
-      - Receives and decrypts the notification.
-      - Display the request details, and ask the user to approve or deny it
-      - **Approve:**
-        - `enroll:approving:<approvalID>`
-          - atServer updates the enrollment request record's "approval" field, e.g.
-            ```
-              "approval": {
-                "state":"approving",
-                "approverAppName": "ExistingApp",
-                "approvedDeviceName": "<deviceName>"
-              }
-            ```
-        - Make all encryption private keys available to NewApp        
-          - Get the encrypted symmetric self encryption key from server
-          - Decrypt the self encryption key using default encryption private key
-          - Retrieve all encryption keypairs' private keys
-            - `keys:get:private`
-              - Retrieves everything from the `__private_keys.__global` namespace
-              - Retrieves everything from `__private_keys.$namespace` for EVERY $namespace to
-                which NewApp app will have access
-            - (Recall that these are encrypted with ExistingApp's symmetric self encryption key)
-            - Decrypt the private keys using ExistingApp's symmetric self encryption key
-          - Generate a new symmetric self encryption key for NewApp. Encrypt with default encryption public key.
-          - Encrypt each private key with NewApp's AES key and store for NewApp
-            ```
-            keys:put:private:app:<appName>:device:<deviceName>
-              :keyName:<keyName>:namespace:<namespace>
-              :<encryptedEncryptionPrivateKey>
-      - **Deny:**
-        - `enroll:deny:<approvalID>`
-          - atServer updates the enrollment request record's "approval" field, e.g.
-            ```
-              "approval": {
-                "state":"denied",
-                "approverAppName": "ExistingApp",
-                "approvedDeviceName": "<deviceName>"
-              }
-            ```
-      - atServer will set timers to expire approval requests after a suitable configurable
-        interval (e.g. 90 seconds). Expired approval requests will be deleted.
-      - Upon startup, atServer will load all approval requests with approval state "requested",
-        delete them if they have already passed the expiry interval, and set an appropriate expiry
-        timer otherwise
-    - When a request is approved, atServer stores the APKAMPublicKey in an entry with
-      key name `public:appName.deviceName.pkam.__pkams.__public_keys`
+  - atServer responds to NewApp with the usual PKAM challenge `data:<challenge>`
+  - NewApp tries `pkam`
+    - If the enrollment has not yet been approved, get an error code for "Enrollment request not yet approved"
+      and can retry `pkam` again
+    - If the enrollment has been denied, get a fatal error code for "Enrollment request denied",
+      and NewApp may no longer retry the `pkam`
+    - Once the enrollment has been approved, then the response will be accepted
+    - NewApp may then retrieve encryption private keys and self encryption keys
+      - `keys:get:private`
+      - `keys:get:self`
+  - An already-enrolled app ('ExistingApp') with access to the `.__manage` namespace
+    - Receives and decrypts the notification.
+    - Display the request details, and ask the user to approve or deny it
+    - **Approve:**
+        ```
+          enroll:approve:<enrollmentId>\
+          :<encryptedDefaultEncPrivateKey:<encryptedDefaultSelfEncryptionKey>
+        ```
+        - atServer marks the enrollment request as `approved`
+    - **Deny:**
+      - `enroll:deny:<approvalID>`
+        - atServer marks the enrollment request as `denied`
+  - atServer will set timers to expire approval requests after a suitable configurable
+    interval (e.g. 90 seconds). Expired approval requests will be deleted.
+  - Upon startup, atServer will load all approval requests with approval state "requested",
+    delete them if they have already passed the expiry interval, and set an appropriate expiry
+    timer otherwise
+  - When a request is approved, atServer stores the APKAMPublicKey in an entry with
+    key name `public:appName.deviceName.pkam.__pkams.__public_keys`
 
-### SecondApp
+#### Sequence diagram
+```mermaid
+sequenceDiagram
+    participant NewClient
+    participant Server
+    participant ExistingPrivilegedClient
+
+    note over NewClient,ExistingPrivilegedClient: Subsequent client onboarding
+    NewClient->>NewClient: Generate APKAM keypair (ideally on a secure element of some sort)
+    NewClient->>NewClient: Generate new APKAM symmetric key - $apkamSymmetricKey
+    NewClient->>NewClient: Encrypt APKAM symmetric key with default encryption public key - $encryptedApkamSymmetricKey
+    NewClient->>Server: from:@alice
+    Server-->>NewClient: ${serverChallenge}
+    NewClient->>Server: enroll:request<br/>:app:<appName><br/>:device:<deviceName><br/>:namespaces:<...><br/>:apkamPublicKey:<apkamPublicKey>:<br/>apkamSymmetricKey<encryptedApkamSymmetricKey<br/>
+    Server->>ExistingPrivilegedClient: Send notification with enrollmentID and  $encryptedApkamSymmetricKey
+    Server->>Server: Mark enrolment request PENDING
+    Server->>ExistingPrivilegedClient: Approve or deny
+    note over NewClient: Meanwhile, NewClient will try periodically to authenticate
+    alt Pending
+        note over NewClient,Server: While pending but not timed out, authentication will fail <br/>but may be reattempted
+        NewClient->>Server: pkam:enrollmentId:<enrollmentId>:<PKAM private key SHA256Signature of ${serverChallenge}>
+        Server->>NewClient: Authentication failed - approval PENDING
+    else Denied
+        note over NewClient,Server: If explicitly denied, authentication will fail permanently <br/>until a new enrolment request is sent
+        ExistingPrivilegedClient->>Server: Denied
+        Server->>Server: Mark enrolment request DENIED
+        NewClient->>Server: pkam:enrollmentId:<enrollmentId>:<PKAM private key SHA256Signature of ${serverChallenge}>
+        Server->>NewClient: Authentication failed - approval DENIED
+    else Timeout
+        note over NewClient,Server: If the approval request times out, authentication will fail permanently <br/>until a new enrolment request is sent
+        NewClient->>Server: pkam:enrollmentId:<enrollmentId>:<PKAM private key SHA256Signature of ${serverChallenge}>
+        Server->>Server: If timeout has expired, Mark enrolment request TIMED OUT
+        Server->>NewClient: Authentication failed - approval request TIMED OUT
+    else Approved
+        note over NewClient,Server: If approved, authentication will succeed
+        ExistingPrivilegedClient->>ExistingPrivilegedClient: Decrypt $encryptedApkamSymmetricKey <br/>with default encryption private key<br/> - $apkamSymmetricKey
+        ExistingPrivilegedClient->>ExistingPrivilegedClient: Encrypt default encryption private key<br/> and default self encryption key<br/> with $apkamSymmetricKey
+        ExistingPrivilegedClient->>Server: enroll:approve:<enrollmentId>:<encryptedDefaultEncPrivateKey>:<encryptedDefaultSelfEncryptionKey>
+        Server->>Server: Mark enrolment request APPROVED
+        NewClient->>Server: pkam:enrollmentId:<enrollmentId>:<PKAM private key SHA256Signature of ${serverChallenge}>
+        Server->>Server: Verify signature using the PKAM public key presented in the enroll request earlier
+        alt Verified
+            Server->>NewClient: Authentication SUCCESS
+            NewClient->>Server: keys:get:private
+            NewClient->>NewClient: decrypt encryption private key with $apkamSymmetricKey
+            NewClient->>Server: keys:get:self
+            NewClient->>NewClient: decrypt self encryption key with $apkamSymmetricKey
+            NewClient->>NewClient: write to atKeysFile - enrollmentId, APKAM public and private key, APKAM symmetric key
+            
+        else Not verified
+            Server->>NewClient: Authentication FAILED
+        end
+    end
+```
 
 ### Other details
 - `info` verb will additionally include details of the APKAM's namespace access
@@ -257,13 +290,10 @@ This proposal is based upon, and expands upon, [this summary proposal](https://d
 - MPKAM apps need access to all encryption private keys
   - If an app being enrolled requires __manage access, then share all encryption private keys with them
   - So they can share the relevant subset with other apps as they enroll
-  - Corollary: When an encryption keypair is created in a namespace, it must be shared (1) with all apps which 
+  - Corollary: When an encryption keypair is created in a namespace, it must be shared (1) with all apps which
     have access to the namespace (2) with all apps who have the MPKAM access (__shared namespace)
 
-## Diagrams - current flows
-
-* Clients need to store PKAM private key, encryption private key, and AES key for private data (aka 'self' encryption
-  key)
+## Appendix - current flows
 
 ### First client onboarding
 ```mermaid
@@ -316,121 +346,5 @@ sequenceDiagram
         Server->>NewClient: Authentication SUCCESS
     else Not verified
         Server->>NewClient: Authentication FAILED
-    end
-```
-
-
-## Diagrams - proposed new flows
-- Clients needs only enrollmentID, APKAM private key and APKAM symmetric key
-
-### Initial client enrolment
-
-Very similar to how things are now except
-1. client generates a APKAM symmetric key and encrypts it with default encryption public key
-1. clients store two keys on the server
-   1. symmetric self encryption key - encrypted with APKAM symmetric key
-   2. the encryption private key - encrypted with APKAM symmetric key
-2. clients only need to store their enrollmentID, APKAM private key, APKAM symmetric key
-
-```mermaid
-sequenceDiagram
-    participant FirstClient
-    participant Server
-
-    note over FirstClient,Server: CRAM Authentication
-
-    FirstClient->>Server: from:@alice
-    Server->>Server: store digest <SHA512(${cramSecret}${serverChallenge})>
-    Server-->>FirstClient: ${serverChallenge}
-    FirstClient->>Server: cram:<SHA512(${cramSecret}${serverChallenge})>
-    Server->>Server: fetch stored digest
-    Server->>Server: Compare digests
-    alt digests do not match
-        Server-->>FirstClient: Authentication failed
-        FirstClient->>FirstClient: Exit
-    else digests match
-        Server-->>FirstClient: Success
-    end
-
-    note over FirstClient,Server: Onboarding
-    FirstClient->>FirstClient: Generate PKAM keypair (ideally on a secure element of some sort)
-    FirstClient->>Server: Store PKAM public key
-    Server->>Server: Store PKAM public key
-    note over Server: New - mark this PKAM key as privileged to enrol subsequent clients
-    Server->>Server: Mark this PKAM public key as privileged       
-    FirstClient->>FirstClient: Generate default encryption keypair    
-    FirstClient->>FirstClient: Generate symmetric self encryption key (e.g AES key)
-    note over FirstClient,Server: New
-    FirstClient->>FirstClient: Generate APKAM symmetric key     
-    FirstClient->>FirstClient: Encrypt default encryption private key with APKAM symmetric key - $encryptedDefaultPrivateEncryptionKey
-    FirstClient->>FirstClient: Encrypt self encryption key with APKAM symmetric key - $encryptedDefaultSelfEncryptionKey
-    FirstClient->>Server: enroll:request:$encryptedDefaultPrivateEncryptionKey:$encryptedDefaultSelfEncryptionKey         
-    Server->>Server: Store encrypted default encryption private key e.g $enrollmentId.default_enc_private_key.__manage@alice
-    Server->>Server: Store encrypted default self encryption keys e.g $enrollmentId.default_self_enc_key.__manage@alice
-    FirstClient->>Server: Disconnect and attempt pkam with enrollmentId
-    Server-->>FirstClient: Auth passed
-    FirstClient->>Server: Store default encryption public key
-    Server->>Server: Store default encryption public key
-    FirstClient->>FirstClient: Store enrollmentId and apkam symmetric key(unencrypted) in atKeysFile
-    FirstClient->>Server: Delete CRAM secret
-    Server->>Server: Delete CRAM secret 
-    note over FirstClient: Client now only needs access to the enrollmentId, APKAM private key and APKAM symmetric key 
-```
-
-
-### Subsequent client enrolment
-This is _**substantially**_ different from how things are now.
-
-```mermaid
-sequenceDiagram
-    participant NewClient
-    participant Server
-    participant ExistingPrivilegedClient
-
-    note over NewClient,ExistingPrivilegedClient: Subsequent client onboarding
-    NewClient->>NewClient: Generate APKAM keypair (ideally on a secure element of some sort)
-    NewClient->>NewClient: Generate new APKAM symmetric key - $apkamSymmetricKey
-    NewClient->>NewClient: Encrypt APKAM symmetric key with default encryption public key - $encryptedApkamSymmetricKey
-    NewClient->>Server: from:@alice
-    Server-->>NewClient: ${serverChallenge}
-    NewClient->>Server: enroll:request<br/>:app:<appName><br/>:device:<deviceName><br/>:namespaces:<...><br/>:apkamPublicKey:<apkamPublicKey>:<br/>apkamSymmetricKey<encryptedApkamSymmetricKey<br/>
-    Server->>ExistingPrivilegedClient: Send notification with enrollmentID and  $encryptedApkamSymmetricKey
-    Server->>Server: Mark enrolment request PENDING
-    Server->>ExistingPrivilegedClient: Approve or deny
-    note over NewClient: Meanwhile, NewClient will try periodically to authenticate
-    alt Pending
-        note over NewClient,Server: While pending but not timed out, authentication will fail <br/>but may be reattempted
-        NewClient->>Server: pkam:enrollmentId:<enrollmentId>:<PKAM private key SHA256Signature of ${serverChallenge}>
-        Server->>NewClient: Authentication failed - approval PENDING
-    else Denied
-        note over NewClient,Server: If explicitly denied, authentication will fail permanently <br/>until a new enrolment request is sent
-        ExistingPrivilegedClient->>Server: Denied
-        Server->>Server: Mark enrolment request DENIED
-        NewClient->>Server: pkam:enrollmentId:<enrollmentId>:<PKAM private key SHA256Signature of ${serverChallenge}>
-        Server->>NewClient: Authentication failed - approval DENIED
-    else Timeout
-        note over NewClient,Server: If the approval request times out, authentication will fail permanently <br/>until a new enrolment request is sent
-        NewClient->>Server: pkam:enrollmentId:<enrollmentId>:<PKAM private key SHA256Signature of ${serverChallenge}>
-        Server->>Server: If timeout has expired, Mark enrolment request TIMED OUT
-        Server->>NewClient: Authentication failed - approval request TIMED OUT
-    else Approved
-        note over NewClient,Server: If approved, authentication will succeed
-        ExistingPrivilegedClient->>ExistingPrivilegedClient: Decrypt $encryptedApkamSymmetricKey <br/>with default encryption private key<br/> - $apkamSymmetricKey
-        ExistingPrivilegedClient->>ExistingPrivilegedClient: Encrypt default encryption private key<br/> and default self encryption key<br/> with $apkamSymmetricKey
-        ExistingPrivilegedClient->>Server: enroll:approve:<enrollmentId>:<encryptedDefaultEncPrivateKey>:<encryptedDefaultSelfEncryptionKey>
-        Server->>Server: Mark enrolment request APPROVED
-        NewClient->>Server: pkam:enrollmentId:<enrollmentId>:<PKAM private key SHA256Signature of ${serverChallenge}>
-        Server->>Server: Verify signature using the PKAM public key presented in the enroll request earlier
-        alt Verified
-            Server->>NewClient: Authentication SUCCESS
-            NewClient->>Server: keys:get:private
-            NewClient->>NewClient: decrypt encryption private key with $apkamSymmetricKey
-            NewClient->>Server: keys:get:self
-            NewClient->>NewClient: decrypt self encryption key with $apkamSymmetricKey
-            NewClient->>NewClient: write to atKeysFile - enrollmentId, APKAM public and private key, APKAM symmetric key
-            
-        else Not verified
-            Server->>NewClient: Authentication FAILED
-        end
     end
 ```
