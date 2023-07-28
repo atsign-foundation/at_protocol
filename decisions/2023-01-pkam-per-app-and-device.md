@@ -203,11 +203,11 @@ This is _**substantially**_ different from how things are now.
     - Receives and decrypts the notification.
     - Display the request details, and ask the user to approve or deny it
     - **Approve:**
-        `enroll:approve:<enrollmentId>:<encryptedDefaultEncPrivateKey:<encryptedDefaultSelfEncryptionKey>`
-        - atServer marks the enrollment request as `approved`
+      - `enroll:approve:<enrollmentId>:<encryptedDefaultEncPrivateKey:<encryptedDefaultSelfEncryptionKey>`
+      - atServer marks the enrollment request as `approved`
     - **Deny:**
       - `enroll:deny:<approvalID>`
-        - atServer marks the enrollment request as `denied`
+      - atServer marks the enrollment request as `denied`
   - atServer will set timers to expire approval requests after a suitable configurable
     interval (e.g. 90 seconds). Expired approval requests will be deleted.
   - Upon startup, atServer will load all approval requests with approval state "requested",
