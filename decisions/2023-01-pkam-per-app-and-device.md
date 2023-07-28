@@ -357,9 +357,7 @@ sequenceDiagram
     FirstClient->>Server: Store PKAM public key
     Server->>Server: Store PKAM public key
     note over Server: New - mark this PKAM key as privileged to enrol subsequent clients
-    Server->>Server: Mark this PKAM public key as privileged
-    FirstClient->>Server: PKAM authentication
-    Server-->>FirstClient: Auth passed   
+    Server->>Server: Mark this PKAM public key as privileged       
     FirstClient->>FirstClient: Generate default encryption keypair    
     FirstClient->>FirstClient: Generate symmetric self encryption key (e.g AES key)
     note over FirstClient,Server: New
