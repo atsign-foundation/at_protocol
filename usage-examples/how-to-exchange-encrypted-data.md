@@ -1,9 +1,11 @@
 ## How to exchange encrypted data
 
-* **Status:** **Draft** / Approved / Rejected / Superseded
-* **Last Updated:** 2023-01-25
+* **Last Updated:** 2023-08-09
 * **Objective:** Explain how an authenticated atSign client exchanges data with another atSign
 
+**Note** When atClients send notifications to each other, the `notify` 
+payloads are encrypted in the same way as is described below for the `put` 
+and `get` operations
 
 <!-- TOC -->
   * [How to exchange encrypted data](#how-to-exchange-encrypted-data)
