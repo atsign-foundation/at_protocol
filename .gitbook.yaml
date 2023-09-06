@@ -1,0 +1,5 @@
+root: ./
+
+structure:
+  readme: specification/at_protocol_specification.md
+  summary: SUMMARY.md
