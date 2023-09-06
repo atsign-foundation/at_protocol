@@ -15,4 +15,4 @@
 * [Code of conduct](code\_of\_conduct.md)
 * [Contributing](CONTRIBUTING.md)
 * [Security](SECURITY.md)
-* [Primary License](info/LICENSE)
+* [Primary License](info/license.md)
