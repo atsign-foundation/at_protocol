@@ -1,7 +1,7 @@
 <!-- This template is inspired by https://github.com/GoogleCloudPlatform/emblem/tree/main/docs/decisions -->
 ## Remove Reverse SSH No Ports Client
 
-* **Status:** Draft <!-- / Approved / Rejected / Superseded -->
+* **Status:** Approved <!-- / Draft / Rejected / Superseded -->
 * **Last Updated:** 2023-11-14
 * **Objective:** To finalize the decision to remove reverse client support in SSH No Ports 4.0.0
 
