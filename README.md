@@ -2,6 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://github.com/atsign-foundation/at_protocol/blob/trunk/LICENSE)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/atsign-foundation/at_protocol/badge)](https://api.securityscorecards.dev/projects/github.com/atsign-foundation/at_protocol)
+NA - Documentation repo, though implementations such as at_client_sdk do have tests
 
 # The atProtocol Specification
 
