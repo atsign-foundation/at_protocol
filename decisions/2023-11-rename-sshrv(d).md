@@ -1,7 +1,7 @@
 <!-- This template is inspired by https://github.com/GoogleCloudPlatform/emblem/tree/main/docs/decisions -->
 ## Rename sshrv(d)
 
-* **Status:** Draft <!-- / Approved / Rejected / Superseded -->
+* **Status:** Approved <!-- Draft / Rejected / Superseded -->
 * **Last Updated:** 2023-11-14
 * **Objective:** To rename sshrvd and sshrv to something more technically accurate
 
@@ -21,7 +21,7 @@ sshrvd and sshrv are actually tcp socket rendezvous, and are not ssh specific.
 
 ## Proposal Summary
 
-To rename sshrvd and sshrv to something without "ssh" and possibly with "tcp" in the name.
+To rename sshrvd and sshrv to srd and sr, respectively.
 
 ## Proposal in Detail
 
@@ -42,3 +42,5 @@ We held a secondary vote in [a PR](https://github.com/atsign-foundation/at_proto
 1. Keep the same name - sshrv(d)
 2. Something specifically tcp related - e.g. tcprv(d), tcpsr(d), etc...
 3. Something generic to sockets - e.g. srv(d), sr(d), etc... 
+
+In a follow up discussion from this vote, the team agrees upon "sr(d)" - sr for the client, srd for the daemon.
