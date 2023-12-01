@@ -21,7 +21,7 @@ sshrvd and sshrv are actually tcp socket rendezvous, and are not ssh specific.
 
 ## Proposal Summary
 
-To rename sshrvd and sshrv to something without "ssh" and possibly with "tcp" in the name
+To rename sshrvd and sshrv to something without "ssh" and possibly with "tcp" in the name.
 
 ## Proposal in Detail
 
@@ -34,3 +34,11 @@ since that client could eventually support udp and other socket types.
 
 If we want separate daemon and clients for each socket type, then we should use a name which does contain "tcp"
 so that we can be specific to that particular implementation.
+
+### Update: Friday, December 1, 2023
+
+We held a secondary vote in [a PR](https://github.com/atsign-foundation/at_protocol/pull/112) and established that the naming should be generic (option 3 won):
+
+1. Keep the same name - sshrv(d)
+2. Something specifically tcp related - e.g. tcprv(d), tcpsr(d), etc...
+3. Something generic to sockets - e.g. srv(d), sr(d), etc... 
