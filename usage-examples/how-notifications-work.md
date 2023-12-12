@@ -1,6 +1,7 @@
 # How atProtocol notifications work
 
 ## High level
+
 ```mermaid
 flowchart LR
     subgraph bob
@@ -20,6 +21,7 @@ flowchart LR
 ```
 
 ## More detail
+
 ```mermaid
 flowchart LR
     style AS fill:#def
@@ -52,11 +54,15 @@ flowchart LR
     BS_NS -- "(8)" --> BS_DS
     BS_NS -- "(9) write to monitors" --> BC
 ```
+
 ## atClient to atServer 'PKAM' authentication
+
 See [this diagram](./how-to-exchange-encrypted-data.md#sequence-diagram)
 
 ## atServer-to-atServer authentication
+
 ### 1) "from:@alice"
+
 ```mermaid
 flowchart BT
     style alice fill:#def
@@ -75,6 +81,7 @@ flowchart BT
 ```
 
 ### 2) "pol" (proof of life)
+
 ```mermaid
 flowchart LR
     subgraph bob
