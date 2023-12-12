@@ -1,5 +1,7 @@
-<!-- This template is inspired by https://github.com/GoogleCloudPlatform/emblem/tree/main/docs/decisions -->
-## Title
+# Title
+
+<!-- This template is inspired by
+https://github.com/GoogleCloudPlatform/emblem/tree/main/docs/decisions -->
 
 * **Status:** Draft / Approved / Rejected / Superseded
 * **Last Updated:** YYYY-MM-DD
@@ -14,8 +16,10 @@
 ## Other considerations <!-- optional -->
 
 ## Considered Options <!-- optional -->
-- ### Option 1
-- ### Option 2
+
+* ### Option 1
+
+* ### Option 2
 
 ## Proposal Summary
 
