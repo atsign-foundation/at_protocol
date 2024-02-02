@@ -238,14 +238,13 @@ sequenceDiagram
     participant BAS as Bob's AtServer
     participant B as Bob
 
-    Note left of A: 1. Lookup - Get the location of<br/>Alice's AtSign server
+    Note left of A: 1. Lookup - Get the location of Alice's AtSign server
     A->>D: TLS: root.atsign.org:64
     Note over A,D: @alice
     D-->>A: Location of @alice AtServer
     Note over D,A: <someDomain.exmaple.com>:<port>
 
-    Note left of A: 2. Authenticate with AtServer<br/>by proving we have
-    ownership<br/>of the private key
+    Note left of A: 2. Authenticate with AtServer by proving we have ownership of the private key
     A->>AAS: TLS: @alice AtServer location
     Note over A,AAS: from:@alice
     AAS-->>A: Challenge
@@ -279,12 +278,12 @@ sequenceDiagram
         Note over A,AAS: Update:ttr:86400:@bob:shared_key@alice  <encryptedSymKey>
     end
 
-    Note left of A: 4. Send data after encrypting with<br/>newly created sym key
+    Note left of A: 4. Send data after encrypting with newly created sym key
     A->>A: Encrypt data with aesSymmetricalKey
     A->>AAS: Share data with @bob
     Note over A,AAS: Update:<metadata>@bob:record_key.namespace@alice encryptedData
 
-    Note right of B: 5. Fetch encrypted data<br/>shared with @bob 
+    Note right of B: 5. Fetch encrypted data shared with @bob 
     B->>BAS: Lookup data for a specific AtRecord shared by @alice
     Note over B,BAS: lookup:record_key.namespace@alice
     BAS-->>B: Success
@@ -296,11 +295,11 @@ sequenceDiagram
     BAS-->>B: Success
     Note over B,BAS: data:encryptedForBobSharedKey
 
-    Note right of B: 7. Decrypt @alice sym key<br/>using @bob private key
+    Note right of B: 7. Decrypt @alice sym key using @bob private key
     B->>B: Decrypt using aesEncryptPrivateKey
     Note over B: Decrypted data
 
-    Note right of B: 8. Decrypt message using<br/>using @alice sym key
+    Note right of B: 8. Decrypt message using using @alice sym key
     B->>B: Decrypt using shared aesSymemtricalKey
     Note over B: Decrypted message
 ```
