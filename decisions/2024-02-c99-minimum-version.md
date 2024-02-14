@@ -5,7 +5,7 @@ https://github.com/GoogleCloudPlatform/emblem/tree/main/docs/decisions -->
 
 * **Status:** Approved
 * **Last Updated:** 2024-02-14
-* **Objective:** Decide on a minimum version of the C SDK to support; C89/90 or C99.
+* **Objective:** Objective of this document is to analyze C89/C90 and C99, and decide on a minimum version of C to support in the C SDK. Approval of this document will mean that C99 is the approved minimum version of C to support in the C SDK.
 
 ## Context & Problem Statement
 
@@ -13,7 +13,7 @@ We have not made a concrete decision on which version of C to support in the C S
 
 ## Goals
 
-Goal of this document is to decide on a minimum version of C to support in the C SDK
+Goal of this document is to decide on a minimum version of C to support in the C SDK. Approval of this document will mean that C99 is the approved minimum version of C to support in the C SDK. This document analyzes the impacts of choosing C99 as the minimum version of C to support in the C SDK.
 
 ### Non-goals
 
