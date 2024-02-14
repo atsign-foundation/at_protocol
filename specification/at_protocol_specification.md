@@ -68,17 +68,6 @@ atServer can be any of the following 5 types:
    > The owner of the atServer should be allowed to update or delete the
    > value of a public key.
 
-2. Private Key
-
-   * A private key is a key which cannot be looked up any atSign user other
-   than the one created it.
-   * A private key should not be returned in a _scan_ verb result.
-   * Format of the private key should be **privatekey::<@sign>**.
-
-   **Example:**
-
-   `privatekey:pk1@alice`
-
    > The owner of the atServer should be allowed to update or delete the
    > value of a private key.
 
@@ -101,12 +90,12 @@ atServer can be any of the following 5 types:
    > The owner of the atServer should be allowed to update or delete the
    > value of a user key.
 
-4. Internal Key
+3. Internal Key
 
    * Internal keys start with an underscore(\_) and are not displayed in scan
    results. Internal keys can be looked up only by the owner of the atServer.
 
-5. Cached Key
+4. Cached Key
 
    * A cached key is a key that was originally created by another atSign user
    but is now cached on the atServer of another user's atSign as he/she was
@@ -841,7 +830,7 @@ authenticated atSigns can use the `delete` verb.
 
 The following is the regex of the `delete` verb:
 
-`^delete(:priority:(?<priority>low|medium|high))?(:cached)?(:((?<publicScope>public)|(@(?<forAtSign>[^:@\s]+))))?:(?<atKey>(([^:@\s]+)|(privatekey:at_secret)))(@(?<atSign>[^:@\s]+))?$'`
+`^delete(:priority:(?<priority>low|medium|high))?(:cached)?(:((?<publicScope>public)|(@(?<forAtSign>[^:@\s]+))))?:(?<atKey>(([^:@\s]+)|(at_secret)))(@(?<atSign>[^:@\s]+))?$`
 
 **Example:**
 
