@@ -50,4 +50,4 @@ We are leaning towards C99 because:
 
 ### Expected Consequences <!-- optional -->
 
-- If a customer is programming in C89/90 strictly, the C SDK (in C99) may not be compatible with their code.
+* If a customer is programming in C89/90 strictly, the C SDK (in C99) may not be compatible with their code.
