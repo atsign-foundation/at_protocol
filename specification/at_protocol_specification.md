@@ -82,7 +82,7 @@ atServer can be any of the following 5 types:
    > The owner of the atServer should be allowed to update or delete the
    > value of a private key.
 
-3. User key
+2. Shared Key
 
    * A user key can only be looked up by an atSign owner with whom the data
    has been shared.
