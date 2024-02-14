@@ -67,7 +67,6 @@ atServer can be any of the following 5 types:
 
    > The owner of the atServer should be allowed to update or delete the
    > value of a public key.
-
    > The owner of the atServer should be allowed to update or delete the
    > value of a private key.
 
