@@ -3,7 +3,7 @@
 <!-- This template is inspired by
 https://github.com/GoogleCloudPlatform/emblem/tree/main/docs/decisions -->
 
-* **Status:** Draft
+* **Status:** Approved
 * **Last Updated:** 2024-02-14
 * **Objective:** Decide on a minimum version of the C SDK to support; C89/90 or C99.
 
