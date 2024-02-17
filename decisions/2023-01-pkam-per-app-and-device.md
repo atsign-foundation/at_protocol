@@ -126,6 +126,7 @@ format.
 
 #### Sequence diagram
 
+<!-- pyml disable-num-lines 43 md013-->
 ```mermaid
 sequenceDiagram
     participant FirstClient
@@ -240,6 +241,7 @@ delivered to apps which have permission to approve or deny the request
 
 #### Sequence diagram
 
+<!-- pyml disable-num-lines 52 md013-->
 ```mermaid
 sequenceDiagram
     participant NewClient
