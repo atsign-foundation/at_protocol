@@ -230,6 +230,7 @@ This is created the first time one AtSign tries to communicate with another.
 Sequence diagram of the process of sending and receiving data between two
 AtSigns.
 
+<!-- pyml disable-num-lines 15 md013-->
 ```mermaid
 sequenceDiagram
     participant A as Alice

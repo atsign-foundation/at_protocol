@@ -27,4 +27,4 @@ jobs:
       - name: Install and run linter
         run: |-
           python3 -m pip install --require-hashes -r tools/requirements.txt
-          pymarkdownlnt -d MD013,MD024 scan */*.md
+          pymarkdownlnt -c tools/pymarkdownlnt.conf scan */*.md
