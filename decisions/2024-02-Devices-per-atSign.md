@@ -1,6 +1,6 @@
 # Devices per atSign
 
-* **Status:** Draft
+* **Status:** Approved
 * **Last Updated:** 2024-02-23
 * **Objective:** A standard supported maximum of devices per atSign to
 engineer to.
