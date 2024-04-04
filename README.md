@@ -5,7 +5,7 @@ alt="The Atsign Foundation"></a><a href="https://atsign.com#gh-dark-mode-only">
 alt="The Atsign Foundation"></a></h1>
 
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://github.com/atsign-foundation/at_protocol/blob/trunk/LICENSE)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/atsign-foundation/at_protocol/badge)](https://api.securityscorecards.dev/projects/github.com/atsign-foundation/at_protocol)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/atsign-foundation/at_protocol/badge)](https://securityscorecards.dev/viewer/?uri=github.com/atsign-foundation/at_protocol&sort_by=check-score&sort_direction=desc)
 
 # The atProtocol Specification
 
