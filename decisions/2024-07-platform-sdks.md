@@ -1,6 +1,6 @@
 # Platform SDKs
 
-* **Status:** Draft
+* **Status:** Approved
 * **Last Updated:** 2024-07-10
 * **Objective:** Set out a policy for our approach to providing software
 development kits (SDKs) for various languages and platforms.
