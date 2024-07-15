@@ -3,7 +3,7 @@
 <!-- This template is inspired by
 https://github.com/GoogleCloudPlatform/emblem/tree/main/docs/decisions -->
 
-* **Status:** Draft
+* **Status:** Approved
 * **Last Updated:** 2024-06-19
 * **Objective:** Ensure our packages uses the latest compatible dependencies
 to streamline the update process and avoid dependency conflicts.
