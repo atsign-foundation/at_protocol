@@ -78,24 +78,7 @@ atServer can be any of the following 5 types:
    > The owner of the atServer should be allowed to update or delete the value
    > of a self key.
 
-3. Internal Key
-
-   > Think of this as a hidden self key (the underscore makes it hidden).
-
-   - An internal key is a key which cannot be looked up any atSign user other
-     than the one created it.
-   - An internal key should **not** be part of the _scan_ verb result.
-   - Format of the internal key should be `<key><atSign>`, but `<key>` must
-     start with an underscore (`_`).
-
-   **Example:**
-
-   `_internalkey@alice`
-
-   > The owner of the atServer should be allowed to update or delete the value
-   > of an internal key.
-
-4. Shared key
+3. Shared key
 
    - A shared key can only be looked up by an atSign owner with whom the data
      has been shared.
@@ -112,7 +95,28 @@ atServer can be any of the following 5 types:
    > &nbsp; The owner of the atServer should be allowed to update or delete the
    > value of a user key.
 
-5. Cached Key
+#### Augmented Keys
+
+These are special key types which are augmented versions of the three primary
+key types.
+
+1. Hidden Key
+
+   > Public, self, or shared key can be hidden.
+
+   - Format of the hidden key should follow its primary type's format, but
+     `<key>` must start with an underscore (`_`).
+   - A hidden key should **not** be part of the _scan_ verb result.
+
+   **Examples:**
+
+   ```text
+   public:_location@alice
+   _selfkey1@alice
+   @bob:_phone@alice
+   ```
+
+2. Cached Key
 
    > Only shared keys should be cached.
 
@@ -872,7 +876,7 @@ authenticated atSigns can use the `delete` verb.
 The following is the regex of the `delete` verb:
 
 <!-- pyml disable-next-line md013-->
-`^delete(:priority:(?<priority>low|medium|high))?(:cached)?(:((?<publicScope>public)|(@(?<forAtSign>[^:@\s]+))))?:(?<atKey>(([^:@\s]+)|(privatekey:at_secret)))(@(?<atSign>[^:@\s]+))?$'`
+`^delete(:priority:(?<priority>low|medium|high))?(:cached)?(:((?<publicScope>public)|(@(?<forAtSign>[^:@\s]+))))?:(?<atKey>(([^:@\s]+)|(at_secret)))(@(?<atSign>[^:@\s]+))?$`
 
 **Example:**
 
