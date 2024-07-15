@@ -238,7 +238,6 @@ atSign owner using the `from` verb.
 An atServer should have the following standard keys:
 
 <!-- pyml disable-num-lines 19 md013-->
-
 | **Key**                   | **Description**                                               |
 | ------------------------- | ------------------------------------------------------------- |
 | public:publickey@         | Public key used by other atSigns for encryption.              |
