@@ -67,7 +67,7 @@ atServer can be any of the following 5 types:
 2. Self Key
 
    - A self key is a key which cannot be looked up any atSign user other than
-     the one created it.
+     the one who created it.
    - A self key should be part of the _scan_ verb result.
    - Format of the self key should be `<key><atSign>`.
 
