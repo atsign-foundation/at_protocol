@@ -55,7 +55,9 @@ Remove the `-k` flag as a mandatory flag in `at_activate enroll` and come up
 
 ## Proposal in Detail
 
-I'm leaning towards the hashed namespace key name, we would be hashing using the enrollment_id. This would allow the user to see which keys are for what using the `at_activate list` command.
+I'm leaning towards the hashed namespace key name, we would be hashing using
+the enrollment_id. This would allow the user to see which keys are for what 
+using the `at_activate list` command.
 
 If we want we could instead include the hash inside of the json of the file.
 
