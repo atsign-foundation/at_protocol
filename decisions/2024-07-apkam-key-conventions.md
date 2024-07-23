@@ -37,7 +37,6 @@ Such as:
 * `@soccer0_{enrollment_id}_key.atKeys`
 * `@soccer0_{hashed_namespace}_key.atKeys`
 
-
 * ### Create a naming convention for APKAM keys in the documentation
 
 Create a naming convention for APKAM keys in the documentation.
