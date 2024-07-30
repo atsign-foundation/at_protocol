@@ -82,7 +82,7 @@ Generally, function signatures should follow this format:
 <return_type> <function_name>(<context>, <input,...>, <output,...>, <optional,...>);
 ```
 
-- <return_type> - generally an `int` to give an error code, or may be any other return type as long as a complex error is not possible 
+- <return_type> - generally an `int` to give an error code, or may be any other return type as long as a complex error is not possible
 - <function_name> - the name of the function (example 'foo_bar') should be in snake_case
 - <context> - typically this is a struct pointer that is the core object meant to be used in the function (i.e. this function LIVES and BREATHES because of the object that the caller is passing), this should be set to `const` if it is meant to be read-only
 - <input,..> - any input function arguments, any values that are not editable or should not be edited, should be set to `const`.
@@ -133,6 +133,7 @@ int do_something(const char *value, const size_t value_len);
 In method 1, take the input and expect it to be null-terminated
 
 Use method 1 when:
+
 - Working with strings (chars)
 - You specify that the input should be null-terminated and it is the caller's responsibility to pass in a null-terminated string
 
@@ -145,7 +146,6 @@ Use method 2 when:
 - Working with bytes (unsigned chars) - a null-terminator cannot be dependent to act as the end of the data
 - Working with files or standard input - when the caller is most likely passing in this data from a file, it will be a lot easier for them to pass the length as opposed to having to make a completely separate string and null-terminate it.
 
-
 # Convention 4. Function Output
 
 Related discussions have been made in : #335
@@ -154,7 +154,7 @@ Related discussions have been made in : #335
 
 This section is regarding the `<output,...>` section of the function signature.
 
-There are two ways to give back an array of data back to the caller of the function. The first way is **double pointer method** and the second way is **buffer and length**. 
+There are two ways to give back an array of data back to the caller of the function. The first way is **double pointer method** and the second way is **buffer and length**.
 
 In the first way, the **function** is responsible for allocating the memory and the **caller** is responsible for freeing. In the second way, the **caller** is responsible for both allocating and freeing the memory.
 
@@ -239,6 +239,7 @@ if((ret = get_shared_encryption_key(shared_with, shared_encryption_key)) == 0) {
 ```
 
 You should use this method when
+
 - You wanted to use Method 2 but the size and length are always the same (in the example above, the size always == length and is always 32, assuming that the return exit code was 0 which means successful).
 - You're not returning a string, you're returning bytes (unsigned chars)
 
@@ -439,4 +440,4 @@ size_t calculate_length(atclient_atkey *atkey) {
 }
 ```
 
-Since atkey was null, then it is pretty obvious that the length is 0. The length is truly 0 beacuse nothing exists and there was nothing to calculate. This is why the return type need not be `int` in this scenario. There is *always* an answer to the question "what is the length of this atkey?" that fits the return type `size_t`.
+Since atkey was null, then it is pretty obvious that the length is 0. The length is truly 0 beacuse nothing exists and there was nothing to calculate. This is why the return type need not be `int` in this scenario. There is _always_ an answer to the question "what is the length of this atkey?" that fits the return type `size_t`.
