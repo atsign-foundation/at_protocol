@@ -383,10 +383,10 @@ then we would have to free the memory that was allocated before the `goto` state
 
 ### Convention 6. Error Handling
 
-#### Rule 1: The first statement in any function that is returning `int` (with the
+#### Rule 1: The first statement in any function that is returning `int`
 
-intent of returning an exit code) should be declaring what the default error code
-is.
+(with the intent of returning an exit code) should be declaring what the default
+error code is).
 
 For example,
 
@@ -491,9 +491,9 @@ code could potentially not have been set and an exit code 0 could somehow be
 mistakenly `returned. The reason for this rule is also because of Rule 1, and
 it helps us in the future if we ever want to change our error handling.
 
-#### Rule 4: Function return types should be `int` and should return an error code. If
+#### Rule 4: Function return types should be `int`, if there is an error code
 
-an error is not possible, then the return type should be `void`. With the exception
+If an error is not possible, then the return type should be `void`. With the exception
 of types like `bool` or `size_t` where the error code is not complex.
 
 Example
