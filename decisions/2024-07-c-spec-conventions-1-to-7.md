@@ -179,12 +179,15 @@ Related discussions have been made in : #335
 
 This section is regarding the `<output,...>` section of the function signature.
 
-There are two ways to give back an array of data back to the caller of the function.
-The first way is **double pointer method** and the second way is **buffer and length**.
+There are three ways to give back an array of data back to the caller of the function.
+The first way is **double pointer method**, the second way is **buffer and length**,
+and the third way is **buffer and no length** which is similar to the second.
 
 In the first way, the **function** is responsible for allocating the memory and
 the **caller** is responsible for freeing. In the second way, the **caller**
-is responsible for both allocating and freeing the memory.
+is responsible for both allocating and freeing the memory. In the third way, the
+caller is responsible for allocating the correct size of the buffer as specified
+by the function documentation.
 
 The third way is very similar to the second method, but the function does not return
 the length.
@@ -449,6 +452,10 @@ if((ret = foo_bat()) != 0) {
 // code
 ```
 
+The "bad" situation is not always bad and may help with the readability of your
+code or the "good" scenario is simply impossible to achieve. That is why this
+rule says "Try" to achieve the "good" scenario.
+
 #### Rule 3: If an error code isn't returned by a function and an error occurs explicitly set it as the first as soon as the error occurs
 
 For example,
@@ -484,7 +491,8 @@ code could potentially not have been set and an exit code 0 could somehow be
 mistakenly `returned. The reason for this rule is also because of Rule 1, and
 it helps us in the future if we ever want to change our error handling.
 
-Rule 4: Function return types should be `int` and should return an error code. If
+#### Rule 4: Function return types should be `int` and should return an error code. If
+
 an error is not possible, then the return type should be `void`. With the exception
 of types like `bool` or `size_t` where the error code is not complex.
 
