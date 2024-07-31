@@ -233,7 +233,8 @@ the memory, reset the buffer, and make a variable to hold the length.
 
 ```c
 // function signature
-int atclient_atkey_to_string(const atclient_atkey *atkey, char *return_buffer, const size_t return_buffer_size, size_t *return_buffer_len);
+int atclient_atkey_to_string(const atclient_atkey *atkey, char *return_buffer,
+    const size_t return_buffer_size, size_t *return_buffer_len);
 ```
 
 Sometimes, `size_t *return_buffer_len` is an optional buffer and NULL can be passed
@@ -250,7 +251,8 @@ size_t string_len = 0;
 
 atclient_atkey_to_string(&atkey, string, string_size, &string_len);
 
-printf("[%d]: %.*s\n", (int) string_len, (int) string_len, string); // outputs "[11]: foo.bar@bob"
+printf("[%d]: %.*s\n", (int) string_len, (int) string_len, string);
+    // outputs "[11]: foo.bar@bob"
 ```
 
 You should use this method when:
@@ -261,7 +263,7 @@ point in the buffer)
 cause a segfault, this is typically found in something like RSA decryption)
 - When the input is most likely coming from a file (makes it easier to pass in
 strings so that the caller doesn't have to make separately null-terminated strings
-and easily do something like foo_bar(string[3], 10, string[14], 5, string[20], 3); )
+and easily do something like foo_bar(string[3], 10, string[14], 5, string[20], 3);)
 
 #### Buffer and No Length
 
@@ -275,7 +277,8 @@ the expected output.
 
 /**
  * @param shared_with - shared with atSign, null-terminated and non-null
- * @param shared_encryption_key - assumed to be at least 32 bytes allocated (representing an AES256 key)
+ * @param shared_encryption_key - assumed to be at least 32 bytes allocated
+ * (representing an AES256 key)
  */
 int get_shared_encryption_key(const char *shared_with, unsigned char *shared_encryption_key);
 ```
@@ -285,7 +288,8 @@ int get_shared_encryption_key(const char *shared_with, unsigned char *shared_enc
 const char *shared_with = "@bob";
 unsigned char shared_encryption_key[32];
 if((ret = get_shared_encryption_key(shared_with, shared_encryption_key)) == 0) {
-    // at this point, shared_encryption_key was successfully populated with 32 bytes to the brim
+    // at this point, shared_encryption_key was successfully populated with 32
+    // bytes to the brim
 }
 ```
 
@@ -456,7 +460,10 @@ The "bad" situation is not always bad and may help with the readability of your
 code or the "good" scenario is simply impossible to achieve. That is why this
 rule says "Try" to achieve the "good" scenario.
 
-#### Rule 3: If an error code isn't returned by a function and an error occurs explicitly set it as the first as soon as the error occurs
+#### Rule 3: Set error code as soon as possible
+
+If an error code isn't returned by a function and an error occurs explicitly set
+it as the first as soon as the error occurs
 
 For example,
 
@@ -467,7 +474,8 @@ int exit_code;
 unsigned char *x = NULL;
 if((x = malloc(sizeof(unsigned char) * 45)) == NULL) {
     printf("Error occurred\n");
-    exit_code = 5; // the exit_code should be the FIRST thing set AS SOON AS the error occurs. This is wrong !
+    exit_code = 5; // the exit_code should be the FIRST thing set AS SOON AS the
+        // error occurs. This is wrong !
     return exit_code;
 }
 ```
