@@ -1,6 +1,6 @@
 # C SDK Specification
 
-- **Status:** Draft
+- **Status:** Approved
 - **Last Updated:** 2024-07-29
 - **Objective:** Define conventions for contributing to the C SDK
 
