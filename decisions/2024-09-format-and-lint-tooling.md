@@ -80,7 +80,13 @@ Proposed a list of formatters for the team to use for various languages.
 
 ## Proposal in Detail
 
-- To be completed after further discussion
+- After discussing in architecture, @cpswan noted that we chose pymarkdownlnt
+  because it was easy to get up and running
+- Having messed around with pymarkdownlnt locally, I was able to change MD012,
+  the rule causing issues to allow a maximum of two lines instead of one which
+  means it works well in most scenarios
+  - occasionally, we will have to disable MD022 if a pyml comment is next to a
+    header (only one instance in the at_protocol spec)
 
 ### Expected Consequences <!-- optional -->
 
