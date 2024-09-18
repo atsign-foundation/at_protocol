@@ -45,7 +45,7 @@ changes, white space changes, etc.
 > Not tied to any of these, but these are what I am using as they work well and
 > seem to be popular.
 
-<!--markdownlint-disable MD013-->
+<!-- pyml disable-num-lines 11 md013-->
 
 | Formatter                                   | Description                                                            | Language(s)                                             |
 | ------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------- |
@@ -57,8 +57,6 @@ changes, white space changes, etc.
 | gersemi                                     | Cmake formatter                                                        | cmake                                                   |
 | clangd                                      | C family formatter, which supports configuration                       | C                                                       |
 | prettier                                    | A formatter for webdev which supports several file types               | HTML, CSS, JavaScript, JSON, YAML, (Markdown available) |
-
-<!--markdownlint-enable MD013-->
 
 > Note on clangd: we currently have at_c configured to be more like dart format
 >

@@ -10,7 +10,7 @@ on:
     branches:
       - trunk
 
-permissions:  # added using https://github.com/step-security/secure-workflows
+permissions: # added using https://github.com/step-security/secure-workflows
   contents: read
 
 jobs:
@@ -27,4 +27,6 @@ jobs:
       - name: Install and run linter
         run: |-
           python3 -m pip install --require-hashes -r tools/requirements.txt
-          pymarkdownlnt -s 'plugins.md024.siblings_only=$!True' scan */*.md
+          pymarkdownlnt -s 'plugins.md024.siblings_only=$!True' \
+                        -s 'plugins.md012.maximum=$#2' \
+                        scan */*.md
