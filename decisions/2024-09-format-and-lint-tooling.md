@@ -47,18 +47,21 @@ changes, white space changes, etc.
 
 <!-- pyml disable-num-lines 11 md013-->
 
-| Formatter                                   | Description                                                            | Language(s)                                             |
-| ------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------- |
-| dart format                                 | Native                                                                 | Dart                                                    |
-| rustfmt                                     | Native                                                                 | Rust                                                    |
-| [gofumpt](https://github.com/mvdan/gofumpt) | Native gofmt with some stricter rules                                  | Go                                                      |
-| markdownlint-cli2                           | Linter with the same rules as at_protocol spec, has built-in formatter | Markdown                                                |
-| shfmt                                       | Shell formatter                                                        | shell                                                   |
-| gersemi                                     | Cmake formatter                                                        | cmake                                                   |
-| clangd                                      | C family formatter, which supports configuration                       | C                                                       |
-| prettier                                    | A formatter for webdev which supports several file types               | HTML, CSS, JavaScript, JSON, YAML, (Markdown available) |
+| Formatter                                   | Description                                                        | Language(s)                                             |
+| ------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------- |
+| dart format                                 | Native                                                             | Dart                                                    |
+| rustfmt                                     | Native                                                             | Rust                                                    |
+| [gofumpt](https://github.com/mvdan/gofumpt) | Native gofmt with some stricter rules                              | Go                                                      |
+| markdownlint-cli2                           | Markdown linter/formatter with similar rules to our current linter | Markdown                                                |
+| shfmt                                       | Shell formatter                                                    | shell                                                   |
+| gersemi                                     | Cmake formatter                                                    | cmake                                                   |
+| clangd                                      | C family formatter, which supports configuration                   | C                                                       |
+| prettier                                    | A formatter for webdev which supports several file types           | HTML, CSS, JavaScript, JSON, YAML, (Markdown available) |
 
 > Note on clangd: we currently have at_c configured to be more like dart format
+>
+> Note on markdownlint-cli2: pymarkdownlnt (our linter) is based off the rules
+> in this linter/formatter
 >
 > Note on prettier: I think it is a good catch-all for languages where we don't
 > care very much about styling but should have something.
