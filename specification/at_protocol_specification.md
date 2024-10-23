@@ -167,7 +167,8 @@ in an atServer is bound by the config parameter "maxBufferSize".
 Metadata of a key should describe the following properties of the value being
 inserted.
 
-<!-- pyml disable-num-lines 17 md013-->
+<!--pyml disable-num-lines 17 md013-->
+
 | **Meta Attribute** | **Auto create?** | **Description**                                                                                                                |
 | ------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | createdOn          | Yes              | Date and time when the key has been created.                                                                                   |
@@ -221,6 +222,7 @@ and size.
 An atServer should honor the following configuration parameters.
 
 <!-- pyml disable-num-lines 9 md013-->
+
 | **Key**                       | **Valid Values**     | **Description**                                                                                                                                                       |
 | ----------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **autoNotify**                | true/false           | If set to true, an atServer should automatically notify another atSign user when a key has been shared with them. Please refer to the _notify_ verb spec for details. |
@@ -242,6 +244,7 @@ atSign owner using the `from` verb.
 An atServer should have the following standard keys:
 
 <!-- pyml disable-num-lines 19 md013-->
+
 | **Key**                   | **Description**                                               |
 | ------------------------- | ------------------------------------------------------------- |
 | public:publickey@         | Public key used by other atSigns for encryption.              |
@@ -289,6 +292,7 @@ If the user who is trying to connect is the owner of the atServer, then the
 e.g:
 
 <!-- pyml disable-next-line md013-->
+
 `data:_4af24c03-d732-48f8-a9a2-570e8fb6a01c@alice:d6cac849-9c29-42b0-b0c5-493db62728b9`
 
 If the user who is trying to connect is not the owner of the atServer, then the
@@ -459,7 +463,8 @@ The scan verb is used to see the keys in an atSign's secondary server.
 
 Following regex represents the syntax of the `scan` verb:
 
-<!-- pyml disable-next-line md013-->
+<!-- pyml disable-num-lines 2 md013-->
+
 `r'^scan$|scan(:showhidden:(?<showhidden>true|false))?(:(?<forAtSign>@[^:@\s]+))?( (?<regex>\S+))?$'`
 
 **Response:**
@@ -492,7 +497,8 @@ can only be run by the owner of an atServer on his/her own atServer.
 
 Following regex represents the syntax of the `update` verb:
 
-<!-- pyml disable-next-line md013-->
+<!-- pyml disable-num-lines 2 md013-->
+
 `r'^update:(?:ttl:(?<ttl>\d+):)?(?:ttb:(?<ttb>\d+):)?(?:ttr:(?<ttr>(-?)\d+):)?(ccd:(?<ccd>true|false):)?((?:public:)|(@(?<for@sign>[^@:\s]-):))?(?<atKey>[^:@]((?!:{2})[^@])+)(?:@(?<@sign>[^@\s]-))? (?<value>.+$)'`
 
 **Example:**
@@ -537,7 +543,8 @@ If a key has been created for another atSign user, the atServer should honor
 
 **Options:**
 
-<!-- pyml disable-num-lines 9 md013-->
+<!-- pyml disable-num-lines 10 md013-->
+
 | Option       | Required                                                      | Description                                                                                                                                                                                     |
 | ------------ | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `<ttl>`      | No                                                            | Time to live in milliseconds                                                                                                                                                                    |
@@ -559,7 +566,8 @@ user without having to send or save the value again.
 
 Following is the regex for the `update:meta` verb
 
-<!-- pyml disable-next-line md013-->
+<!-- pyml disable-num-lines 2 md013-->
+
 `^update:meta:((?:public:)|((?<forAtSign>@?[^@\s]-):))?(?<atKey>((?!:{2})[^@])+)@(?<atSign>[^@:\s]-)(:ttl:(?<ttl>\d+))?(:ttb:(?<ttb>\d+))?(:ttr:(?<ttr>\d+))?(:ccd:(?<ccd>true|false))?(:isBinary:(?<isBinary>true|false))?(:isEncrypted:(?<isEncrypted>true|false))?$`
 
 **Example:**
@@ -599,7 +607,8 @@ configuration parameter.
 
 **OPTIONS:**
 
-<!-- pyml disable-num-lines 8 md013-->
+<!-- pyml disable-num-lines 9 md013-->
+
 | Option       | Required                                        | Description                                                                                                                       |
 | ------------ | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `<ttl>`      | No                                              | Time to live in milliseconds                                                                                                      |
@@ -729,7 +738,8 @@ otherwise the public key has to be returned.
 
 **Options:**
 
-<!-- pyml disable-num-lines 5 md013-->
+<!-- pyml disable-num-lines 6 md013-->
+
 | Option        | Required | Description                                                                                             |
 | ------------- | -------- | ------------------------------------------------------------------------------------------------------- |
 | `<operation>` | No       | `meta` - returns the metadata of the AtKey, `all` - returns both the data and the metadata of the AtKey |
@@ -795,7 +805,8 @@ another atSign user.
 
 **Options:**
 
-<!-- pyml disable-num-lines 5 md013-->
+<!-- pyml disable-num-lines 6 md013-->
+
 | Option        | Required | Description                                                                                             |
 | ------------- | -------- | ------------------------------------------------------------------------------------------------------- |
 | `<operation>` | No       | `meta` - returns the metadata of the AtKey, `all` - returns both the data and the metadata of the AtKey |
@@ -813,7 +824,8 @@ return the value as is (i.e. without any resolution).
 
 The Following is the regex of the `llookup` verb:
 
-<!-- pyml disable-next-line md013-->
+<!-- pyml disable-num-lines 2 md013-->
+
 `^llookup:((?<operation>meta|all):)?(?:cached:)?((?:public:)|(@(?<for@sign>[^@:\s]-):))?(?<atKey>[^:]((?!:{2})[^@])+)@(?<@sign>[^@\s]+)$`
 
 **Example:**
@@ -857,7 +869,8 @@ llookup should return the value as is.
 
 **Options:**
 
-<!-- pyml disable-num-lines 5 md013-->
+<!-- pyml disable-num-lines 6 md013-->
+
 | Option        | Required | Description                                                                                             |
 | ------------- | -------- | ------------------------------------------------------------------------------------------------------- |
 | `<operation>` | No       | `meta` - returns the metadata of the AtKey, `all` - returns both the data and the metadata of the AtKey |
@@ -875,7 +888,8 @@ authenticated atSigns can use the `delete` verb.
 
 The following is the regex of the `delete` verb:
 
-<!-- pyml disable-next-line md013-->
+<!-- pyml disable-num-lines 2 md013-->
+
 `^delete(:priority:(?<priority>low|medium|high))?(:cached)?(:((?<publicScope>public)|(@(?<forAtSign>[^:@\s]+))))?:(?<atKey>(([^:@\s]+)|(at_secret)))(@(?<atSign>[^:@\s]+))?$`
 
 **Example:**
@@ -900,7 +914,8 @@ exist will still respond with a commit id.
 
 **Options:**
 
-<!-- pyml disable-num-lines 7 md013-->
+<!-- pyml disable-num-lines 8 md013-->
+
 | Option       | Required | Description                                                               |
 | ------------ | -------- | ------------------------------------------------------------------------- |
 | `:cached:`   | No       | Include `:cached:` if the key you are deleting is cached in your atServer |
@@ -928,7 +943,8 @@ The `sync` verb returns a json array of the commit entries from the given commit
 id to the current commit id. Further, The `sync` verb accepts -1 as argument
 which returns all the commit entries.
 
-<!-- pyml disable-num-lines 3 md013-->
+<!-- pyml disable-num-lines 4 md013-->
+
 ```json
 data:[{"atKey":"@bob:phone@alice","operation":"+","opTime":"2020-10-26 11:57:43.732","commitId":0,"value":"12345","metadata":{"ttr":"36000000","ccd":"false"}},
 {"atKey":"@bob:shared_key@alice","operation":"-","opTime":"2020-10-26 09:44:54.382219Z","commitId":1}]
@@ -946,14 +962,16 @@ The `notify` verb enables us to notify the atSign user of some data event.
 
 The Following is the regex for the `notify` verb
 
-<!-- pyml disable-num-lines 2 md013-->
+<!-- pyml disable-num-lines 3 md013-->
+
 ```text
 notify:((?<operation>update|delete):)?(ttl:(?<ttl>\d+):)?(ttb:(?<ttb>\d+):)?(ttr:(?<ttr>(-)?\d+):)?(ccd:(?<ccd>true|false):)?(@(?<forAtSign>[^@:\s]-)):(?<atKey>[^:]((?!:{2})[^@])+)@(?<atSign>[^@:\s]+)(:(?<value>.+))?
 ```
 
 **Example:**
 
-<!-- pyml disable-num-lines 2 md013-->
+<!-- pyml disable-num-lines 3 md013-->
+
 ```json
 notify:update:ttr:-1:@{RECIPIENT}:{KEY}.{NAMESPACE}@{SENDER}:{BASE64ENCODED_CYPHERTEXT}
 ```
@@ -1010,7 +1028,8 @@ Following is the regex
 If the user is the owner, returns a list of received notifications. If a user is
 pol authenticated user, returns a list of sent notifications
 
-<!-- pyml disable-next-line md013-->
+<!-- pyml disable-num-lines 2 md013-->
+
 `data:[{"id":"0e5e9e89-c9cb-423b-8972-8c5487215990","from":"@alice","to":"@bob","key":"@bob:phone@alice","value":12345,"operation":"update","epochMillis":1603714122636}]`
 
 #### The `notify:remove` verb
@@ -1072,7 +1091,8 @@ Following is the regex
 
 Returns a stream of notifications.
 
-<!-- pyml disable-num-lines 3 md013-->
+<!-- pyml disable-num-lines 4 md013-->
+
 ```json
 @alice@monitor
 notification: {"id":"773e226d-dac2-4269-b1ee-64d7ce93a42f","from":"@bob","to":"@alice","key":"@alice:phone@bob","value":null,"operation":"update","epochMillis":1603714720965}
@@ -1085,7 +1105,8 @@ passing filter criteria as regex to `monitor` verb.
 
 **Options:**
 
-<!-- pyml disable-num-lines 3 md013-->
+<!-- pyml disable-num-lines 4 md013-->
+
 | Option    | Required | Description                                                      |
 | --------- | -------- | ---------------------------------------------------------------- |
 | `<regex>` | No       | The regex to filter the notificaitons during the monitor session |
@@ -1122,7 +1143,8 @@ statistics are provided:
 
 **Example:**
 
-<!-- pyml disable-next-line md013-->
+<!-- pyml disable-num-lines 2 md013-->
+
 `data: [{"id":"1","name":"activeInboundConnections","value":"1"}, {"id":"2","name":"activeOutboundConnections","value":"0"}, {"id":"3","name":"lastCommitID","value":"1"}, {"id":"4","name":"secondaryStorageSize","value":12560}, {"id":"5","name":"topAtSigns","value":{"@bob":1}}, {"id":"6","name":"topKeys","value":{"publickey@alice":1}}]`
 
 Individual statistics can be retrieved using the respective Id.
@@ -1144,7 +1166,8 @@ Regex: `^info(:brief)?$`
 
 `info`
 
-<!-- pyml disable-num-lines 2 md013-->
+<!-- pyml disable-num-lines 3 md013-->
+
 ```json
 data:{"version":"3.0.28","uptimeAsWords":"1 hours 35 minutes 29 seconds","features":[{"name":"noop:","status":"Beta","description":"The No-Op verb simply does nothing for the requested number of milliseconds. The requested number of milliseconds may not be greater than 5000. Upon completion, the noop verb sends 'ok' as a response to the client.","syntax":"^noop:(?<delayMillis>\\d+)$"},{"name":"info:","status":"Beta","description":"The Info verb returns some information about the server including uptime and some info about available features. ","syntax":"^info(:brief)?$"}]}
 ```
@@ -1174,14 +1197,18 @@ After 123ms:
 
 `noop:5001`
 
-<!-- pyml disable-num-lines 2 md013-->
+<!-- pyml disable-num-lines 3 md013-->
+
 ```text
 error:AT0022-Exception: noop:<durationInMillis> where the duration maximum is 5000 milliseconds
 ```
 
+<!-- pyml disable-num-lines 2 md022-->
+
 ## Error Codes
 
 <!-- pyml disable-num-lines 21 md013-->
+
 | **Error Code** | **Error Message**                                     | **Description**                                                                                                                                         |
 | -------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | AT0001         | Server exception                                      | Exception occurs when there is an issue while starting the server.                                                                                      |
