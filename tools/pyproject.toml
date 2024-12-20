@@ -8,7 +8,7 @@ packages = [{include = "at_protocol_tools"}]
 
 [tool.poetry.dependencies]
 python = "^3.8"
-pymarkdownlnt = "0.9.25"
+pymarkdownlnt = "0.9.26"
 
 [build-system]
 requires = ["poetry-core"]
