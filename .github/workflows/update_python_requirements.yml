@@ -25,13 +25,14 @@ jobs:
       if: ${{ github.actor == 'dependabot[bot]' }}
       uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
       with:
-          python-version: '3.11'
+          python-version: '3.13'
 
     - name: Install Poetry
       if: ${{ github.actor == 'dependabot[bot]' }}
       uses: abatilo/actions-poetry@3765cf608f2d4a72178a9fc5b918668e542b89b1 # v4.0.0
       with:
-        poetry-version: '1.8.2'
+        poetry-version: '2.0.0'
+        poetry-plugins: 'poetry-plugin-export'
     
     - name: Bump Python dependencies
       if: ${{ github.actor == 'dependabot[bot]' }}
