@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "at-protocol-tools"
 version = "0.1.1"
-description = ""
+description = "Minimal project file to install pymarkdownlnt"
 authors = ["Chris Swan <@cpswan>"]
 readme = "README.md"
 packages = [{include = "at_protocol_tools"}]
