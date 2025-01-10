@@ -1090,6 +1090,150 @@ passing filter criteria as regex to `monitor` verb.
 | --------- | -------- | ---------------------------------------------------------------- |
 | `<regex>` | No       | The regex to filter the notificaitons during the monitor session |
 
+### APKAM Verbs
+
+#### The `enroll` verb
+
+**Synopsis:**
+
+The `enroll` verb can be used to submit an APKAM enrollment. 
+
+**Syntax:**
+
+Regex for enroll verb
+
+`enroll:(?<operation>(?:(request|approve|deny|revoke|list|fetch|unrevoke|delete)))(:(?<force>force))?(?::)?((?<enrollParams>.+)|(<=list:)<enrollParams>.?)?$`
+
+**Example:**
+
+Submit an enrollment:
+
+`enroll:request:{"appName":"wavi","deviceName":"iphone","namespaces":{"wavi":"rw"},"otp":"<otp>","apkamPublicKey":"<apkamPublicKey>","encryptedAPKAMSymmetricKey": "<encryptedAPKAMSymmetricKey>"}`
+
+Response:
+
+```text
+data:{"enrollmentId":<enrollmentId>, "status": "pending"}
+```
+
+Approve an enrollment:
+
+```
+enroll:approve:{"enrollmentId":<enrollmentId>,"encryptedDefaultEncryptionPrivateKey":<encryptedDefaultEncryptionPrivateKey>,"encPrivateKeyIV":"<encryptionPrivateKeyIV>","encryptedDefaultSelfEncryptionKey": "<encryptedDefaultSelfEncryptionKey>","selfEncKeyIV":"<selfEncryptionKeyIV>"}
+```
+
+Response:
+
+```text
+data:{"enrollmentId":<enrollmentId>, "status": "approved"}
+```
+
+**Description:**
+
+Enroll verb enables a new app or client to request new enrollment to a secondary server.Secondary server will notify the new enrollment request to already enrolled apps which have access to __manage namespace.
+The enrolled app which receives the notification may approve or reject the enrollment request.
+
+<!-- pyml disable-num-lines 3 md013-->
+| Option      | Required | Description                                                      |
+|-------------|----------| ---------------------------------------------------------------- |
+| `<appName>` | Yes      | Name of the app or client requesting enrollment |
+
+#### The `otp` verb
+
+**Synopsis:**
+
+The `otp` verb can be used get an otp from secondary server. The otp will be used while submitting an APKAM enrollment request.
+
+**Syntax:**
+
+Regex for otp verb
+
+`otp:(?<operation>get|put)(:(?<otp>(?<=put:)\w{6,}))?(:(?:ttl:(?<ttl>\d+)))?$`
+
+**Example:**
+
+Get an otp
+
+`otp:get`
+
+Response
+
+```text
+data: 123abc //random 6 character alpha numeric value
+```
+
+Get an otp with expiry
+
+`otp:get:ttl:10000`
+
+Response
+
+```text
+data: 123abc // otp expires in 10 seconds
+```
+Save an semi permanent passcode to secondary server
+
+`otp:put:123abc`
+
+Response
+
+```text
+data:ok
+```
+
+**Description:**
+
+Otp verb can be used to get an one time passcode from server to be used for APKAM enrollment. It can also be used to
+save a one time semi-permanent passcode which can be used a client/command line app for enrollments.
+
+#### The `keys` verb
+
+**Synopsis:**
+
+The `keys` verb is specifically used to update security keys to the secondary keystore.
+
+**Syntax:**
+
+Regex for keys verb
+
+<!-- pyml disable-num-lines 3 md013-->
+```text
+keys:((?<operation>put|get|delete):?)(?:(?<visibility>public|private|self):?)?(?:namespace:(?<namespace>[a-zA-Z0-9_]+):?)?(?:appName:(?<appName>[a-zA-Z0-9_]+):?)?(?:deviceName:(?<deviceName>[a-zA-Z0-9_]+):?)?(?:keyType:(?<keyType>[a-zA-Z0-9_-]+):?)?'(?:encryptionKeyName:(?<encryptionKeyName>[a-zA-Z0-9_\-]+):?)?(?:keyName:(?<keyName>\S+) ?)?(?<keyValue>.*)?$
+```
+
+**Example:**
+
+Put an encryption public key
+
+`keys:put:public:namespace:__global:keyType:rsa2048:keyName:encryption_<enrollmentId> <rsa_public_key>`
+
+Response
+
+```text
+data:-1
+```        
+
+Put a symmetric AES key which is encrypted with encryption public key
+
+`keys:put:self:namespace:__global:appName:wavi:deviceName:iphone:keyType:aes256:encryptionKeyName:encryption_<enrollmentId>:keyName:myAESkey <encryptedAESKey>`
+
+Response
+
+```text
+data:-1
+```        
+
+Get encryption public key for an enrollment
+
+`keys:get:keyName:public:encryption_<enrollmentId>.__public_keys.__global@alice`
+
+Response
+
+```text
+data: {"enrollmentId":<enrollmentId>, "keyType":rsa2048, "value":  <rsa_public_key>}
+```
+
+
 ### Utility / Miscellaneous Verbs
 
 #### The `stats` verb
