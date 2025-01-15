@@ -1327,7 +1327,7 @@ Response
 data: 123abc // otp expires in 10 seconds
 ```
 
-Save an semi permanent passcode to secondary server
+Save a semi permanent passcode to secondary server
 
 `otp:put:123abc`
 
