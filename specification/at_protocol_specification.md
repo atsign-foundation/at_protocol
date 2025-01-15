@@ -1050,6 +1050,88 @@ key.
 | ------------------ | -------- | -------------------------- |
 | `<notificationId>` | Yes      | The id of the notification |
 
+#### The `notify:status` verb
+
+**Synopsis:**
+
+Returns the status of a notification from the secondary server.
+
+**Syntax:**
+
+Following is the regex
+
+`notify:status:(?<notificationId>\S+)$`
+
+**Example:**
+
+`notify:status:<notificationId>`
+
+**Response:**
+
+If the notification is successfully delivered to the recipient 
+`data:delivered`
+
+If the notification is expired
+`data:expired`
+
+If there is an error while sending notification
+`data:errored`
+
+If the notification is not yet sent
+`data:queued`
+
+#### The `notify:fetch` verb
+
+**Synopsis:**
+
+Fetches details of a notification from the secondary server.
+
+**Syntax:**
+
+Following is the regex
+
+`notify:fetch:(?<notificationId>\S+)$`
+
+**Example:**
+
+`notify:fetch:<notificationId>`
+
+**Response:**
+
+```text
+data: {id: e8213024-ea78-475b-a8a7-d2ccc9fa5939, fromAtSign: @alice, notificationDateTime: 2025-01-10 10:08:44.090Z, toAtSign: @bob, notification: @bob:shared_key@alice, type: NotificationType.sent, opType: OperationType.update, messageType: MessageType.key, priority: NotificationPriority.low, notificationStatus: NotificationStatus.queued, retryCount: 1, strategy: all, depth: 1, notifier: SYSTEM, expiresAt: 2025-01-10 10:23:44.092Z, atValue: null, atMetadata: {createdBy: @alice, ttl: 0, ttb: 0, isEncrypted: true}, ttl: 900000}
+```
+
+#### The `notify:all` verb
+
+**Synopsis:**
+
+The "notify:all" allows to notify multiple @sign's at the same time.
+
+**Syntax:**
+
+Following is the regex
+
+```text
+notify:all:((?<operation>update|delete):)?(messageType:((?<messageType>key|text):))?(?:ttl:(?<ttl>\d+):)?(?:ttb:(?<ttb>\d+):)?(?:ttr:(?<ttr>-?\d+):)?(?:ccd:(?<ccd>true|false+):)?(?<forAtSign>(([^:\s])+)?(,([^:\s]+))*)(:(?<atKey>[^@:\s]+))(@(?<atSign>[^@:\s]+))?(:(?<value>.+))?$
+```
+
+**Example:**
+
+`notify:all:[@bob,@colin]:phone.wavi@alice`
+
+**Response:**
+
+```json
+{"@bob":"444504a3-aa47-478d-93ec-3113f69a9230","@colin":"31b35469-2836-431a-b988-353bb9785686"}, _type: null, _isError: false, _errorMessage: null}
+```
+
+**Description:**
+
+The verb allows to notify multiple @sign's at the same time. The client should be authenticated to the server prior to using the notify verb.
+To notify a key use messageType:key. To notify a message use  messageType:text.
+
+
 #### The `monitor` Verb
 
 **Synopsis:**
@@ -1128,15 +1210,65 @@ Response:
 data:{"enrollmentId":<enrollmentId>, "status": "approved"}
 ```
 
+Revoke an enrollment:
+
+```text
+enroll:revoke:{"enrollmentId":<enrollmentId>}
+```
+
+Response:
+
+```text
+data:{"enrollmentId":<enrollmentId>, "status": "revoked"}
+```
+
+Deny an enrollment:
+
+```text
+enroll:deny:{"enrollmentId":<enrollmentId>}
+```
+
+Response:
+
+```text
+data:{"status": "denied"}
+```
+
+Fetch enrollment details:
+
+```text
+enroll:fetch:{"enrollmentId":<enrollmentId>}
+```
+
+```json
+{"appName": "wavi", "deviceName": "iphone", "namespace": {"wavi": "rw"}, "encryptedAPKAMSymmetricKey": "dummy_apkam_key", "status": "approved"}
+```
+
+List enrollments:
+
+```text
+enroll:list
+```
+
+```json
+{"_data": {"9358e00b-a4f9-4c8f-ac16-bfe31f91b201.new.enrollments.__manage@alice":{"appName":"wavi","deviceName":"mydevice","namespace":{"wavi":"r","__manage":"rw","*":"rw"},"encryptedAPKAMSymmetricKey":null,"status":"approved"}}, "_type": null, "_isError": false, "_errorMessage": null}
+```
+
 **Description:**
 
 Enroll verb enables a new app or client to request new enrollment to a secondary server.Secondary server will notify the new enrollment request to already enrolled apps which have access to __manage namespace.
 The enrolled app which receives the notification may approve or reject the enrollment request.
 
 <!-- pyml disable-num-lines 3 md013-->
-| Option      | Required | Description                                                      |
-|-------------|----------| ---------------------------------------------------------------- |
-| `<appName>` | Yes      | Name of the app or client requesting enrollment |
+| Option                         | Required | Description                                                       |
+|--------------------------------|----------|-------------------------------------------------------------------|
+| `<operation>`                  | Yes      | Name of the enroll operation e.g approve, request,deny etc.,      |
+| `<deviceName>`                 | No       | Unique identifier of the device requesting enrollment             |
+| `<appName>`                    | No       | Name of the app or client requesting enrollment                   |
+| `<namespaces>`                 | No       | List of namespaces that a requesting client/app needs access to   |
+| `<otp>`                        | No       | One time passcode fetched using otp verb                          |
+| `<apkamPublicKey>`             | No       | Public key from an asymmetric key pair for the current enrollment |
+| `<encryptedAPKAMSymmetricKey>` | No       | APKAM symmetric key encrypted with APKAM public key               |
 
 #### The `otp` verb
 
