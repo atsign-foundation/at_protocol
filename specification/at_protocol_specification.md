@@ -1269,7 +1269,7 @@ enroll:list
 **Description:**
 
 Enroll verb enables a new app or client to request new enrollment to a
-secondary server. Secondary server will notify the new enrollment request 
+secondary server. Secondary server will notify the new enrollment request
 to already enrolled apps which have access to __manage namespace.
 The enrolled app which receives the notification may approve or
 reject the enrollment request.
@@ -1326,6 +1326,7 @@ Response
 ```text
 data: 123abc // otp expires in 10 seconds
 ```
+
 Save an semi permanent passcode to secondary server
 
 `otp:put:123abc`
@@ -1338,16 +1339,16 @@ data:ok
 
 **Description:**
 
-Otp verb can be used to get an one time passcode from server to be used for 
-APKAM enrollment. It can also be used to save a one time 
-semi-permanent passcode which can be used a client/command line 
+Otp verb can be used to get an one time passcode from server to be used for
+APKAM enrollment. It can also be used to save a one time
+semi-permanent passcode which can be used a client/command line
 app for enrollments.
 
 #### The `keys` verb
 
 **Synopsis:**
 
-The `keys` verb is specifically used to update security keys to 
+The `keys` verb is specifically used to update security keys to
 the secondary keystore.
 
 **Syntax:**
@@ -1365,8 +1366,9 @@ Put an encryption public key
 
 <!-- pyml disable-num-lines 3 md013-->
 ```text
-keys:put:public:namespace:__global:keyType:rsa2048:keyName:encryption_<enrollmentId> <rsa_public_key>`
+keys:put:public:namespace:__global:keyType:rsa2048:keyName:encryption_<enrollmentId> <rsa_public_key>
 ```
+
 Response
 
 ```text
@@ -1379,6 +1381,7 @@ Put a symmetric AES key which is encrypted with encryption public key
 ```text
 keys:put:self:namespace:__global:appName:wavi:deviceName:iphone:keyType:aes256:encryptionKeyName:encryption_<enrollmentId>:keyName:myAESkey <encryptedAESKey>
 ```
+
 Response
 
 ```text
@@ -1402,7 +1405,7 @@ data: {"enrollmentId":<enrollmentId>, "keyType":rsa2048, "value":  <rsa_public_k
 
 **Synopsis:**
 
-The `batch` verb is used to send multiple verbs to the server in a 
+The `batch` verb is used to send multiple verbs to the server in a
 single command
 
 **Syntax:**
@@ -1423,6 +1426,7 @@ batch:[{"id":1, "commmand":"update:location@alice newyork"},{"id":2, "commmand":
 ```
 
 Response:
+
 ```text
 data: [{"id":1, "response":"{"data":1}"},{"id":2, "response":"{"data":2}"}]
 ```
