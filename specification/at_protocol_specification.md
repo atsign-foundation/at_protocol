@@ -1068,7 +1068,7 @@ Following is the regex
 
 **Response:**
 
-If the notification is successfully delivered to the recipient 
+If the notification is successfully delivered to the recipient
 `data:delivered`
 
 If the notification is expired
@@ -1124,16 +1124,16 @@ notify:all:((?<operation>update|delete):)?(messageType:((?<messageType>key|text)
 
 **Response:**
 
+<!-- pyml disable-num-lines 3 md013-->
 ```json
 {"@bob":"444504a3-aa47-478d-93ec-3113f69a9230","@colin":"31b35469-2836-431a-b988-353bb9785686"}, _type: null, _isError: false, _errorMessage: null}
 ```
 
 **Description:**
 
-The verb allows to notify multiple @sign's at the same time. 
+The verb allows to notify multiple @sign's at the same time.
 The client should be authenticated to the server prior to using the notify verb.
 To notify a key use messageType:key. To notify a message use  messageType:text.
-
 
 #### The `monitor` Verb
 
@@ -1181,7 +1181,7 @@ passing filter criteria as regex to `monitor` verb.
 
 **Synopsis:**
 
-The `enroll` verb can be used to submit an APKAM enrollment. 
+The `enroll` verb can be used to submit an APKAM enrollment.
 
 **Syntax:**
 
@@ -1198,8 +1198,9 @@ Submit an enrollment:
 
 <!-- pyml disable-num-lines 3 md013-->
 ```text
-enroll:request:{"appName":"wavi","deviceName":"iphone","namespaces":{"wavi":"rw"},"otp":"<otp>","apkamPublicKey":"<apkamPublicKey>","encryptedAPKAMSymmetricKey": "<encryptedAPKAMSymmetricKey>"}`
+enroll:request:{"appName":"wavi","deviceName":"iphone","namespaces":{"wavi":"rw"},"otp":"<otp>","apkamPublicKey":"<apkamPublicKey>","encryptedAPKAMSymmetricKey": "<encryptedAPKAMSymmetricKey>"}
 ```
+
 Response:
 
 ```text
@@ -1267,28 +1268,35 @@ enroll:list
 
 **Description:**
 
-Enroll verb enables a new app or client to request new enrollment to a 
+Enroll verb enables a new app or client to request new enrollment to a
 secondary server. Secondary server will notify the new enrollment request 
 to already enrolled apps which have access to __manage namespace.
-The enrolled app which receives the notification may approve or 
+The enrolled app which receives the notification may approve or
 reject the enrollment request.
 
 <!-- pyml disable-num-lines 3 md013-->
 | Option                         | Required | Description                                                       |
 |--------------------------------|----------|-------------------------------------------------------------------|
+<!-- pyml disable-num-lines 3 md013-->
 | `<operation>`                  | Yes      | Name of the enroll operation e.g approve, request,deny etc.,      |
+<!-- pyml disable-num-lines 3 md013-->
 | `<deviceName>`                 | No       | Unique identifier of the device requesting enrollment             |
+<!-- pyml disable-num-lines 3 md013-->
 | `<appName>`                    | No       | Name of the app or client requesting enrollment                   |
+<!-- pyml disable-num-lines 3 md013-->
 | `<namespaces>`                 | No       | List of namespaces that a requesting client/app needs access to   |
+<!-- pyml disable-num-lines 3 md013-->
 | `<otp>`                        | No       | One time passcode fetched using otp verb                          |
+<!-- pyml disable-num-lines 3 md013-->
 | `<apkamPublicKey>`             | No       | Public key from an asymmetric key pair for the current enrollment |
+<!-- pyml disable-num-lines 3 md013-->
 | `<encryptedAPKAMSymmetricKey>` | No       | APKAM symmetric key encrypted with APKAM public key               |
 
 #### The `otp` verb
 
 **Synopsis:**
 
-The `otp` verb can be used get an otp from secondary server. 
+The `otp` verb can be used get an otp from secondary server.
 The otp will be used while submitting an APKAM enrollment request.
 
 **Syntax:**
