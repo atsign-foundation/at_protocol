@@ -1200,7 +1200,7 @@ data:{"enrollmentId":<enrollmentId>, "status": "pending"}
 
 Approve an enrollment:
 
-```
+```text
 enroll:approve:{"enrollmentId":<enrollmentId>,"encryptedDefaultEncryptionPrivateKey":<encryptedDefaultEncryptionPrivateKey>,"encPrivateKeyIV":"<encryptionPrivateKeyIV>","encryptedDefaultSelfEncryptionKey": "<encryptedDefaultSelfEncryptionKey>","selfEncKeyIV":"<selfEncryptionKeyIV>"}
 ```
 
@@ -1240,6 +1240,7 @@ Fetch enrollment details:
 enroll:fetch:{"enrollmentId":<enrollmentId>}
 ```
 
+<!-- pyml disable-num-lines 3 md013-->
 ```json
 {"appName": "wavi", "deviceName": "iphone", "namespace": {"wavi": "rw"}, "encryptedAPKAMSymmetricKey": "dummy_apkam_key", "status": "approved"}
 ```
@@ -1250,6 +1251,7 @@ List enrollments:
 enroll:list
 ```
 
+<!-- pyml disable-num-lines 3 md013-->
 ```json
 {"_data": {"9358e00b-a4f9-4c8f-ac16-bfe31f91b201.new.enrollments.__manage@alice":{"appName":"wavi","deviceName":"mydevice","namespace":{"wavi":"r","__manage":"rw","*":"rw"},"encryptedAPKAMSymmetricKey":null,"status":"approved"}}, "_type": null, "_isError": false, "_errorMessage": null}
 ```
@@ -1364,6 +1366,39 @@ Response
 ```text
 data: {"enrollmentId":<enrollmentId>, "keyType":rsa2048, "value":  <rsa_public_key>}
 ```
+
+#### The `batch` verb
+
+**Synopsis:**
+
+The `batch` verb is used to send multiple verbs to the server in a single command
+
+**Syntax:**
+
+Regex for batch verb
+
+```text
+batch:(?<json>.+)$
+```
+
+**Example:**
+
+Send an update and delete:
+
+```text
+batch:[{"id":1, "commmand":"update:location@alice newyork"},{"id":2, "commmand":"delete:location@alice"}]
+```
+
+Response:
+```text
+data: [{"id":1, "response":"{"data":1}"},{"id":2, "response":"{"data":2}"}]
+```
+
+
+
+
+
+
 
 
 ### Utility / Miscellaneous Verbs
