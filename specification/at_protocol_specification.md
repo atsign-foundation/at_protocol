@@ -1050,6 +1050,91 @@ key.
 | ------------------ | -------- | -------------------------- |
 | `<notificationId>` | Yes      | The id of the notification |
 
+#### The `notify:status` verb
+
+**Synopsis:**
+
+Returns the status of a notification from the secondary server.
+
+**Syntax:**
+
+Following is the regex
+
+`notify:status:(?<notificationId>\S+)$`
+
+**Example:**
+
+`notify:status:<notificationId>`
+
+**Response:**
+
+If the notification is successfully delivered to the recipient
+`data:delivered`
+
+If the notification is expired
+`data:expired`
+
+If there is an error while sending notification
+`data:errored`
+
+If the notification is not yet sent
+`data:queued`
+
+#### The `notify:fetch` verb
+
+**Synopsis:**
+
+Fetches details of a notification from the secondary server.
+
+**Syntax:**
+
+Following is the regex
+
+`notify:fetch:(?<notificationId>\S+)$`
+
+**Example:**
+
+`notify:fetch:<notificationId>`
+
+**Response:**
+
+<!-- pyml disable-num-lines 3 md013-->
+```text
+data: {id: e8213024-ea78-475b-a8a7-d2ccc9fa5939, fromAtSign: @alice, notificationDateTime: 2025-01-10 10:08:44.090Z, toAtSign: @bob, notification: @bob:shared_key@alice, type: NotificationType.sent, opType: OperationType.update, messageType: MessageType.key, priority: NotificationPriority.low, notificationStatus: NotificationStatus.queued, retryCount: 1, strategy: all, depth: 1, notifier: SYSTEM, expiresAt: 2025-01-10 10:23:44.092Z, atValue: null, atMetadata: {createdBy: @alice, ttl: 0, ttb: 0, isEncrypted: true}, ttl: 900000}
+```
+
+#### The `notify:all` verb
+
+**Synopsis:**
+
+The "notify:all" allows to notify multiple @sign's at the same time.
+
+**Syntax:**
+
+Following is the regex
+
+<!-- pyml disable-num-lines 3 md013-->
+```text
+notify:all:((?<operation>update|delete):)?(messageType:((?<messageType>key|text):))?(?:ttl:(?<ttl>\d+):)?(?:ttb:(?<ttb>\d+):)?(?:ttr:(?<ttr>-?\d+):)?(?:ccd:(?<ccd>true|false+):)?(?<forAtSign>(([^:\s])+)?(,([^:\s]+))*)(:(?<atKey>[^@:\s]+))(@(?<atSign>[^@:\s]+))?(:(?<value>.+))?$
+```
+
+**Example:**
+
+`notify:all:[@bob,@colin]:phone.wavi@alice`
+
+**Response:**
+
+<!-- pyml disable-num-lines 3 md013-->
+```json
+{"@bob":"444504a3-aa47-478d-93ec-3113f69a9230","@colin":"31b35469-2836-431a-b988-353bb9785686"}, _type: null, _isError: false, _errorMessage: null}
+```
+
+**Description:**
+
+The verb allows to notify multiple @sign's at the same time.
+The client should be authenticated to the server prior to using the notify verb.
+To notify a key use messageType:key. To notify a message use  messageType:text.
+
 #### The `monitor` Verb
 
 **Synopsis:**
@@ -1089,6 +1174,262 @@ passing filter criteria as regex to `monitor` verb.
 | Option    | Required | Description                                                      |
 | --------- | -------- | ---------------------------------------------------------------- |
 | `<regex>` | No       | The regex to filter the notificaitons during the monitor session |
+
+### APKAM Verbs
+
+#### The `enroll` verb
+
+**Synopsis:**
+
+The `enroll` verb can be used to submit an APKAM enrollment.
+
+**Syntax:**
+
+Regex for enroll verb
+
+<!-- pyml disable-num-lines 3 md013-->
+```text
+enroll:(?<operation>(?:(request|approve|deny|revoke|list|fetch|unrevoke|delete)))(:(?<force>force))?(?::)?((?<enrollParams>.+)|(<=list:)<enrollParams>.?)?$
+```
+
+**Example:**
+
+Submit an enrollment:
+
+<!-- pyml disable-num-lines 3 md013-->
+```text
+enroll:request:{"appName":"wavi","deviceName":"iphone","namespaces":{"wavi":"rw"},"otp":"<otp>","apkamPublicKey":"<apkamPublicKey>","encryptedAPKAMSymmetricKey": "<encryptedAPKAMSymmetricKey>"}
+```
+
+Response:
+
+```text
+data:{"enrollmentId":<enrollmentId>, "status": "pending"}
+```
+
+Approve an enrollment:
+
+<!-- pyml disable-num-lines 3 md013-->
+```text
+enroll:approve:{"enrollmentId":<enrollmentId>,"encryptedDefaultEncryptionPrivateKey":<encryptedDefaultEncryptionPrivateKey>,"encPrivateKeyIV":"<encryptionPrivateKeyIV>","encryptedDefaultSelfEncryptionKey": "<encryptedDefaultSelfEncryptionKey>","selfEncKeyIV":"<selfEncryptionKeyIV>"}
+```
+
+Response:
+
+```text
+data:{"enrollmentId":<enrollmentId>, "status": "approved"}
+```
+
+Revoke an enrollment:
+
+```text
+enroll:revoke:{"enrollmentId":<enrollmentId>}
+```
+
+Response:
+
+```text
+data:{"enrollmentId":<enrollmentId>, "status": "revoked"}
+```
+
+Deny an enrollment:
+
+```text
+enroll:deny:{"enrollmentId":<enrollmentId>}
+```
+
+Response:
+
+```text
+data:{"status": "denied"}
+```
+
+Fetch enrollment details:
+
+```text
+enroll:fetch:{"enrollmentId":<enrollmentId>}
+```
+
+<!-- pyml disable-num-lines 3 md013-->
+```json
+{"appName": "wavi", "deviceName": "iphone", "namespace": {"wavi": "rw"}, "encryptedAPKAMSymmetricKey": "dummy_apkam_key", "status": "approved"}
+```
+
+List enrollments:
+
+```text
+enroll:list
+```
+
+<!-- pyml disable-num-lines 3 md013-->
+```json
+{"_data": {"9358e00b-a4f9-4c8f-ac16-bfe31f91b201.new.enrollments.__manage@alice":{"appName":"wavi","deviceName":"mydevice","namespace":{"wavi":"r","__manage":"rw","*":"rw"},"encryptedAPKAMSymmetricKey":null,"status":"approved"}}, "_type": null, "_isError": false, "_errorMessage": null}
+```
+
+**Description:**
+
+Enroll verb enables a new app or client to request new enrollment to a
+secondary server. Secondary server will notify the new enrollment request
+to already enrolled apps which have access to __manage namespace.
+The enrolled app which receives the notification may approve or
+reject the enrollment request.
+
+<!-- pyml disable-num-lines 3 md013-->
+| Option                         | Required | Description                                                       |
+|--------------------------------|----------|-------------------------------------------------------------------|
+<!-- pyml disable-num-lines 3 md013-->
+| `<operation>`                  | Yes      | Name of the enroll operation e.g approve, request,deny etc.,      |
+<!-- pyml disable-num-lines 3 md013-->
+| `<deviceName>`                 | No       | Unique identifier of the device requesting enrollment             |
+<!-- pyml disable-num-lines 3 md013-->
+| `<appName>`                    | No       | Name of the app or client requesting enrollment                   |
+<!-- pyml disable-num-lines 3 md013-->
+| `<namespaces>`                 | No       | List of namespaces that a requesting client/app needs access to   |
+<!-- pyml disable-num-lines 3 md013-->
+| `<otp>`                        | No       | One time passcode fetched using otp verb                          |
+<!-- pyml disable-num-lines 3 md013-->
+| `<apkamPublicKey>`             | No       | Public key from an asymmetric key pair for the current enrollment |
+<!-- pyml disable-num-lines 3 md013-->
+| `<encryptedAPKAMSymmetricKey>` | No       | APKAM symmetric key encrypted with APKAM public key               |
+
+#### The `otp` verb
+
+**Synopsis:**
+
+The `otp` verb can be used get an otp from secondary server.
+The otp will be used while submitting an APKAM enrollment request.
+
+**Syntax:**
+
+Regex for otp verb
+
+`otp:(?<operation>get|put)(:(?<otp>(?<=put:)\w{6,}))?(:(?:ttl:(?<ttl>\d+)))?$`
+
+**Example:**
+
+Get an otp
+
+`otp:get`
+
+Response
+
+```text
+data: 123abc //random 6 character alpha numeric value
+```
+
+Get an otp with expiry
+
+`otp:get:ttl:10000`
+
+Response
+
+```text
+data: 123abc // otp expires in 10 seconds
+```
+
+Save a semi permanent passcode to secondary server
+
+`otp:put:123abc`
+
+Response
+
+```text
+data:ok
+```
+
+**Description:**
+
+Otp verb can be used to get an one time passcode from server to be used for
+APKAM enrollment. It can also be used to save a one time
+semi-permanent passcode which can be used a client/command line
+app for enrollments.
+
+#### The `keys` verb
+
+**Synopsis:**
+
+The `keys` verb is specifically used to update security keys to
+the secondary keystore.
+
+**Syntax:**
+
+Regex for keys verb
+
+<!-- pyml disable-num-lines 3 md013-->
+```text
+keys:((?<operation>put|get|delete):?)(?:(?<visibility>public|private|self):?)?(?:namespace:(?<namespace>[a-zA-Z0-9_]+):?)?(?:appName:(?<appName>[a-zA-Z0-9_]+):?)?(?:deviceName:(?<deviceName>[a-zA-Z0-9_]+):?)?(?:keyType:(?<keyType>[a-zA-Z0-9_-]+):?)?'(?:encryptionKeyName:(?<encryptionKeyName>[a-zA-Z0-9_\-]+):?)?(?:keyName:(?<keyName>\S+) ?)?(?<keyValue>.*)?$
+```
+
+**Example:**
+
+Put an encryption public key
+
+<!-- pyml disable-num-lines 3 md013-->
+```text
+keys:put:public:namespace:__global:keyType:rsa2048:keyName:encryption_<enrollmentId> <rsa_public_key>
+```
+
+Response
+
+```text
+data:-1
+```        
+
+Put a symmetric AES key which is encrypted with encryption public key
+
+<!-- pyml disable-num-lines 3 md013-->
+```text
+keys:put:self:namespace:__global:appName:wavi:deviceName:iphone:keyType:aes256:encryptionKeyName:encryption_<enrollmentId>:keyName:myAESkey <encryptedAESKey>
+```
+
+Response
+
+```text
+data:-1
+```        
+
+Get encryption public key for an enrollment
+
+```text
+keys:get:keyName:public:encryption_<enrollmentId>.__public_keys.__global@alice
+```
+
+Response
+
+<!-- pyml disable-num-lines 3 md013-->
+```text
+data: {"enrollmentId":<enrollmentId>, "keyType":rsa2048, "value":  <rsa_public_key>}
+```
+
+#### The `batch` verb
+
+**Synopsis:**
+
+The `batch` verb is used to send multiple verbs to the server in a
+single command
+
+**Syntax:**
+
+Regex for batch verb
+
+```text
+batch:(?<json>.+)$
+```
+
+**Example:**
+
+Send an update and delete:
+
+<!-- pyml disable-num-lines 3 md013-->
+```text
+batch:[{"id":1, "commmand":"update:location@alice newyork"},{"id":2, "commmand":"delete:location@alice"}]
+```
+
+Response:
+
+```text
+data: [{"id":1, "response":"{"data":1}"},{"id":2, "response":"{"data":2}"}]
+```
 
 ### Utility / Miscellaneous Verbs
 
