@@ -16,8 +16,7 @@ https://github.com/GoogleCloudPlatform/emblem/tree/main/docs/decisions -->
 
 ### Non-goals
 
-## Other considerations <!-- optional -->
-
+N/A
 
 ## Proposal Summary
 
@@ -25,7 +24,7 @@ Change formatting to 80 cols instead of 120 cols.
 
 ## Proposal in Detail
 
-Dart:
+### Dart
 
 pub.dev dictates that packages must be formatted to 80 cols.
 This also means our standard for formatting complies with the publishing
@@ -37,7 +36,8 @@ length 120 for a while, we've ended up with the opposite effect.
 We tend to write less readable code, as the standard allows us to nest deeper,
 when in reality things should be refactored into separate widgets.
 
-C:
+### C
+
 LLVM style standard is 80 lines, formatting to 120 is our only deviation from
 that standard.
 
