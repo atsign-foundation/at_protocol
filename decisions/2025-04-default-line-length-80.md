@@ -11,8 +11,8 @@ https://github.com/GoogleCloudPlatform/emblem/tree/main/docs/decisions -->
 
 ## Goals
 
-- Simplify tooling
-- Make code more readable in splits (on non-ultrawide screens)
+* Simplify tooling
+* Make code more readable in splits (on non-ultrawide screens)
 
 ### Non-goals
 
