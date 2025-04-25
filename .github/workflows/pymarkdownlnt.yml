@@ -28,4 +28,4 @@ jobs:
       - name: Install and run linter
         run: |-
           uv pip install --require-hashes -r tools/pylock.toml
-          pymarkdownlnt -s 'plugins.md024.siblings_only=$!True' scan *.md
+          pymarkdownlnt -s 'plugins.md024.siblings_only=$!True' scan */*.md
