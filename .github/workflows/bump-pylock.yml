@@ -31,8 +31,7 @@ jobs:
       run: |
         git config --global user.name 'library-action[bot]'
         git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
-        v=$(uvx --from=toml-cli toml get --toml-path=pyproject.toml project.version)
-        uvx --from bump2version bumpversion --allow-dirty --current-version "$v" "patch" pyproject.toml
+        uv version --bump patch
         uv lock
         uv export -o pylock.toml
         git add pyproject.toml pylock.toml
