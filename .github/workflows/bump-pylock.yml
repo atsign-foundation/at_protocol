@@ -2,7 +2,7 @@ name: Bump pylock.toml
 on:
   pull_request:
     paths:
-      - 'pyproject.toml'
+      - 'tools/pyproject.toml'
 
 permissions:
   pull-requests: write
