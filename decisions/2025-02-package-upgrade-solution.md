@@ -137,24 +137,24 @@ weekly analysis job successfully again.
 
 ---
 
-# Update 2025-08-06
+## Update 2025-08-06
 
 @xavierchanth: I've opted for pub workspaces, reasoning follows.
 
 Having merged at_libraries into at_client_sdk a preferred solution became clear.
 We often perform the following development cycles:
 
-- Make changes to a package
-- Update the version number, changelog, etc.
-- Use dependency overrides with the git info for the package changes so that CI
+* Make changes to a package
+* Update the version number, changelog, etc.
+* Use dependency overrides with the git info for the package changes so that CI
   can be run.
-- Upon CI passing, request initial approval
+* Upon CI passing, request initial approval
 
 Upon initial approval:
-- Remove the dependency overrides.
-- Publish the packages
-- Resubmit for review (since the dependency overrides removal commit was pushed)
-- Upon final approval, merge
+* Remove the dependency overrides.
+* Publish the packages
+* Resubmit for review (since the dependency overrides removal commit was pushed)
+* Upon final approval, merge
 
 This particular development flow conflicted heavily with melos when I merged the
 two repos. Melos doesn't have a good way to manage dependency overrides in a
@@ -170,4 +170,3 @@ workspace root's pubspec.yaml applies to the entire workspace.
 For now, melos 6 is the latest stable, and melos 7 brings pub workspaces support
 so I've dropped melos 7, since we don't really need it. If melos 7 comes out
 with features which enhance our workflow we can reconsider it.
-
