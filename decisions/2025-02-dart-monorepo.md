@@ -3,7 +3,7 @@
 <!-- This template is inspired by
 https://github.com/GoogleCloudPlatform/emblem/tree/main/docs/decisions -->
 
-* **Status:** Draft <!--/ Approved / Rejected / Superseded-->
+* **Status:** Approved <!--/ Draft / Rejected / Superseded-->
 * **Last Updated:** 2025-02-12
 * **Objective:** To solve issues with client package resolution & management in
   Dart.
