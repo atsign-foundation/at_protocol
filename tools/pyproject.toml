@@ -1,6 +1,6 @@
 [project]
 name = "at-protocol-tools"
-version = "0.2.3"
+version = "0.2.4"
 description = ""
 authors = ["Chris Swan <@cpswan>"]
 requires-python = ">= 3.9.2"
