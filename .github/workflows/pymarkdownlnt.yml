@@ -15,18 +15,18 @@ permissions: # added using https://github.com/step-security/secure-workflows
 
 jobs:
   lint-markdown:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     name: Lint Markdown
     steps:
-      - name: Set up Python
-        uses: actions/setup-python@f677139bbe7f9c59b41e40162b753c062f5d49a3 # v5.2.0
-        with:
-          python-version: 3.9 #install the python needed
       - name: checkout repo content
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - name: Install uv
+        uses: astral-sh/setup-uv@b75a909f75acd358c2196fb9a5f1299a9a8868a4 # v6.7.0
+        with:
+          working-directory: tools
+          activate-environment: true
       - name: Install and run linter
         run: |-
-          python3 -m pip install --require-hashes -r tools/requirements.txt
-          pymarkdownlnt -s 'plugins.md024.siblings_only=$!True' \
-                        -s 'plugins.md012.maximum=$#2' \
-                        scan */*.md
+            scan */*.md
+          uv pip install --require-hashes -r tools/pylock.toml
+          pymarkdownlnt -s 'plugins.md024.siblings_only=$!True' scan */*.md
