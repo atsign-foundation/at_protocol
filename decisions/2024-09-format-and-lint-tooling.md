@@ -3,7 +3,7 @@
 <!-- This template is inspired by
 https://github.com/GoogleCloudPlatform/emblem/tree/main/docs/decisions -->
 
-- **Status:** Draft
+- **Status:** Approved
 - **Last Updated:** 2024-09-05
 - **Objective:** Standardize formatting and linting to consistent code styles
 
