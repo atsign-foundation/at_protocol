@@ -27,6 +27,5 @@ jobs:
           activate-environment: true
       - name: Install and run linter
         run: |-
-            scan */*.md
             uv pip install --require-hashes -r tools/pylock.toml
             pymarkdownlnt -s 'plugins.md024.siblings_only=$!True' scan */*.md
