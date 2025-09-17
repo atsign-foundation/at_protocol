@@ -10,7 +10,7 @@ on:
     branches:
       - trunk
 
-permissions:  # added using https://github.com/step-security/secure-workflows
+permissions: # added using https://github.com/step-security/secure-workflows
   contents: read
 
 jobs:
@@ -27,5 +27,5 @@ jobs:
           activate-environment: true
       - name: Install and run linter
         run: |-
-          uv pip install --require-hashes -r tools/pylock.toml
-          pymarkdownlnt -s 'plugins.md024.siblings_only=$!True' scan */*.md
+            uv pip install --require-hashes -r tools/pylock.toml
+            pymarkdownlnt -s 'plugins.md024.siblings_only=$!True' scan */*.md
