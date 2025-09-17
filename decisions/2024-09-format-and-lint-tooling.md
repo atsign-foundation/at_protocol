@@ -74,6 +74,10 @@ changes, white space changes, etc.
 
 - ### Option 2
 
+Pymarkdownlnt for markdown, since this is what we use for GitHub actions.
+
+You can install it from pypi with pip, or simply use `uvx pymarkdownlnt`.
+
 ## Proposal Summary
 
 Proposed a list of formatters for the team to use for various languages.
@@ -87,6 +91,20 @@ Proposed a list of formatters for the team to use for various languages.
   means it works well in most scenarios
   - occasionally, we will have to disable MD022 if a pyml comment is next to a
     header (only one instance in the at_protocol spec)
+
+### Approved Formatters
+
+
+| Formatter                                   | Description                                                        | Language(s)                                             |
+| ------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------- |
+| dart format                                 | Native                                                             | Dart                                                    |
+| rustfmt                                     | Native                                                             | Rust                                                    |
+| [gofumpt](https://github.com/mvdan/gofumpt) | Native gofmt with some stricter rules                              | Go                                                      |
+| pymarkdownlnt                               | The linter used in github actions                                  | Markdown                                                |
+| shfmt                                       | Shell formatter                                                    | shell                                                   |
+| gersemi                                     | Cmake formatter                                                    | cmake                                                   |
+| clangd                                      | C family formatter, which supports configuration                   | C                                                       |
+| prettier                                    | A formatter for webdev which supports several file types           | HTML, CSS, JavaScript, JSON, YAML, (Markdown available) |
 
 ### Expected Consequences <!-- optional -->
 
