@@ -1,7 +1,7 @@
 # APKAM key unrevoke
 
-* **Status:** Draft
-* **Last Updated:** 2025-10-13
+* **Status:** Approved
+* **Last Updated:** 2025-10-14
 * **Objective:** Set out a mechanism to safely manage the revoke/unrevoke
 cycle for APKAM keys.
 
@@ -44,13 +44,6 @@ raised by @cconstab
 If a seach of the app/device namespace finds a single key match then simply
 unrevoke it.
 
-Should that search find multiple keys then:
-
-* **Note** that multiple keys have been found
-* **Warn** that keys may have been revoked due to loss/compromise
-* **List** the keys and their IDs
-* **Prompt** for which ID should be unrevoked
-
 * ### Option 2 - Highlander "There can be only one"
 
 Rather than allowing multiple (revoked) keys with the same app and device name
@@ -60,6 +53,18 @@ then it must be deleted before another key for `-a foo -d bar` is created.
 
 ## Proposal Summary
 
+Option 2 was determined to be a breaking change, leading to option 1 being the
+preferred approach.
+
 ## Proposal in Detail
 
-### Expected Consequences <!-- optional -->
+Should the app/device namespace search find multiple keys then:
+
+* **Note** that multiple keys have been found
+* **Warn** that keys may have been revoked due to loss/compromise
+* **List** the keys and their IDs
+* **Prompt** for which ID should be unrevoked
+
+### Expected Consequences
+
+`at_activate` to be modified to implement the proposal in detail as above.
