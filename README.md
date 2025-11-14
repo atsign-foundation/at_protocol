@@ -22,7 +22,7 @@ changes.
 3. Implementing another reference implementation that us interoperatable with
 others.
 
-The intent of the specifation is to define the actors, roles, responsibilities
+The intent of the specification is to define the actors, roles, responsibilities
 required to implement a working system that is atProtocol compliant.
 
 The specification itself is a simple markdown document that is easiy to view
