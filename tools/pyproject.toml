@@ -5,5 +5,5 @@ description = ""
 authors = ["Chris Swan <@cpswan>"]
 requires-python = ">= 3.10"
 dependencies = [
-    "pymarkdownlnt==0.9.34",
+    "pymarkdownlnt==0.9.35",
 ]
