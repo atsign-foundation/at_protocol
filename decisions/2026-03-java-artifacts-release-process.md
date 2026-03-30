@@ -6,9 +6,10 @@
 
 ## Context & Problem Statement
 
-The repo [at_java](https://github.com/atsign-foundation/at_java) contains the Java SDK, libraries,
-tools and samples. This repo is a multi-module maven project and, as per the maven
-norms, each module creates at most a single artifact.
+The repo [at_java](https://github.com/atsign-foundation/at_java) contains the
+Java SDK, libraries, tools and samples. This repo is a multi-module maven
+project and, as per the maven norms, each module creates at most a single
+artifact.
 
 | Directory / Module | Artifact       | Artifact Type | Maven Central Deploy |
 |--------------------|----------------|---------------|----------------------|
@@ -34,18 +35,8 @@ The purpose of this document to agree how that mechanism should work.
 
 ## Goals
 
-1. Define an automated process that performs the following.
-   * Check release candidate builds and passes all the unit and integration tests.
-   * Transition the maven pom versions to the release version.
-   * Update a CHANGELOG based on the git commits.
-   * Generate a SBOM (Software Bill of Materials).
-   * Generate a SLSA attestations (Supply-chain Levels for Software Artifacts).
-   * Add a git tag which corresponds to the release version.
-   * Publish the appropriate artifacts to Maven Central.
-   * Upload the SBOM, SLSA attestations to GitHub.
-   * Transition the maven pom versions to the next snapshot version.
-2. Agree how a release is triggered.
-3. Agree the supported version scheme.
+1. Agree the supported version scheme.
+2. Define the mechanics for how a release happens
 
 ### Non-goals
 
@@ -70,71 +61,32 @@ values is as follows.
 The git tags used to denote releases will correspond to the release version
 prefixed with a lowercase v. e.g. **v1.1.0**.
 
-### Release Initiation
+### Release Outputs
 
-Releases will be triggered by performing a git tag on the release branch.
-For Major and Minor release this will typically be trunk. Patch releases
-will typically be based off no trunk branches (branched at the point the
-corresponding major / minor release was tagged).
+There are 3 types of outcomes from a release.
 
-### Release Mechanics
-
-The steps involved in generating a release will be performed by a new GitHub
-action workflow.
+1. Artifacts that are uploaded to Maven Central.
+2. Changes to the github repo. A commit that sets the pom
+   versions to the release version (README and CHANGELOG.md etc...), a tag
+   on that commit and then a commit that sets the pom versions to the next
+   dev version.
+3. A GitHub release that contains SBOMs for each submodule and checksums for 
+   those SBOMs.
 
 ## Proposal in Detail
 
-The workflow needs to make changes to the repo and we want the version
-tag to be applied to the commit that includes those changes. This means
-the tag which initiates the release is not the version tag. It's a separate
-tag which is ultimately deleted if the workflow succeeds.
+### Release Mechanics
 
-The workflow will be configured to be triggered on tags that are prefixed
-with release_ and correspond to the major minor patch version tuple,
-i.e. the workflow will include this configuration.
-
-```yml
-on:
-  tags:
-    - release_*_*_*
-```
-
-The workflow will then perform the following steps.
-
-1. Parse the release version from the tag (ensuring that major, minor and patch are
-   integers).
-2. Check that we don't already have a corresponding version tag.
-3. Checkout the workflow branch.
-4. Set up Java with maven central server configuration (required for publish).
-5. Set up the virtual environment for integration tests.
-6. Configure Git for subsequent commits.
-7. Calculate the next release version (this will be a -SNAPSHOT version).
-   If the workflow branch is trunk then this will be **major.minor+1.0**. If the
-   workflow branch is not trunk then this will be **major.minor.patch+1**.
-8. Run maven versions plugin to change the pom versions to the release version.
-9. Update references to the new version and next version in the README. 
-10. Update the CHANGELOG from the git history (prepend the generated output to the 
-    existing file).
-11. Run maven clean deploy this will
-    * run all tests
-    * javadoc
-    * package
-    * sign the artifacts
-    * upload to central
-12. Commit the changes.
-13. Create a tag for the version (vx.y.z).
-14. Run maven versions plugin to change the pom versions to the next release version.
-15. Commit the changes.
-16. Push the commits and tag.
-17. Delete the release_ tag (release_x_y_z).
-18. Generate the SBOM and SLSA (per artifact) and upload to GitHub release using.
-
-### Expected Consequences
-
-1. Any failure prior to the upload to central can be recovered by, deleting the release_x_y_z
-   tag, fixing the issue on the release branch and re-tagging with release_x_y_z.
-2. A failure once Maven Central has validated and publish the artifacts will prevent
-   the release workflow from being re-run. In circumstances where that is the desired
-   object this will require a support ticket for maven central, requested that they delete
-   the artifacts.
-
+1. A developer prepares a release commit (and a commit for the next
+   development version) by running a release script and then pushes this PR.
+   This can be done by hand (checking out the repo, running the script and
+   following the push instruction) or by invoking the release workflow from
+   the GitHub UI
+2. A reviewer approves / merges the PR
+3. A maintainer create a GitHub release for the corresponding tag and the 1st
+   commit that was created by the release script (will have comment
+   build: release x.y.z).
+4. The Deploy to Central Portal (maven-deploy.yml) Github workflow will be
+   triggered by the release tag. This will verify that the POM version matches,
+   build, run all the tests, publish to Maven Central, upload the SBOMs and
+   checksums to the GitHub release.
