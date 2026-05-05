@@ -1,6 +1,7 @@
 # Table of contents
 
-* [atProtocol Specification](specification/at\_protocol\_specification.md)
+* [Atsign Protocol Specification](specification/atsign\_protocol\_specification.md)
+* [Building on the Atsign Protocol](specification/building\_on\_the\_atsign\_protocol.md)
 
 ## Usage Examples
 

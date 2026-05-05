@@ -1,7 +1,7 @@
-# atProtocol Specification
+# Atsign Protocol Specification
 
-| **Subject**   | atProtocol specification                           |
-| ------------- | -------------------------------------------------- |
+| **Subject**   | Atsign Protocol specification                      |
+|---------------|----------------------------------------------------|
 | **Author(s)** | Colin Constable, Kevin Nickels, Jagannadh Vanghuri |
 |               | Gary Casey, Chris Swan, Xavier Chanthavong         |
 | **Revision**  | v1.0.0 (draft)                                     |
@@ -12,10 +12,9 @@
 The atDirectory provides a lookup of where an atServer for an atsign is running.
 This is similar to a DNS server.
 
-When asking an atDirectory for the lookup of a particular atSign the atDirectory
-should respond with a null if the name does not exist and if the name exists the
-DNS name or address of the atServer and the IP port number for that atSign
-should be returned.
+When asking an atDirectory for the lookup of a particular atSign, the 
+atDirectory should respond with fqdn:port of the atServer, or `null` if the 
+atSign does not exist.
 
 **Response:**
 
@@ -29,7 +28,7 @@ to be lookup requests.
 An atServer is where an atSign user's personal data should be stored. One
 interacts with an atServer using the verbs exposed by the protocol.
 
-An atServer should have 4 major sub components:
+An atServer should have 4 major subcomponents:
 
 1. Key Store
 2. Commit Log
@@ -37,7 +36,7 @@ An atServer should have 4 major sub components:
 4. Notification Log
 
 Verbs described in the document should be used to create, update, delete, and
-retrieve information from the above sub components.
+retrieve information from the above subcomponents.
 
 ### 1. Key Store
 
@@ -47,7 +46,7 @@ metadata for a key.
 
 #### Key
 
-A key in the atProtocol can be formed by using any alphanumeric and special
+A key in the Atsign Protocol can be formed by using any alphanumeric and special
 characters (UTF-8) excluding "@", ":" and a white space (" "). A key in an
 atServer can be any of the following 5 types:
 
@@ -170,7 +169,7 @@ inserted.
 <!--pyml disable-num-lines 17 md013-->
 
 | **Meta Attribute** | **Auto create?** | **Description**                                                                                                                |
-| ------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+|--------------------|------------------|--------------------------------------------------------------------------------------------------------------------------------|
 | createdOn          | Yes              | Date and time when the key has been created.                                                                                   |
 | createdBy          | Yes              | atSign that has created the key                                                                                                |
 | updatedOn          | Yes              | Date and time when the key has been last updated.                                                                              |
@@ -190,7 +189,7 @@ inserted.
 
 An atServer should record any create, update and delete operations in a commit
 log. The Commit Log should record these operations with a unique commit id so
-that users of the atServer can lookup operations that happened on or after a
+that users of the atServer can look up operations that happened on or after a
 given commit id.
 
 An atServer should provide a way to compact the Commit Log based on time and
@@ -224,7 +223,7 @@ An atServer should honor the following configuration parameters.
 <!-- pyml disable-num-lines 9 md013-->
 
 | **Key**                       | **Valid Values**     | **Description**                                                                                                                                                       |
-| ----------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|-------------------------------|----------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | **autoNotify**                | true/false           | If set to true, an atServer should automatically notify another atSign user when a key has been shared with them. Please refer to the _notify_ verb spec for details. |
 | **bufferLimit**               | Number of bytes      | Maximum size of a value for a key that can be transferred to an atServer                                                                                              |
 | **inbound_max_limit**         | An Integer           | Maximum number of inbound connections that an atServer can accept                                                                                                     |
@@ -246,7 +245,7 @@ An atServer should have the following standard keys:
 <!-- pyml disable-num-lines 19 md013-->
 
 | **Key**                   | **Description**                                               |
-| ------------------------- | ------------------------------------------------------------- |
+|---------------------------|---------------------------------------------------------------|
 | public:publickey@         | Public key used by other atSigns for encryption.              |
 | public:signing_publickey@ | Public key used on a pol handler to verify a signed challenge |
 | @signing_privatekey@      | Private key used to sign a challenge on a pol request         |
@@ -311,7 +310,7 @@ The `from` verb is used to tell the atServer what atSign you claim to be. With
 the `from` verb, one can connect to one's own atServer or someone else's
 atServer. In both cases, the atServer responds back with a challenge to prove
 that you are who you claim to be. This is part of the authentication mechanism
-of the atProtocol.
+of the Atsign Protocol.
 
 This authentication mechanism varies based on whether you are connecting to your
 own atServer (cram) or someone else's atServer (pol).
@@ -319,7 +318,7 @@ own atServer (cram) or someone else's atServer (pol).
 **Options:**
 
 | Option    | Required | Description                       |
-| --------- | -------- | --------------------------------- |
+|-----------|----------|-----------------------------------|
 | `<@sign>` | Yes      | The atSign you are claiming to be |
 
 Required: Yes
@@ -368,7 +367,7 @@ connect to the atServer and changes the prompt to your atSign.
 **Options:**
 
 | Option     | Required | Description         |
-| ---------- | -------- | ------------------- |
+|------------|----------|---------------------|
 | `<digest>` | Yes      | encrypted challenge |
 
 #### The `pkam` verb
@@ -409,7 +408,7 @@ your atSign.
 **Options:**
 
 | Option     | Required | Description         |
-| ---------- | -------- | ------------------- |
+|------------|----------|---------------------|
 | `<digest>` | Yes      | encrypted challenge |
 
 #### The `pol` verb
@@ -441,7 +440,7 @@ the following error and close the connection to the server.
 **Description:**
 
 The `pol` verb follows the `from` verb. 'pol' indicates another atServer that
-the user who is trying to connect is ready to authenticate themself. For
+the user who is trying to connect is ready to authenticate themselves. For
 example, if @bob is trying to connect to @alice, @bob would take the key and
 value from the proof response of the verb and create a public key and value
 which then can be looked up by @alice. After @alice looks up @bob's atServer
@@ -474,7 +473,7 @@ Following regex represents the syntax of the `scan` verb:
 **Description:**
 
 The atServer should return the keys within the atServer if the scan verb
-executed succesfully.
+executed successfully.
 
 The atServer will respond accordingly to whether the atSign is authenticated or
 not.
@@ -482,7 +481,7 @@ not.
 **Options:**
 
 | Option         | Required | Description                                |
-| -------------- | -------- | ------------------------------------------ |
+|----------------|----------|--------------------------------------------|
 | `<showhidden`> | No       | If true, will show hidden internal keys    |
 | `<forAtSign>`  | No       | Filter keys that are created by the atSign |
 
@@ -503,20 +502,21 @@ Following regex represents the syntax of the `update` verb:
 
 **Example:**
 
-Put a key/value pair into the atServer with key location@bob and value bob's
+Put a key/value pair into the atServer with key location@bob and value `@bob`'s
 location value. This operation will create a new key if it does not already
 exist. If it already exists, it will overwrite the existing value.
 
 `update:location@bob bob's location value`
 
-Put a key/value pair into the atServer with key location@bob and value bob's
+Put a key/value pair into the atServer with key location@bob and value `@bob`'s
 location value but key expires in 10 minutes. The time to live of this key is 10
 minutes.
 
 `update:ttl:600000:location@bob bob's location value but key expires in 10 minutes`
 
 Put a shared key/value pair into the atServer with key @alice:phone@bob (shared
-with @alice and shared by @bob) with value bob's phone number shared to @alice.
+with @alice and shared by @bob) with value `@bob`'s phone number shared to 
+@alice.
 
 `update:@alice:phone@bob bob's phone number shared to @alice`
 
@@ -536,7 +536,7 @@ following error and close the connection to the server.
 
 The `update` verb should be used to perform create/update operations on the
 atServer. The `update` verb requires the owner of the atServer to authenticate
-themself to the atServer using `from` and `cram` verbs.
+themselves to the atServer using `from` and `cram` verbs.
 
 If a key has been created for another atSign user, the atServer should honor
 "autoNotify" configuration parameter.
@@ -546,7 +546,7 @@ If a key has been created for another atSign user, the atServer should honor
 <!-- pyml disable-num-lines 10 md013-->
 
 | Option       | Required                                                      | Description                                                                                                                                                                                     |
-| ------------ | ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|--------------|---------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `<ttl>`      | No                                                            | Time to live in milliseconds                                                                                                                                                                    |
 | `<ttb>`      | No                                                            | Time to birth in milliseconds                                                                                                                                                                   |
 | `<ttr>`      | No                                                            | Time to refresh in milliseconds. ttr > -1 is a valid value which indicates that the user with whom the key has been shared can keep it forever and the value for this key won't change forever. |
@@ -599,7 +599,7 @@ with the following error and close the connection to the server
 
 The `update:meta` verb should be used to perform create/update operations on the
 atServer. The `update:meta` verb requires the owner of the atServer to
-authenticate themself to the atServer using `from` and `cram` verbs.
+authenticate themselves to the atServer using `from` and `cram` verbs.
 
 The atServer should allow creation of keys with null values. If a key has been
 created for another atSign user, the atServer should honor "autoNotify"
@@ -610,7 +610,7 @@ configuration parameter.
 <!-- pyml disable-num-lines 9 md013-->
 
 | Option       | Required                                        | Description                                                                                                                       |
-| ------------ | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+|--------------|-------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
 | `<ttl>`      | No                                              | Time to live in milliseconds                                                                                                      |
 | `<ttb>`      | No                                              | Time to birth in milliseconds                                                                                                     |
 | `<ttr>`      | No                                              | Time to refresh in milliseconds                                                                                                   |
@@ -622,7 +622,7 @@ configuration parameter.
 
 **Synopsis:**
 
-The `lookup` verb should be used to lookup the value shared by another atSign
+The `lookup` verb should be used to look up the value shared by another atSign
 user.
 
 **Syntax:**
@@ -672,8 +672,8 @@ data:
  }
 ```
 
-If the operation is to lookup the metadata and the data together then the result
-should be wrapped in a JSON in the following format:
+If the operation is to look up the metadata and the data together then the 
+result should be wrapped in a JSON in the following format:
 
 `data:<Value and Metadata in a JSON>`
 
@@ -713,7 +713,7 @@ following error and close the connection:
 
 `error:AT0003-Invalid Syntax`
 
-For whatever reasons, If the handshake with another atServer fails, then the
+If the handshake with another atServer fails, then the
 atServer should return the following error:
 
 `data:AT0008-Handshake failure`
@@ -723,7 +723,7 @@ value saved by the user as is.
 
 `data:<value>`
 
-If the operation is to lookup the metadata only then the result should be
+If the operation is to look up the metadata only then the result should be
 wrapped in a JSON in the following format:
 
 `data:<Metadata in a JSON>`
@@ -741,7 +741,7 @@ otherwise the public key has to be returned.
 <!-- pyml disable-num-lines 6 md013-->
 
 | Option        | Required | Description                                                                                             |
-| ------------- | -------- | ------------------------------------------------------------------------------------------------------- |
+|---------------|----------|---------------------------------------------------------------------------------------------------------|
 | `<operation>` | No       | `meta` - returns the metadata of the AtKey, `all` - returns both the data and the metadata of the AtKey |
 | `<atKey>`     | Yes      | the key to be looked up                                                                                 |
 | `<@sign>`     | Yes      | the atSign owner of the key                                                                             |
@@ -750,7 +750,7 @@ otherwise the public key has to be returned.
 
 **Synopsis:**
 
-The `plookup` verb enables to lookup the value of the public key shared by
+The `plookup` verb enables to look up the value of the public key shared by
 another atSign user.
 
 **Syntax:**
@@ -808,7 +808,7 @@ another atSign user.
 <!-- pyml disable-num-lines 6 md013-->
 
 | Option        | Required | Description                                                                                             |
-| ------------- | -------- | ------------------------------------------------------------------------------------------------------- |
+|---------------|----------|---------------------------------------------------------------------------------------------------------|
 | `<operation>` | No       | `meta` - returns the metadata of the AtKey, `all` - returns both the data and the metadata of the AtKey |
 | `<atKey>`     | Yes      | the key to be looked up                                                                                 |
 | `<@sign>`     | Yes      | the atSign owner of the key                                                                             |
@@ -872,7 +872,7 @@ llookup should return the value as is.
 <!-- pyml disable-num-lines 6 md013-->
 
 | Option        | Required | Description                                                                                             |
-| ------------- | -------- | ------------------------------------------------------------------------------------------------------- |
+|---------------|----------|---------------------------------------------------------------------------------------------------------|
 | `<operation>` | No       | `meta` - returns the metadata of the AtKey, `all` - returns both the data and the metadata of the AtKey |
 | `<atKey>`     | Yes      | the key to be looked up                                                                                 |
 | `<@sign>`     | Yes      | the atSign owner of the key                                                                             |
@@ -917,7 +917,7 @@ exist will still respond with a commit id.
 <!-- pyml disable-num-lines 8 md013-->
 
 | Option       | Required | Description                                                               |
-| ------------ | -------- | ------------------------------------------------------------------------- |
+|--------------|----------|---------------------------------------------------------------------------|
 | `:cached:`   | No       | Include `:cached:` if the key you are deleting is cached in your atServer |
 | `:public:`   | No       | Include `:public:` if the key you are deleting is a public key            |
 | `<for@sign>` | No       | The key's sharedWith atSign                                               |
@@ -939,7 +939,7 @@ Following is the regex:
 
 **Response:**
 
-The `sync` verb returns a json array of the commit entries from the given commit
+The `sync` verb returns a JSON array of the commit entries from the given commit
 id to the current commit id. Further, The `sync` verb accepts -1 as argument
 which returns all the commit entries.
 
@@ -1059,14 +1059,14 @@ If successful, returns
 
 **Description:**
 
-Deletes a notification from the notificaiton log. Note that this is different
+Deletes a notification from the notification log. Note that this is different
 from `notify:delete`, which sends a notification relating to the deletion of a
 key.
 
 **Options:**
 
 | Option             | Required | Description                |
-| ------------------ | -------- | -------------------------- |
+|--------------------|----------|----------------------------|
 | `<notificationId>` | Yes      | The id of the notification |
 
 #### The `notify:status` verb
@@ -1193,7 +1193,7 @@ passing filter criteria as regex to `monitor` verb.
 <!-- pyml disable-num-lines 4 md013-->
 
 | Option    | Required | Description                                                      |
-| --------- | -------- | ---------------------------------------------------------------- |
+|-----------|----------|------------------------------------------------------------------|
 | `<regex>` | No       | The regex to filter the notificaitons during the monitor session |
 
 ### APKAM Verbs
@@ -1299,7 +1299,7 @@ reject the enrollment request.
 | Option                         | Required | Description                                                       |
 |--------------------------------|----------|-------------------------------------------------------------------|
 <!-- pyml disable-num-lines 3 md013-->
-| `<operation>`                  | Yes      | Name of the enroll operation e.g approve, request,deny etc.,      |
+| `<operation>`                  | Yes      | Name of the enroll operation e.g. approve, request,deny etc., |
 <!-- pyml disable-num-lines 3 md013-->
 | `<deviceName>`                 | No       | Unique identifier of the device requesting enrollment             |
 <!-- pyml disable-num-lines 3 md013-->
@@ -1348,7 +1348,7 @@ Response
 data: 123abc // otp expires in 10 seconds
 ```
 
-Save a semi permanent passcode to secondary server
+Save a semi-permanent passcode to secondary server
 
 `otp:put:123abc`
 
@@ -1360,7 +1360,7 @@ data:ok
 
 **Description:**
 
-Otp verb can be used to get an one time passcode from server to be used for
+Otp verb can be used to get a one time passcode from server to be used for
 APKAM enrollment. It can also be used to save a one time
 semi-permanent passcode which can be used a client/command line
 app for enrollments.
@@ -1551,7 +1551,7 @@ error:AT0022-Exception: noop:<durationInMillis> where the duration maximum is 50
 <!-- pyml disable-num-lines 21 md013-->
 
 | **Error Code** | **Error Message**                                     | **Description**                                                                                                                                         |
-| -------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|----------------|-------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
 | AT0001         | Server exception                                      | Exception occurs when there is an issue while starting the server.                                                                                      |
 | AT0002         | DataStore exception                                   | Exception occurs during keystore operations (GET/PUT/DELETE).                                                                                           |
 | AT0003         | Invalid syntax                                        | Exception occurs if we give any invalid command to the server.                                                                                          |
@@ -1573,7 +1573,7 @@ error:AT0022-Exception: noop:<durationInMillis> where the duration maximum is 50
 
 ## Glossary
 
-> atProtocol (Pronounced, at protocol) &nbsp; atSign (Pronounced, at sign)
+> Atsign Protocol (Pronounced, at protocol) &nbsp; atSign (Pronounced, at sign)
 > atSign is a unique name that a user gets when enrolled with atsign.com &nbsp;
 > atDirectory &nbsp; atServer &nbsp; Verb &nbsp; Public Key &nbsp; Private Key
 > &nbsp; Shared Secret &nbsp; Default Keys &nbsp; Key &nbsp; Value &nbsp;
