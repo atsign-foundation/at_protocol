@@ -80,18 +80,24 @@ architecturally impossible — see [§14](#14-end-to-end-encryption).
 Two appendices are load-bearing for anyone implementing this
 specification:
 
-- **[Appendix C — Significant near-term projects](#appendix-c--significant-near-term-projects)**
-  enumerates active workstreams that will change parts of this
-  specification within the next few releases (post-quantum
-  cryptography, fast-sync / "fsync", new atKeys structure, pluggable
-  encryption, canonical conformance test suite, etc.). Read this
-  before committing to a long-lived implementation choice.
-- **[Appendix D — Inconsistencies and quirks](#appendix-d--inconsistencies-and-quirks)**
-  enumerates the places where the wire reality is surprising — error
-  separators that aren't uniform, response shapes that differ
-  per-verb, semantics that flip on auth state, and similar gotchas.
-  Read this if your implementation is failing in ways that the
-  per-verb sections don't seem to predict.
+-
+    *
+*[Appendix C — Significant near-term projects](#appendix-c--significant-near-term-projects)
+**
+enumerates active workstreams that will change parts of this
+specification within the next few releases (post-quantum
+cryptography, fast-sync / "fsync", new atKeys structure, pluggable
+encryption, canonical conformance test suite, etc.). Read this
+before committing to a long-lived implementation choice.
+-
+    *
+*[Appendix D — Inconsistencies and quirks](#appendix-d--inconsistencies-and-quirks)
+**
+enumerates the places where the wire reality is surprising — error
+separators that aren't uniform, response shapes that differ
+per-verb, semantics that flip on auth state, and similar gotchas.
+Read this if your implementation is failing in ways that the
+per-verb sections don't seem to predict.
 
 ### Spelling and capitalisation
 
@@ -208,11 +214,11 @@ both.
 A server response is followed by a **prompt** that frames the next
 client request. The prompt is one of:
 
-| Connection state                          | Prompt           |
-| ----------------------------------------- | ---------------- |
-| Unauthenticated                           | `@`              |
-| Authenticated as the server's own atSign  | `@<atSign>@`     |
-| `pol`-authenticated as another atSign     | `<fromAtSign>@`  |
+| Connection state                         | Prompt          |
+|------------------------------------------|-----------------|
+| Unauthenticated                          | `@`             |
+| Authenticated as the server's own atSign | `@<atSign>@`    |
+| `pol`-authenticated as another atSign    | `<fromAtSign>@` |
 
 The prompt is appended to the response line preceded by `\n`. Clients
 detect "response complete" by scanning for the byte sequence `\n@`.
@@ -313,13 +319,13 @@ shapes plus two augmentations.
 
 ### 6.1 The five shapes
 
-| Shape       | Wire format                              | Visibility                                                  |
-| ----------- | ---------------------------------------- | ----------------------------------------------------------- |
-| Public      | `public:<key>[.<namespace>]@<owner>`     | Any atSign (no auth needed via `plookup`)                   |
-| Self        | `<key>[.<namespace>]@<owner>`            | Owner only                                                  |
-| Shared      | `@<recipient>:<key>[.<namespace>]@<owner>` | Owner and `<recipient>` only                              |
-| Local       | `local:<key>[.<namespace>]@<owner>`      | Owner only; **never synced** to a remote atServer           |
-| Private     | `privatekey:<key>[.<namespace>]@<owner>` | Owner only; not enumerated by `scan` (system keys)         |
+| Shape   | Wire format                                | Visibility                                         |
+|---------|--------------------------------------------|----------------------------------------------------|
+| Public  | `public:<key>[.<namespace>]@<owner>`       | Any atSign (no auth needed via `plookup`)          |
+| Self    | `<key>[.<namespace>]@<owner>`              | Owner only                                         |
+| Shared  | `@<recipient>:<key>[.<namespace>]@<owner>` | Owner and `<recipient>` only                       |
+| Local   | `local:<key>[.<namespace>]@<owner>`        | Owner only; **never synced** to a remote atServer  |
+| Private | `privatekey:<key>[.<namespace>]@<owner>`   | Owner only; not enumerated by `scan` (system keys) |
 
 ### 6.2 Augmentations
 
@@ -357,7 +363,7 @@ Every atServer carries a set of system keys created during onboarding.
 These are required for the protocol to function and have stable names:
 
 | Reserved key                        | Purpose                                                                 |
-| ----------------------------------- | ----------------------------------------------------------------------- |
+|-------------------------------------|-------------------------------------------------------------------------|
 | `public:publickey@<atSign>`         | Encryption public key. Used by other atSigns to encrypt to this owner.  |
 | `public:signing_publickey@<atSign>` | PKAM/pol signing public key. Used to verify pol challenges.             |
 | `privatekey:at_pkam_publickey`      | PKAM authentication public key (single-key model; legacy).              |
@@ -373,17 +379,17 @@ namespaces.
 
 ### 6.6 atKey parsing examples
 
-| Wire form                                  | Shape  | Hidden? | Cached? |
-| ------------------------------------------ | ------ | ------- | ------- |
-| `public:phone.wavi@alice`                  | Public | No      | No      |
-| `public:_diagnostics@alice`                | Public | Yes     | No      |
-| `phone.wavi@alice`                         | Self   | No      | No      |
-| `@bob:phone.wavi@alice`                    | Shared | No      | No      |
-| `@bob:_handshake.wavi@alice`               | Shared | Yes     | No      |
-| `cached:public:publickey@alice`            | Public | No      | Yes     |
-| `cached:@bob:phone.wavi@alice`             | Shared | No      | Yes     |
-| `local:cache.myapp@alice`                  | Local  | No      | No      |
-| `privatekey:at_pkam_publickey`             | Private | —      | —       |
+| Wire form                       | Shape   | Hidden? | Cached? |
+|---------------------------------|---------|---------|---------|
+| `public:phone.wavi@alice`       | Public  | No      | No      |
+| `public:_diagnostics@alice`     | Public  | Yes     | No      |
+| `phone.wavi@alice`              | Self    | No      | No      |
+| `@bob:phone.wavi@alice`         | Shared  | No      | No      |
+| `@bob:_handshake.wavi@alice`    | Shared  | Yes     | No      |
+| `cached:public:publickey@alice` | Public  | No      | Yes     |
+| `cached:@bob:phone.wavi@alice`  | Shared  | No      | Yes     |
+| `local:cache.myapp@alice`       | Local   | No      | No      |
+| `privatekey:at_pkam_publickey`  | Private | —       | —       |
 
 ---
 
@@ -400,31 +406,31 @@ should not send tags they don't understand).
 Source of truth: `at_commons/lib/src/verb/syntax.dart`'s
 `metadataFragment`.
 
-| Wire tag           | Type        | Description                                                                                              |
-| ------------------ | ----------- | -------------------------------------------------------------------------------------------------------- |
-| `ttl`              | int (ms)    | Time-to-live. Key auto-deletes `ttl` ms after creation. `0` or omitted = never expires.                 |
-| `ttb`              | int (ms)    | Time-to-birth. Key is invisible to lookups for `ttb` ms after creation.                                  |
-| `ttr`              | int (ms)    | Time-to-refresh for cached copies. `-1` = cache forever; positive = re-fetch interval.                   |
-| `ccd`              | bool        | Cascade-delete. If `true`, deleting the original key deletes its cached copies.                          |
-| `cAt`              | ISO 8601    | `createdAt` — UTC timestamp of creation. Regex: `\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z` (fractional seconds optional). |
-| `uAt`              | ISO 8601    | `updatedAt` — UTC timestamp of most recent update.                                                       |
-| `eAt`              | ISO 8601    | `expiresAt` — derived from `cAt + ttl`. Normally server-emitted; clients can also set explicitly (e.g. on sync replay). |
-| `aAt`              | ISO 8601    | `availableAt` — derived from `cAt + ttb`. Same write semantics as `eAt`.                                  |
-| `dataSignature`    | string      | Signature over a public value, signed by the owner's signing private key. Verifies authenticity.        |
-| `sharedKeyStatus`  | enum        | Lifecycle status of a shared key: `localUpdated`, `remoteUpdated`, `sharedWithNotified`, etc.            |
-| `isBinary`         | bool        | `true` if the value is binary (base64-encoded on the wire).                                             |
-| `isEncrypted`      | bool        | `true` if the value is ciphertext.                                                                       |
-| `sharedKeyEnc`     | string      | The shared symmetric key, RSA-encrypted to the recipient's encryption public key. Inline in metadata.   |
-| `pubKeyHash`       | string      | Hash of the recipient public key that encrypted `sharedKeyEnc`. Lets the recipient detect key rotation. |
-| `pubKeyCS`         | string      | **Deprecated.** Predecessor to `pubKeyHash`. New code must emit `pubKeyHash` + `hashingAlgo`.            |
-| `hashingAlgo`      | enum        | Algorithm for `pubKeyHash`: `sha256` or `sha512`.                                                       |
-| `encoding`         | string      | Encoding of the value if not raw UTF-8 (e.g. `base64`).                                                 |
-| `encKeyName`       | string      | Name of the symmetric key used to encrypt the value (resolves to a key name in the owner's keystore).   |
-| `encAlgo`          | string      | Symmetric algorithm used to encrypt the value (e.g. `AES/SIC/PKCS7Padding`).                            |
-| `ivNonce`          | string      | Base64 IV / nonce used in symmetric encryption of the value.                                            |
-| `skeEncKeyName`    | string      | Name of the public key that wrapped `sharedKeyEnc`.                                                      |
-| `skeEncAlgo`       | string      | Algorithm used to wrap `sharedKeyEnc` (default `RSA`).                                                  |
-| `immutable`        | bool        | If `true`, the key cannot be updated; deletion requires `:force:`.                                      |
+| Wire tag          | Type     | Description                                                                                                                     |
+|-------------------|----------|---------------------------------------------------------------------------------------------------------------------------------|
+| `ttl`             | int (ms) | Time-to-live. Key auto-deletes `ttl` ms after creation. `0` or omitted = never expires.                                         |
+| `ttb`             | int (ms) | Time-to-birth. Key is invisible to lookups for `ttb` ms after creation.                                                         |
+| `ttr`             | int (ms) | Time-to-refresh for cached copies. `-1` = cache forever; positive = re-fetch interval.                                          |
+| `ccd`             | bool     | Cascade-delete. If `true`, deleting the original key deletes its cached copies.                                                 |
+| `cAt`             | ISO 8601 | `createdAt` — UTC timestamp of creation. Regex: `\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z` (fractional seconds optional). |
+| `uAt`             | ISO 8601 | `updatedAt` — UTC timestamp of most recent update.                                                                              |
+| `eAt`             | ISO 8601 | `expiresAt` — derived from `cAt + ttl`. Normally server-emitted; clients can also set explicitly (e.g. on sync replay).         |
+| `aAt`             | ISO 8601 | `availableAt` — derived from `cAt + ttb`. Same write semantics as `eAt`.                                                        |
+| `dataSignature`   | string   | Signature over a public value, signed by the owner's signing private key. Verifies authenticity.                                |
+| `sharedKeyStatus` | enum     | Lifecycle status of a shared key: `localUpdated`, `remoteUpdated`, `sharedWithNotified`, etc.                                   |
+| `isBinary`        | bool     | `true` if the value is binary (base64-encoded on the wire).                                                                     |
+| `isEncrypted`     | bool     | `true` if the value is ciphertext.                                                                                              |
+| `sharedKeyEnc`    | string   | The shared symmetric key, RSA-encrypted to the recipient's encryption public key. Inline in metadata.                           |
+| `pubKeyHash`      | string   | Hash of the recipient public key that encrypted `sharedKeyEnc`. Lets the recipient detect key rotation.                         |
+| `pubKeyCS`        | string   | **Deprecated.** Predecessor to `pubKeyHash`. New code must emit `pubKeyHash` + `hashingAlgo`.                                   |
+| `hashingAlgo`     | enum     | Algorithm for `pubKeyHash`: `sha256` or `sha512`.                                                                               |
+| `encoding`        | string   | Encoding of the value if not raw UTF-8 (e.g. `base64`).                                                                         |
+| `encKeyName`      | string   | Name of the symmetric key used to encrypt the value (resolves to a key name in the owner's keystore).                           |
+| `encAlgo`         | string   | Symmetric algorithm used to encrypt the value (e.g. `AES/SIC/PKCS7Padding`).                                                    |
+| `ivNonce`         | string   | Base64 IV / nonce used in symmetric encryption of the value.                                                                    |
+| `skeEncKeyName`   | string   | Name of the public key that wrapped `sharedKeyEnc`.                                                                             |
+| `skeEncAlgo`      | string   | Algorithm used to wrap `sharedKeyEnc` (default `RSA`).                                                                          |
+| `immutable`       | bool     | If `true`, the key cannot be updated; deletion requires `:force:`.                                                              |
 
 Negative integer values for `ttl`/`ttb` are accepted by the regex (the
 syntax allows `(-?)\d+`) but server-side semantics are documented at
@@ -514,6 +520,7 @@ from:<atSign>[:clientConfig:<clientConfig-json>]
 ```
 
 Source: `at_commons/lib/src/verb/syntax.dart`:
+
 ```
 ^from:(?<atSign>@?[^:@\s]+)(:clientConfig:(?<clientConfig>\{.+\}))?$
 ```
@@ -522,13 +529,13 @@ The `clientConfig` JSON is optional and free-form. The atServer reads
 the following recognised fields and stores them on the connection
 metadata:
 
-| Field        | Purpose                                                    |
-| ------------ | ---------------------------------------------------------- |
-| `version`    | Client SDK version string                                  |
-| `clientId`   | Unique client / device identifier                          |
-| `appName`    | Application name                                           |
-| `appVersion` | Application version                                        |
-| `platform`   | OS or platform tag (e.g. `iOS`, `Android`, `linux`)        |
+| Field        | Purpose                                             |
+|--------------|-----------------------------------------------------|
+| `version`    | Client SDK version string                           |
+| `clientId`   | Unique client / device identifier                   |
+| `appName`    | Application name                                    |
+| `appVersion` | Application version                                 |
+| `platform`   | OS or platform tag (e.g. `iOS`, `Android`, `linux`) |
 
 Unrecognised fields are ignored.
 
@@ -573,6 +580,7 @@ cram:<digest>
 ```
 
 Source:
+
 ```
 ^cram:(?<digest>.+$)
 ```
@@ -609,6 +617,7 @@ pkam:[signingAlgo:<rsa2048|ecc_secp256r1>:][hashingAlgo:<sha256|sha512>:][enroll
 ```
 
 Source:
+
 ```
 ^pkam:(signingAlgo:(?<signingAlgo>ecc_secp256r1|rsa2048):)?(hashingAlgo:(?<hashingAlgo>sha256|sha512):)?(enrollmentId:(?<enrollmentId>.+):)?(?<signature>.+$)
 ```
@@ -660,6 +669,7 @@ enroll:<operation>[:force][:<enrollParams-json>]
 ```
 
 Source:
+
 ```
 ^enroll:(?<operation>(?:(request|approve|deny|revoke|list|fetch|unrevoke|delete)))(:(?<force>force))?(?::)?((?<enrollParams>.+)|(<=list:)<enrollParams>.?)?$
 ```
@@ -667,34 +677,34 @@ Source:
 `<enrollParams>` is the JSON serialisation of the `EnrollParams` shape
 (`at_commons/lib/src/verb/enroll_params.dart`):
 
-| Field                                  | Used by         | Description                                                                                  |
-| -------------------------------------- | --------------- | -------------------------------------------------------------------------------------------- |
-| `enrollmentId`                         | approve/deny/revoke/fetch/delete/unrevoke | UUID of the enrollment.                                                  |
-| `appName`                              | request         | Application name, e.g. `"todos"`.                                                           |
-| `deviceName`                           | request         | Unique device identifier.                                                                    |
-| `namespaces`                           | request         | Map of `namespace → permission` (`r`, `w`, `rw`, `rwx`).                                    |
-| `otp`                                  | request         | One-time password from `otp:get`.                                                            |
-| `apkamPublicKey`                       | request         | New device's APKAM public key (PEM or base64).                                              |
-| `encryptedAPKAMSymmetricKey`           | request         | New device's APKAM symmetric key, RSA-encrypted to the default encryption public key.       |
-| `encryptedDefaultEncryptionPrivateKey` | approve         | Owner's encryption private key, AES-encrypted with the APKAM symmetric key.                 |
-| `encPrivateKeyIV`                      | approve         | IV (base64) for the line above.                                                              |
-| `encryptedDefaultSelfEncryptionKey`    | approve         | Owner's self-encryption key, AES-encrypted with the APKAM symmetric key.                    |
-| `selfEncKeyIV`                         | approve         | IV (base64) for the line above.                                                              |
-| `enrollmentStatusFilter`               | list            | Optional list of statuses to filter on: `pending`, `approved`, `denied`, `revoked`, `expired`. |
-| `apkamKeysExpiryDuration`              | request         | ISO-8601 duration: lifetime of the APKAM credentials before forced re-enrollment.            |
+| Field                                  | Used by                                   | Description                                                                                    |
+|----------------------------------------|-------------------------------------------|------------------------------------------------------------------------------------------------|
+| `enrollmentId`                         | approve/deny/revoke/fetch/delete/unrevoke | UUID of the enrollment.                                                                        |
+| `appName`                              | request                                   | Application name, e.g. `"todos"`.                                                              |
+| `deviceName`                           | request                                   | Unique device identifier.                                                                      |
+| `namespaces`                           | request                                   | Map of `namespace → permission` (`r`, `w`, `rw`, `rwx`).                                       |
+| `otp`                                  | request                                   | One-time password from `otp:get`.                                                              |
+| `apkamPublicKey`                       | request                                   | New device's APKAM public key (PEM or base64).                                                 |
+| `encryptedAPKAMSymmetricKey`           | request                                   | New device's APKAM symmetric key, RSA-encrypted to the default encryption public key.          |
+| `encryptedDefaultEncryptionPrivateKey` | approve                                   | Owner's encryption private key, AES-encrypted with the APKAM symmetric key.                    |
+| `encPrivateKeyIV`                      | approve                                   | IV (base64) for the line above.                                                                |
+| `encryptedDefaultSelfEncryptionKey`    | approve                                   | Owner's self-encryption key, AES-encrypted with the APKAM symmetric key.                       |
+| `selfEncKeyIV`                         | approve                                   | IV (base64) for the line above.                                                                |
+| `enrollmentStatusFilter`               | list                                      | Optional list of statuses to filter on: `pending`, `approved`, `denied`, `revoked`, `expired`. |
+| `apkamKeysExpiryDuration`              | request                                   | ISO-8601 duration: lifetime of the APKAM credentials before forced re-enrollment.              |
 
 **Operations and responses**
 
-| Operation   | Response payload                                                       |
-| ----------- | ---------------------------------------------------------------------- |
-| `request`   | `data:{"enrollmentId":"<uuid>","status":"pending"}`                    |
-| `approve`   | `data:{"enrollmentId":"<uuid>","status":"approved"}`                   |
-| `deny`      | `data:{"enrollmentId":"<uuid>","status":"denied"}`                     |
-| `revoke`    | `data:{"enrollmentId":"<uuid>","status":"revoked"}` (`:force:` to revoke own enrollment) |
-| `unrevoke`  | `data:{"enrollmentId":"<uuid>","status":"approved"}`                   |
-| `delete`    | `data:{"enrollmentId":"<uuid>","status":"deleted"}`                    |
-| `fetch`     | `data:{ <full enrollment record JSON> }`                               |
-| `list`      | `data:{"<enrollKey>":{<enrollment record JSON>}, …}`                   |
+| Operation  | Response payload                                                                         |
+|------------|------------------------------------------------------------------------------------------|
+| `request`  | `data:{"enrollmentId":"<uuid>","status":"pending"}`                                      |
+| `approve`  | `data:{"enrollmentId":"<uuid>","status":"approved"}`                                     |
+| `deny`     | `data:{"enrollmentId":"<uuid>","status":"denied"}`                                       |
+| `revoke`   | `data:{"enrollmentId":"<uuid>","status":"revoked"}` (`:force:` to revoke own enrollment) |
+| `unrevoke` | `data:{"enrollmentId":"<uuid>","status":"approved"}`                                     |
+| `delete`   | `data:{"enrollmentId":"<uuid>","status":"deleted"}`                                      |
+| `fetch`    | `data:{ <full enrollment record JSON> }`                                                 |
+| `list`     | `data:{"<enrollKey>":{<enrollment record JSON>}, …}`                                     |
 
 #### 9.4.2 The `otp` verb
 
@@ -704,6 +714,7 @@ otp:put:<otp>[:ttl:<ms>]
 ```
 
 Source:
+
 ```
 ^otp:(?<operation>get|put)(:(?<otp>(?<=put:)\w{6,}))?(:(?:ttl:(?<ttl>\d+)))?$
 ```
@@ -767,6 +778,7 @@ update[:nc]:json:<json>
 ```
 
 Source:
+
 ```
 ^update(:nc(?<noCommit>))?(:json:(?<json>.+)|<metadataFragment>(:(public|@(?<forAtSign>...)))?:(?<atKey>...)(@(?<atSign>...))? (?<value>.+))$
 ```
@@ -820,6 +832,7 @@ delete[:dAt:<timestamp>][:nc][:force][:priority:<low|medium|high>][:cached][:pub
 ```
 
 Source:
+
 ```
 ^delete(:dAt:...)?(:nc)?(:force)?(:priority:...)?(:cached)?(:public|@<forAtSign>)?:<atKey>(@<atSign>)?$
 ```
@@ -855,6 +868,7 @@ lookup[:bypassCache:<true|false>][:meta|all]:<atKey>@<atSign>
 ```
 
 Source:
+
 ```
 ^lookup:(bypassCache:(?<bypassCache>true|false):)?((?<operation>meta|all):)?(?<atKey>(?:[^:]).+)@(?<atSign>[^:@\s]+)$
 ```
@@ -868,16 +882,19 @@ Source:
 **Response shapes**
 
 Default:
+
 ```
 data:<value>
 ```
 
 `meta:`:
+
 ```
 data:{"createdBy":"@bob","updatedBy":"@bob","createdAt":"…","updatedAt":"…","ttl":null,"ttb":null,"ttr":10000,"ccd":false,"isBinary":false,"isEncrypted":true, …}
 ```
 
 `all:`:
+
 ```
 data:{"key":"@alice:country.wavi@bob","data":"USA","metaData":{ … }}
 ```
@@ -910,6 +927,7 @@ llookup[:meta|all][:cached][:public|@<forAtSign>]:<atKey>@<atSign>
 ```
 
 Source:
+
 ```
 ^llookup(:(?<operation>meta|all))?(:cached)?(:(public|@<forAtSign>))?:<atKey>@<atSign>$
 ```
@@ -929,6 +947,7 @@ scan[:cl][:showhidden:<true|false>][:<forAtSign>][:page:<n>][ <regex>]
 ```
 
 Source:
+
 ```
 ^scan$|scan(:cl)?(:showhidden:...)?(:<forAtSign>)?(:page:...)?( <regex>)?$
 ```
@@ -973,17 +992,17 @@ notify[:id:<id>][:<update|delete>][:messageType:key][:priority:<low|medium|high>
 
 Source: see `at_commons/lib/src/verb/syntax.dart` `notify`.
 
-| Tag             | Description                                                                                           |
-| --------------- | ----------------------------------------------------------------------------------------------------- |
-| `id`            | Caller-supplied notification ID. Server generates one if omitted.                                     |
-| `update|delete` | Operation. Defaults to `update`.                                                                      |
-| `messageType:key` | Notification refers to an atKey change. (`text` exists; **deprecated** — see Appendix B.)            |
-| `priority`      | Delivery priority hint.                                                                               |
-| `strategy:all`  | Deliver every notification (default).                                                                 |
-| `strategy:latest` | Coalesce: deliver only the most recent `<latestN>` for the same atKey if recipient was offline.    |
-| `latestN`       | Coalesce window size. Used with `strategy:latest`.                                                    |
-| `notifier`      | Identifier of the notifying subsystem. Defaults to `SYSTEM`.                                          |
-| `ttln`          | Notification time-to-live in ms. After expiry the server gives up delivering and marks `expired`.    |
+| Tag               | Description                                                                                       |
+|-------------------|---------------------------------------------------------------------------------------------------|
+| `id`              | Caller-supplied notification ID. Server generates one if omitted.                                 |
+| `update           | delete`                                                                                           | Operation. Defaults to `update`.                                                                      |
+| `messageType:key` | Notification refers to an atKey change. (`text` exists; **deprecated** — see Appendix B.)         |
+| `priority`        | Delivery priority hint.                                                                           |
+| `strategy:all`    | Deliver every notification (default).                                                             |
+| `strategy:latest` | Coalesce: deliver only the most recent `<latestN>` for the same atKey if recipient was offline.   |
+| `latestN`         | Coalesce window size. Used with `strategy:latest`.                                                |
+| `notifier`        | Identifier of the notifying subsystem. Defaults to `SYSTEM`.                                      |
+| `ttln`            | Notification time-to-live in ms. After expiry the server gives up delivering and marks `expired`. |
 
 **Response** — `data:<notificationId>` on success.
 
@@ -1021,6 +1040,7 @@ notify:list[:<fromDate>][:<toDate>][:<regex>]
 ```
 
 Dates are `YYYY-MM-DD`. Source:
+
 ```
 ^notify:list(:(?<fromDate>\d{4}-[01]?\d?-[0123]?\d?))?(:(?<toDate>...))?(:(?<regex>[^:]+))?
 ```
@@ -1046,13 +1066,13 @@ notify:status:<notificationId>
 
 **Response** — `data:<status>` where status is one of:
 
-| Status        | Meaning                                                |
-| ------------- | ------------------------------------------------------ |
-| `queued`      | Not yet sent.                                          |
-| `delivered`   | Successfully delivered to the recipient's atServer.    |
-| `undelivered` | Tried and failed; will retry per server policy.        |
-| `errored`     | Delivery errored permanently.                          |
-| `expired`     | TTL elapsed before delivery succeeded.                 |
+| Status        | Meaning                                             |
+|---------------|-----------------------------------------------------|
+| `queued`      | Not yet sent.                                       |
+| `delivered`   | Successfully delivered to the recipient's atServer. |
+| `undelivered` | Tried and failed; will retry per server policy.     |
+| `errored`     | Delivery errored permanently.                       |
+| `expired`     | TTL elapsed before delivery succeeded.              |
 
 ### 11.5 `notify:fetch`
 
@@ -1093,17 +1113,18 @@ monitor[:strict][:selfNotifications][:multiplexed][:<epochMillis>][ <regex>]
 ```
 
 Source:
+
 ```
 ^monitor(:strict)?(:selfNotifications)?(:multiplexed)?(:<epochMillis>)?( <regex>)?$
 ```
 
 | Modifier            | Effect                                                                                              |
-| ------------------- | --------------------------------------------------------------------------------------------------- |
+|---------------------|-----------------------------------------------------------------------------------------------------|
 | `strict`            | Emit **only** notifications matching the regex; suppress server-control notifications (e.g. stats). |
 | `selfNotifications` | Include notifications the connecting atSign emitted itself.                                         |
-| `multiplexed`       | Allow request-response interleaving on the same connection.                                          |
-| `<epochMillis>`     | Replay notifications received at or after this timestamp.                                            |
-| `<regex>`           | Filter notifications by atKey regex.                                                                 |
+| `multiplexed`       | Allow request-response interleaving on the same connection.                                         |
+| `<epochMillis>`     | Replay notifications received at or after this timestamp.                                           |
+| `<regex>`           | Filter notifications by atKey regex.                                                                |
 
 **Response** — a stream. Each notification arrives as one line:
 
@@ -1139,6 +1160,7 @@ sync:from:<from_commit_seq>[:limit:<n>][:skipDeletesUntil:<n>][:<regex>]
 ```
 
 Source:
+
 ```
 ^sync:from:(?<from_commit_seq>[0-9]+|-1)(:limit:(?<limit>\d+))?(:skipDeletesUntil:(?<skipDeletesUntil>\d+))?(:(?<regex>.+))?$
 ```
@@ -1205,6 +1227,7 @@ stats[:<id>[,<id>…]][:<regex>]
 ```
 
 Source:
+
 ```
 ^stats(?<statId>:((?!0)\d+)?(,(\d+))*)?(:(?<regex>(?<=:3:|:15:).+))?$
 ```
@@ -1212,14 +1235,14 @@ Source:
 Without IDs, all statistics are returned. Statistics are identified
 by integer IDs:
 
-| ID  | Name                        | Value type                    |
-| --- | --------------------------- | ----------------------------- |
-| 1   | `activeInboundConnections`  | int                           |
-| 2   | `activeOutboundConnections` | int                           |
-| 3   | `lastCommitId`              | int                           |
-| 4   | `secondaryStorageSize`      | int (bytes)                   |
-| 5   | `topAtSigns`                | `{<atSign>: <hits>, …}`       |
-| 6   | `topKeys`                   | `{<atKey>: <hits>, …}`        |
+| ID | Name                        | Value type              |
+|----|-----------------------------|-------------------------|
+| 1  | `activeInboundConnections`  | int                     |
+| 2  | `activeOutboundConnections` | int                     |
+| 3  | `lastCommitId`              | int                     |
+| 4  | `secondaryStorageSize`      | int (bytes)             |
+| 5  | `topAtSigns`                | `{<atSign>: <hits>, …}` |
+| 6  | `topKeys`                   | `{<atKey>: <hits>, …}`  |
 
 (Servers may expose additional IDs — IDs 11 and 15 take regex filters
 per the syntax; see source for current set.)
@@ -1244,21 +1267,25 @@ info[:brief|mtls|mtlsbrief]
 **Response shapes**
 
 `info` (full):
+
 ```
 data:{"version":"3.0.28","uptimeAsWords":"1 hours 35 minutes 29 seconds","features":[ {…feature record…}, … ]}
 ```
 
 `info:brief`:
+
 ```
 data:{"version":"3.0.28","uptimeAsMillis":5855295}
 ```
 
 `info:mtls`:
+
 ```
 data:{"mtls_fullchain":"<PEM>"}
 ```
 
 `info:mtlsbrief`:
+
 ```
 data:{"mtls_fullchain_last_modified":"2026-05-05T08:00:00.000Z","mtls_privkey_last_modified":"2026-05-05T08:00:00.000Z"}
 ```
@@ -1473,12 +1500,12 @@ B's atSign).
 
 **Failure modes:**
 
-| Cause                                       | Error                                          |
-| ------------------------------------------- | ---------------------------------------------- |
-| `pol` sent without prior `from`             | `error:AT0013-You must execute a 'from:' command before you may run the pol command` |
-| Signature verification fails                | `error:AT0025-Pol Authentication Failed`       |
-| Cannot connect outbound to verify           | `error:AT0007-atServer not found`              |
-| Any other handshake exception               | `error:AT0008-Handshake failure`               |
+| Cause                             | Error                                                                                |
+|-----------------------------------|--------------------------------------------------------------------------------------|
+| `pol` sent without prior `from`   | `error:AT0013-You must execute a 'from:' command before you may run the pol command` |
+| Signature verification fails      | `error:AT0025-Pol Authentication Failed`                                             |
+| Cannot connect outbound to verify | `error:AT0007-atServer not found`                                                    |
+| Any other handshake exception     | `error:AT0008-Handshake failure`                                                     |
 
 ### 15.3 Cross-atSign `lookup`
 
@@ -1750,36 +1777,36 @@ Sorted by code. The "Class" column gives the Dart exception that
 canonically produces the code; implementations in other languages
 should map to an equivalent.
 
-| Code     | Message                                | Class                              | Connection |
-| -------- | -------------------------------------- | ---------------------------------- | ---------- |
-| `AT0001` | Server exception                       | `AtServerException`                | Closed     |
-| `AT0002` | DataStore exception                    | `DataStoreException`               | Closed     |
-| `AT0003` | Invalid syntax                         | `InvalidSyntaxException`           | Closed     |
-| `AT0004` | Socket error                           | `AtIOException`                    | Closed     |
-| `AT0005` | Buffer limit exceeded                  | `BufferOverFlowException`          | Closed     |
-| `AT0006` | Outbound connection limit exceeded     | `OutboundConnectionLimitException` | Open       |
-| `AT0007` | atServer not found                     | `SecondaryNotFoundException`       | Open       |
-| `AT0008` | Handshake failure                      | `HandShakeException`               | Closed     |
-| `AT0009` | UnAuthorized client in the request     | `UnAuthorizedException`            | Closed     |
-| `AT0010` | Internal server error                  | `InternalServerError`              | Closed     |
-| `AT0011` | Internal server exception              | `InternalServerException`          | Closed     |
-| `AT0012` | Inbound connection limit exceeded      | `InboundConnectionLimitException`  | Closed     |
-| `AT0013` | Connection Exception                   | `BlockedConnectionException`       | Closed     |
-| `AT0014` | Unknown AtClient exception             | `AtClientException`                | n/a (client-only) |
-| `AT0015` | Key not found                          | `KeyNotFoundException`             | Open       |
-| `AT0016` | Invalid key                            | `InvalidAtKeyException`            | Open       |
-| `AT0021` | Unable to connect to atServer          | `SecondaryConnectException`        | n/a (client-only) |
-| `AT0022` | Illegal arguments                      | `IllegalArgumentException`         | Open       |
-| `AT0023` | Timeout waiting for response           | `AtTimeoutException`               | Open       |
-| `AT0024` | Server is paused                       | `ServerIsPausedException`          | Open       |
-| `AT0025` | Authentication failed (cram/pol)       | `UnAuthenticatedException`         | Closed     |
-| `AT0026` | APKAM enrollment pending               | `UnAuthenticatedException`         | Closed     |
-| `AT0027` | APKAM enrollment revoked               | `UnAuthenticatedException`         | Closed     |
-| `AT0028` | Too many requests / throttle exceeded  | `AtThrottleLimitExceeded`          | Open       |
-| `AT0029` | APKAM enrollment expired               | `AtInvalidEnrollmentException`     | Closed     |
-| `AT0031` | Cannot revoke own enrollment           | `AtEnrollmentRevokeException`      | Open       |
-| `AT0032` | Illegal state                          | `IllegalStateException`            | Open       |
-| `AT0401` | Client authentication failed (cram/pkam) | `UnAuthenticatedException`       | Closed     |
+| Code     | Message                                  | Class                              | Connection        |
+|----------|------------------------------------------|------------------------------------|-------------------|
+| `AT0001` | Server exception                         | `AtServerException`                | Closed            |
+| `AT0002` | DataStore exception                      | `DataStoreException`               | Closed            |
+| `AT0003` | Invalid syntax                           | `InvalidSyntaxException`           | Closed            |
+| `AT0004` | Socket error                             | `AtIOException`                    | Closed            |
+| `AT0005` | Buffer limit exceeded                    | `BufferOverFlowException`          | Closed            |
+| `AT0006` | Outbound connection limit exceeded       | `OutboundConnectionLimitException` | Open              |
+| `AT0007` | atServer not found                       | `SecondaryNotFoundException`       | Open              |
+| `AT0008` | Handshake failure                        | `HandShakeException`               | Closed            |
+| `AT0009` | UnAuthorized client in the request       | `UnAuthorizedException`            | Closed            |
+| `AT0010` | Internal server error                    | `InternalServerError`              | Closed            |
+| `AT0011` | Internal server exception                | `InternalServerException`          | Closed            |
+| `AT0012` | Inbound connection limit exceeded        | `InboundConnectionLimitException`  | Closed            |
+| `AT0013` | Connection Exception                     | `BlockedConnectionException`       | Closed            |
+| `AT0014` | Unknown AtClient exception               | `AtClientException`                | n/a (client-only) |
+| `AT0015` | Key not found                            | `KeyNotFoundException`             | Open              |
+| `AT0016` | Invalid key                              | `InvalidAtKeyException`            | Open              |
+| `AT0021` | Unable to connect to atServer            | `SecondaryConnectException`        | n/a (client-only) |
+| `AT0022` | Illegal arguments                        | `IllegalArgumentException`         | Open              |
+| `AT0023` | Timeout waiting for response             | `AtTimeoutException`               | Open              |
+| `AT0024` | Server is paused                         | `ServerIsPausedException`          | Open              |
+| `AT0025` | Authentication failed (cram/pol)         | `UnAuthenticatedException`         | Closed            |
+| `AT0026` | APKAM enrollment pending                 | `UnAuthenticatedException`         | Closed            |
+| `AT0027` | APKAM enrollment revoked                 | `UnAuthenticatedException`         | Closed            |
+| `AT0028` | Too many requests / throttle exceeded    | `AtThrottleLimitExceeded`          | Open              |
+| `AT0029` | APKAM enrollment expired                 | `AtInvalidEnrollmentException`     | Closed            |
+| `AT0031` | Cannot revoke own enrollment             | `AtEnrollmentRevokeException`      | Open              |
+| `AT0032` | Illegal state                            | `IllegalStateException`            | Open              |
+| `AT0401` | Client authentication failed (cram/pkam) | `UnAuthenticatedException`         | Closed            |
 
 ### 17.2 Note on `AT0009` vs `AT0401`
 
@@ -1832,38 +1859,39 @@ distinguish between them; clients may retry on `AT0401` but not on
 ## Appendix A — Verb reference
 
 Terse reference for ctrl-F. Authoritative regex source:
-[`at_commons/lib/src/verb/syntax.dart`](https://github.com/atsign-foundation/at_client_sdk/blob/trunk/packages/at_commons/lib/src/verb/syntax.dart).
+[
+`at_commons/lib/src/verb/syntax.dart`](https://github.com/atsign-foundation/at_client_sdk/blob/trunk/packages/at_commons/lib/src/verb/syntax.dart).
 
-| Verb            | Auth | Purpose                                          | Section |
-| --------------- | ---- | ------------------------------------------------ | ------- |
-| `from`          | —    | Identify connecting atSign; receive challenge.   | §9.1    |
-| `cram`          | —    | Bootstrap-only authentication.                    | §9.2    |
-| `pkam`          | —    | Sign-the-challenge authentication.                | §9.3    |
-| `pol`           | —    | Inter-atServer proof-of-life. Server-emitted only.| §15.2   |
-| `enroll`        | varies | APKAM enrollment lifecycle.                      | §9.4.1  |
-| `otp`           | owner | Get/put OTP for APKAM.                            | §9.4.2  |
-| `keys`          | yes  | APKAM-issued key storage. **Being deprecated** — see §9.4.3 and §B.7. | §9.4.3  |
-| `update`        | yes  | Insert/overwrite an atKey.                        | §10.1   |
-| `update:meta`   | yes  | Update only metadata.                             | §10.2   |
-| `delete`        | yes  | Remove an atKey.                                  | §10.3   |
-| `lookup`        | yes  | Cross-atSign read.                                | §10.4   |
-| `plookup`       | —    | Public lookup.                                    | §10.5   |
-| `llookup`       | yes  | Local-server-only lookup.                         | §10.6   |
-| `scan`          | varies | Enumerate atKeys (regex/filter).                  | §10.7   |
-| `notify`        | yes  | Emit a notification.                              | §11.1   |
-| `notify:all`    | yes  | Emit to multiple recipients.                      | §11.2   |
-| `notify:list`   | yes  | List received (or sent, if pol-auth) notifications.| §11.3  |
-| `notify:status` | yes  | Query delivery status.                            | §11.4   |
-| `notify:fetch`  | yes  | Fetch full notification record.                   | §11.5   |
-| `notify:remove` | yes  | Remove from local notification log.               | §11.6   |
-| `monitor`       | yes  | Stream of received notifications.                 | §11.7   |
-| `sync:from`     | yes  | Walk the commit log from an offset.               | §12.1   |
-| `config`        | owner | Block-list and config management.                 | §13.1   |
-| `stats`         | yes  | Server statistics.                                | §13.2   |
-| `info`          | varies | Server runtime info.                              | §13.3   |
-| `noop`          | —    | Sleep then `data:ok`.                             | §13.4   |
-| `batch`         | yes  | Multiple verbs in one round-trip.                 | §13.5   |
-| `@exit`         | —    | atDirectory graceful close.                       | §8.4    |
+| Verb            | Auth   | Purpose                                                               | Section |
+|-----------------|--------|-----------------------------------------------------------------------|---------|
+| `from`          | —      | Identify connecting atSign; receive challenge.                        | §9.1    |
+| `cram`          | —      | Bootstrap-only authentication.                                        | §9.2    |
+| `pkam`          | —      | Sign-the-challenge authentication.                                    | §9.3    |
+| `pol`           | —      | Inter-atServer proof-of-life. Server-emitted only.                    | §15.2   |
+| `enroll`        | varies | APKAM enrollment lifecycle.                                           | §9.4.1  |
+| `otp`           | owner  | Get/put OTP for APKAM.                                                | §9.4.2  |
+| `keys`          | yes    | APKAM-issued key storage. **Being deprecated** — see §9.4.3 and §B.7. | §9.4.3  |
+| `update`        | yes    | Insert/overwrite an atKey.                                            | §10.1   |
+| `update:meta`   | yes    | Update only metadata.                                                 | §10.2   |
+| `delete`        | yes    | Remove an atKey.                                                      | §10.3   |
+| `lookup`        | yes    | Cross-atSign read.                                                    | §10.4   |
+| `plookup`       | —      | Public lookup.                                                        | §10.5   |
+| `llookup`       | yes    | Local-server-only lookup.                                             | §10.6   |
+| `scan`          | varies | Enumerate atKeys (regex/filter).                                      | §10.7   |
+| `notify`        | yes    | Emit a notification.                                                  | §11.1   |
+| `notify:all`    | yes    | Emit to multiple recipients.                                          | §11.2   |
+| `notify:list`   | yes    | List received (or sent, if pol-auth) notifications.                   | §11.3   |
+| `notify:status` | yes    | Query delivery status.                                                | §11.4   |
+| `notify:fetch`  | yes    | Fetch full notification record.                                       | §11.5   |
+| `notify:remove` | yes    | Remove from local notification log.                                   | §11.6   |
+| `monitor`       | yes    | Stream of received notifications.                                     | §11.7   |
+| `sync:from`     | yes    | Walk the commit log from an offset.                                   | §12.1   |
+| `config`        | owner  | Block-list and config management.                                     | §13.1   |
+| `stats`         | yes    | Server statistics.                                                    | §13.2   |
+| `info`          | varies | Server runtime info.                                                  | §13.3   |
+| `noop`          | —      | Sleep then `data:ok`.                                                 | §13.4   |
+| `batch`         | yes    | Multiple verbs in one round-trip.                                     | §13.5   |
+| `@exit`         | —      | atDirectory graceful close.                                           | §8.4    |
 
 ---
 
@@ -2002,7 +2030,8 @@ envelope.
 Cleanup of the exception hierarchy, error-code emission, and
 on-the-wire `error:…` shapes. Implementers should expect the error
 catalogue in §17 to gain entries (and possibly normalise the
-hyphen/colon separator inconsistency noted in [§D.1](#d1-error-code-separator-hyphen-vs-colon)).
+hyphen/colon separator inconsistency noted
+in [§D.1](#d1-error-code-separator-hyphen-vs-colon)).
 
 ### C.5 Canonical SDK conformance test suite
 
@@ -2065,7 +2094,8 @@ the SDK; not a wire-protocol change.
 [at_server #2568](https://github.com/atsign-foundation/at_server/issues/2568).
 Today, looking up a key whose `eAt` has passed returns `data:null`;
 the proposed correction is `error:AT0015-Key not found`. A small
-change but observable on the wire — see [§D.4](#d4-expired-keys-return-null-instead-of-an-at0015-error).
+change but observable on the wire —
+see [§D.4](#d4-expired-keys-return-null-instead-of-an-at0015-error).
 
 ---
 
@@ -2262,6 +2292,7 @@ carry one or the other, never both meaningfully — see Appendix B.4.
 Session IDs (`<sessionID>` in `from`/`pol`) are produced server-side
 and have a leading `_` followed by a UUID, e.g.
 `_4af24c03-d732-48f8-a9a2-570e8fb6a01c`. The leading underscore
-matters: it makes the per-session keystore entries (`public:<sessionID><atSign>`)
+matters: it makes the per-session keystore entries (
+`public:<sessionID><atSign>`)
 "hidden" by atKey-shape rules and so they don't appear in `scan`
 output without `:showhidden:true`.

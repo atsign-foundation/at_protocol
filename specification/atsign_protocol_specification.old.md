@@ -12,8 +12,8 @@
 The atDirectory provides a lookup of where an atServer for an atsign is running.
 This is similar to a DNS server.
 
-When asking an atDirectory for the lookup of a particular atSign, the 
-atDirectory should respond with fqdn:port of the atServer, or `null` if the 
+When asking an atDirectory for the lookup of a particular atSign, the
+atDirectory should respond with fqdn:port of the atServer, or `null` if the
 atSign does not exist.
 
 **Response:**
@@ -52,9 +52,9 @@ atServer can be any of the following 5 types:
 
 1. Public Key
 
-   - A public key is a key which can be looked up by any atSign owner.
-   - A public key should be part of the _scan_ verb result.
-   - Format of the public key should be `public:<key><atSign>`.
+    - A public key is a key which can be looked up by any atSign owner.
+    - A public key should be part of the _scan_ verb result.
+    - Format of the public key should be `public:<key><atSign>`.
 
    **Example:**
 
@@ -65,10 +65,10 @@ atServer can be any of the following 5 types:
 
 2. Self Key
 
-   - A self key is a key which cannot be looked up any atSign user other than
-     the one who created it.
-   - A self key should be part of the _scan_ verb result.
-   - Format of the self key should be `<key><atSign>`.
+    - A self key is a key which cannot be looked up any atSign user other than
+      the one who created it.
+    - A self key should be part of the _scan_ verb result.
+    - Format of the self key should be `<key><atSign>`.
 
    **Example:**
 
@@ -79,12 +79,13 @@ atServer can be any of the following 5 types:
 
 3. Shared key
 
-   - A shared key can only be looked up by an atSign owner with whom the data
-     has been shared.
-   - A shared key should be part of the _scan_ verb result only for the user who
-     created it and the specific user it has been shared with.
-   - Format of the key shared with someone else should be
-     `<sharedWith atSign>:<key><createdBy atSign>`
+    - A shared key can only be looked up by an atSign owner with whom the data
+      has been shared.
+    - A shared key should be part of the _scan_ verb result only for the user
+      who
+      created it and the specific user it has been shared with.
+    - Format of the key shared with someone else should be
+      `<sharedWith atSign>:<key><createdBy atSign>`
 
    **Example:**
 
@@ -103,9 +104,9 @@ key types.
 
    > Public, self, or shared key can be hidden.
 
-   - Format of the hidden key should follow its primary type's format, but
-     `<key>` must start with an underscore (`_`).
-   - A hidden key should **not** be part of the _scan_ verb result.
+    - Format of the hidden key should follow its primary type's format, but
+      `<key>` must start with an underscore (`_`).
+    - A hidden key should **not** be part of the _scan_ verb result.
 
    **Examples:**
 
@@ -119,13 +120,14 @@ key types.
 
    > Only shared keys should be cached.
 
-   - A cached key is a key that was originally created by another atSign user
-     but is now cached on the atServer of another user's atSign as he/she was
-     given permission to cache it.
-   - A cached key should be listed in the _scan_ verb result for the atSign user
-     who cached it.
-   - Format of the key shared with someone else should be
-     `cached:<sharedWith atSign>:<key>:<createdBy atSign>`
+    - A cached key is a key that was originally created by another atSign user
+      but is now cached on the atServer of another user's atSign as he/she was
+      given permission to cache it.
+    - A cached key should be listed in the _scan_ verb result for the atSign
+      user
+      who cached it.
+    - Format of the key shared with someone else should be
+      `cached:<sharedWith atSign>:<key>:<createdBy atSign>`
 
    **Example:**
 
@@ -515,7 +517,7 @@ minutes.
 `update:ttl:600000:location@bob bob's location value but key expires in 10 minutes`
 
 Put a shared key/value pair into the atServer with key @alice:phone@bob (shared
-with @alice and shared by @bob) with value `@bob`'s phone number shared to 
+with @alice and shared by @bob) with value `@bob`'s phone number shared to
 @alice.
 
 `update:@alice:phone@bob bob's phone number shared to @alice`
@@ -654,25 +656,25 @@ shared by `@alice` and shared with you).
 ```json
 data:
 {
-    "createdBy":"@bob",
-    "updatedBy":"@bob",
-    "createdAt":"2020-10-21 09:46:48.982Z",
-    "updatedAt":"2020-10-21 09:46:48.982Z",
-    "availableAt":"null",
-    "expiresAt":"null",
-    "refreshAt":"2020-10-21 09:46:58.982Z",
-    "status":"active",
-    "version":0,
-    "ttl":null,
-    "ttb":null,
-    "ttr":10000,
-    "ccd":false,
-    "isBinary":false,
-    "isEncrypted":false
- }
+"createdBy": "@bob",
+"updatedBy": "@bob",
+"createdAt":"2020-10-21 09:46:48.982Z",
+"updatedAt": "2020-10-21 09:46:48.982Z",
+"availableAt": "null",
+"expiresAt": "null",
+"refreshAt": "2020-10-21 09:46:58.982Z",
+"status":"active",
+"version": 0,
+"ttl": null,
+"ttb": null,
+"ttr": 10000,
+"ccd":false,
+"isBinary": false,
+"isEncrypted": false
+}
 ```
 
-If the operation is to look up the metadata and the data together then the 
+If the operation is to look up the metadata and the data together then the
 result should be wrapped in a JSON in the following format:
 
 `data:<Value and Metadata in a JSON>`
@@ -680,26 +682,26 @@ result should be wrapped in a JSON in the following format:
 ```json
 data:
 {
-    "key":"@alice:country@bob",
-    "data":"USA",
-    "metaData":
-    {
-        "createdBy":"@bob",
-        "updatedBy":"@bob",
-        "createdAt":"2020-10-21 09:46:48.982Z",
-        "updatedAt":"2020-10-21 09:46:48.982Z",
-        "availableAt":"null",
-        "expiresAt":"null",
-        "refreshAt":"2020-10-21 09:46:58.982Z",
-        "status":"active",
-        "version":0,
-        "ttl":null,
-        "ttb":null,
-        "ttr":10000,
-        "ccd":false,
-        "isBinary":false,
-        "isEncrypted":false
-    }
+"key": "@alice:country@bob",
+"data": "USA",
+"metaData":
+{
+"createdBy": "@bob",
+"updatedBy": "@bob",
+"createdAt":"2020-10-21 09:46:48.982Z",
+"updatedAt": "2020-10-21 09:46:48.982Z",
+"availableAt": "null",
+"expiresAt": "null",
+"refreshAt": "2020-10-21 09:46:58.982Z",
+"status":"active",
+"version": 0,
+"ttl": null,
+"ttb": null,
+"ttr": 10000,
+"ccd":false,
+"isBinary": false,
+"isEncrypted": false
+}
 }
 ```
 
@@ -946,8 +948,9 @@ which returns all the commit entries.
 <!-- pyml disable-num-lines 4 md013-->
 
 ```json
-data:[{"atKey":"@bob:phone@alice","operation":"+","opTime":"2020-10-26 11:57:43.732","commitId":0,"value":"12345","metadata":{"ttr":"36000000","ccd":"false"}},
-{"atKey":"@bob:shared_key@alice","operation":"-","opTime":"2020-10-26 09:44:54.382219Z","commitId":1}]
+data:[{"atKey": "@bob:phone@alice", "operation": "+", "opTime":"2020-10-26 11:57:43.732", "commitId": 0, "value": "12345","metadata":{"ttr": "36000000", "ccd": "false"}},
+{"atKey": "@bob:shared_key@alice", "operation": "-", "opTime":"2020-10-26 09:44:54.382219Z", "commitId": 1}
+]
 ```
 
 ### Notification Verbs
@@ -973,7 +976,7 @@ notify:((?<operation>update|delete):)?(ttl:(?<ttl>\d+):)?(ttb:(?<ttb>\d+):)?(ttr
 <!-- pyml disable-num-lines 3 md013-->
 
 ```json
-notify:update:ttr:-1:@{RECIPIENT}:{KEY}.{NAMESPACE}@{SENDER}:{BASE64ENCODED_CYPHERTEXT}
+notify:update: ttr: -1: @{RECIPIENT}:{KEY}.{NAMESPACE}@{SENDER}:{BASE64ENCODED_CYPHERTEXT}
 ```
 
 **Example:**
@@ -1118,6 +1121,7 @@ Following is the regex
 **Response:**
 
 <!-- pyml disable-num-lines 3 md013-->
+
 ```text
 data: {id: e8213024-ea78-475b-a8a7-d2ccc9fa5939, fromAtSign: @alice, notificationDateTime: 2025-01-10 10:08:44.090Z, toAtSign: @bob, notification: @bob:shared_key@alice, type: NotificationType.sent, opType: OperationType.update, messageType: MessageType.key, priority: NotificationPriority.low, notificationStatus: NotificationStatus.queued, retryCount: 1, strategy: all, depth: 1, notifier: SYSTEM, expiresAt: 2025-01-10 10:23:44.092Z, atValue: null, atMetadata: {createdBy: @alice, ttl: 0, ttb: 0, isEncrypted: true}, ttl: 900000}
 ```
@@ -1133,6 +1137,7 @@ The "notify:all" allows to notify multiple @sign's at the same time.
 Following is the regex
 
 <!-- pyml disable-num-lines 3 md013-->
+
 ```text
 notify:all:((?<operation>update|delete):)?(messageType:((?<messageType>key|text):))?(?:ttl:(?<ttl>\d+):)?(?:ttb:(?<ttb>\d+):)?(?:ttr:(?<ttr>-?\d+):)?(?:ccd:(?<ccd>true|false+):)?(?<forAtSign>(([^:\s])+)?(,([^:\s]+))*)(:(?<atKey>[^@:\s]+))(@(?<atSign>[^@:\s]+))?(:(?<value>.+))?$
 ```
@@ -1144,15 +1149,20 @@ notify:all:((?<operation>update|delete):)?(messageType:((?<messageType>key|text)
 **Response:**
 
 <!-- pyml disable-num-lines 3 md013-->
+
 ```json
-{"@bob":"444504a3-aa47-478d-93ec-3113f69a9230","@colin":"31b35469-2836-431a-b988-353bb9785686"}, _type: null, _isError: false, _errorMessage: null}
+{
+  "@bob": "444504a3-aa47-478d-93ec-3113f69a9230",
+  "@colin": "31b35469-2836-431a-b988-353bb9785686"
+}, _type: null, _isError: false, _errorMessage: null
+}
 ```
 
 **Description:**
 
 The verb allows to notify multiple @sign's at the same time.
 The client should be authenticated to the server prior to using the notify verb.
-To notify a key use messageType:key. To notify a message use  messageType:text.
+To notify a key use messageType:key. To notify a message use messageType:text.
 
 #### The `monitor` Verb
 
@@ -1180,7 +1190,7 @@ Returns a stream of notifications.
 
 ```json
 @alice@monitor
-notification: {"id":"773e226d-dac2-4269-b1ee-64d7ce93a42f","from":"@bob","to":"@alice","key":"@alice:phone@bob","value":null,"operation":"update","epochMillis":1603714720965}
+notification: {"id": "773e226d-dac2-4269-b1ee-64d7ce93a42f", "from": "@bob", "to":"@alice", "key": "@alice:phone@bob", "value": null,"operation": "update", "epochMillis": 1603714720965}
 ```
 
 **Description:**
@@ -1209,6 +1219,7 @@ The `enroll` verb can be used to submit an APKAM enrollment.
 Regex for enroll verb
 
 <!-- pyml disable-num-lines 3 md013-->
+
 ```text
 enroll:(?<operation>(?:(request|approve|deny|revoke|list|fetch|unrevoke|delete)))(:(?<force>force))?(?::)?((?<enrollParams>.+)|(<=list:)<enrollParams>.?)?$
 ```
@@ -1218,6 +1229,7 @@ enroll:(?<operation>(?:(request|approve|deny|revoke|list|fetch|unrevoke|delete))
 Submit an enrollment:
 
 <!-- pyml disable-num-lines 3 md013-->
+
 ```text
 enroll:request:{"appName":"wavi","deviceName":"iphone","namespaces":{"wavi":"rw"},"otp":"<otp>","apkamPublicKey":"<apkamPublicKey>","encryptedAPKAMSymmetricKey": "<encryptedAPKAMSymmetricKey>"}
 ```
@@ -1231,6 +1243,7 @@ data:{"enrollmentId":<enrollmentId>, "status": "pending"}
 Approve an enrollment:
 
 <!-- pyml disable-num-lines 3 md013-->
+
 ```text
 enroll:approve:{"enrollmentId":<enrollmentId>,"encryptedDefaultEncryptionPrivateKey":<encryptedDefaultEncryptionPrivateKey>,"encPrivateKeyIV":"<encryptionPrivateKeyIV>","encryptedDefaultSelfEncryptionKey": "<encryptedDefaultSelfEncryptionKey>","selfEncKeyIV":"<selfEncryptionKeyIV>"}
 ```
@@ -1272,8 +1285,17 @@ enroll:fetch:{"enrollmentId":<enrollmentId>}
 ```
 
 <!-- pyml disable-num-lines 3 md013-->
+
 ```json
-{"appName": "wavi", "deviceName": "iphone", "namespace": {"wavi": "rw"}, "encryptedAPKAMSymmetricKey": "dummy_apkam_key", "status": "approved"}
+{
+  "appName": "wavi",
+  "deviceName": "iphone",
+  "namespace": {
+    "wavi": "rw"
+  },
+  "encryptedAPKAMSymmetricKey": "dummy_apkam_key",
+  "status": "approved"
+}
 ```
 
 List enrollments:
@@ -1283,8 +1305,26 @@ enroll:list
 ```
 
 <!-- pyml disable-num-lines 3 md013-->
+
 ```json
-{"_data": {"9358e00b-a4f9-4c8f-ac16-bfe31f91b201.new.enrollments.__manage@alice":{"appName":"wavi","deviceName":"mydevice","namespace":{"wavi":"r","__manage":"rw","*":"rw"},"encryptedAPKAMSymmetricKey":null,"status":"approved"}}, "_type": null, "_isError": false, "_errorMessage": null}
+{
+  "_data": {
+    "9358e00b-a4f9-4c8f-ac16-bfe31f91b201.new.enrollments.__manage@alice": {
+      "appName": "wavi",
+      "deviceName": "mydevice",
+      "namespace": {
+        "wavi": "r",
+        "__manage": "rw",
+        "*": "rw"
+      },
+      "encryptedAPKAMSymmetricKey": null,
+      "status": "approved"
+    }
+  },
+  "_type": null,
+  "_isError": false,
+  "_errorMessage": null
+}
 ```
 
 **Description:**
@@ -1296,22 +1336,31 @@ The enrolled app which receives the notification may approve or
 reject the enrollment request.
 
 <!-- pyml disable-num-lines 3 md013-->
-| Option                         | Required | Description                                                       |
-|--------------------------------|----------|-------------------------------------------------------------------|
+
+| Option | Required | Description |
+|--------|----------|-------------|
+
 <!-- pyml disable-num-lines 3 md013-->
-| `<operation>`                  | Yes      | Name of the enroll operation e.g. approve, request,deny etc., |
+| `<operation>`                  | Yes | Name of the enroll operation e.g.
+approve, request,deny etc., |
 <!-- pyml disable-num-lines 3 md013-->
-| `<deviceName>`                 | No       | Unique identifier of the device requesting enrollment             |
+| `<deviceName>`                 | No | Unique identifier of the device
+requesting enrollment |
 <!-- pyml disable-num-lines 3 md013-->
-| `<appName>`                    | No       | Name of the app or client requesting enrollment                   |
+| `<appName>`                    | No | Name of the app or client requesting
+enrollment |
 <!-- pyml disable-num-lines 3 md013-->
-| `<namespaces>`                 | No       | List of namespaces that a requesting client/app needs access to   |
+| `<namespaces>`                 | No | List of namespaces that a requesting
+client/app needs access to |
 <!-- pyml disable-num-lines 3 md013-->
-| `<otp>`                        | No       | One time passcode fetched using otp verb                          |
+| `<otp>`                        | No | One time passcode fetched using otp
+verb |
 <!-- pyml disable-num-lines 3 md013-->
-| `<apkamPublicKey>`             | No       | Public key from an asymmetric key pair for the current enrollment |
+| `<apkamPublicKey>`             | No | Public key from an asymmetric key pair
+for the current enrollment |
 <!-- pyml disable-num-lines 3 md013-->
-| `<encryptedAPKAMSymmetricKey>` | No       | APKAM symmetric key encrypted with APKAM public key               |
+| `<encryptedAPKAMSymmetricKey>` | No | APKAM symmetric key encrypted with APKAM
+public key |
 
 #### The `otp` verb
 
@@ -1377,6 +1426,7 @@ the secondary keystore.
 Regex for keys verb
 
 <!-- pyml disable-num-lines 3 md013-->
+
 ```text
 keys:((?<operation>put|get|delete):?)(?:(?<visibility>public|private|self):?)?(?:namespace:(?<namespace>[a-zA-Z0-9_]+):?)?(?:appName:(?<appName>[a-zA-Z0-9_]+):?)?(?:deviceName:(?<deviceName>[a-zA-Z0-9_]+):?)?(?:keyType:(?<keyType>[a-zA-Z0-9_-]+):?)?'(?:encryptionKeyName:(?<encryptionKeyName>[a-zA-Z0-9_\-]+):?)?(?:keyName:(?<keyName>\S+) ?)?(?<keyValue>.*)?$
 ```
@@ -1386,6 +1436,7 @@ keys:((?<operation>put|get|delete):?)(?:(?<visibility>public|private|self):?)?(?
 Put an encryption public key
 
 <!-- pyml disable-num-lines 3 md013-->
+
 ```text
 keys:put:public:namespace:__global:keyType:rsa2048:keyName:encryption_<enrollmentId> <rsa_public_key>
 ```
@@ -1399,6 +1450,7 @@ data:-1
 Put a symmetric AES key which is encrypted with encryption public key
 
 <!-- pyml disable-num-lines 3 md013-->
+
 ```text
 keys:put:self:namespace:__global:appName:wavi:deviceName:iphone:keyType:aes256:encryptionKeyName:encryption_<enrollmentId>:keyName:myAESkey <encryptedAESKey>
 ```
@@ -1418,6 +1470,7 @@ keys:get:keyName:public:encryption_<enrollmentId>.__public_keys.__global@alice
 Response
 
 <!-- pyml disable-num-lines 3 md013-->
+
 ```text
 data: {"enrollmentId":<enrollmentId>, "keyType":rsa2048, "value":  <rsa_public_key>}
 ```
@@ -1442,6 +1495,7 @@ batch:(?<json>.+)$
 Send an update and delete:
 
 <!-- pyml disable-num-lines 3 md013-->
+
 ```text
 batch:[{"id":1, "commmand":"update:location@alice newyork"},{"id":2, "commmand":"delete:location@alice"}]
 ```
@@ -1492,7 +1546,8 @@ Individual statistics can be retrieved using the respective Id.
 
 ```json
 @alice@stats:1
-data: [{"id":"1","name":"activeInboundConnections","value":"1"}]
+data: [{"id": "1", "name": "activeInboundConnections", "value":"1"}
+]
 ```
 
 #### The `info` Verb
@@ -1510,13 +1565,13 @@ Regex: `^info(:brief)?$`
 <!-- pyml disable-num-lines 3 md013-->
 
 ```json
-data:{"version":"3.0.28","uptimeAsWords":"1 hours 35 minutes 29 seconds","features":[{"name":"noop:","status":"Beta","description":"The No-Op verb simply does nothing for the requested number of milliseconds. The requested number of milliseconds may not be greater than 5000. Upon completion, the noop verb sends 'ok' as a response to the client.","syntax":"^noop:(?<delayMillis>\\d+)$"},{"name":"info:","status":"Beta","description":"The Info verb returns some information about the server including uptime and some info about available features. ","syntax":"^info(:brief)?$"}]}
+data:{"version": "3.0.28", "uptimeAsWords": "1 hours 35 minutes 29 seconds", "features":[{"name": "noop:", "status": "Beta", "description":"The No-Op verb simply does nothing for the requested number of milliseconds. The requested number of milliseconds may not be greater than 5000. Upon completion, the noop verb sends 'ok' as a response to the client.", "syntax": "^noop:(?<delayMillis>\\d+)$"},{"name": "info:", "status": "Beta", "description":"The Info verb returns some information about the server including uptime and some info about available features. ", "syntax": "^info(:brief)?$"}]}
 ```
 
 `info:brief`
 
 ```json
-data:{"version":"3.0.28","uptimeAsMillis":5855295}
+data:{"version": "3.0.28", "uptimeAsMillis": 5855295}
 ```
 
 #### The `noop` Verb
