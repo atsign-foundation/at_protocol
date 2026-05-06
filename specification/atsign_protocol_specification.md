@@ -81,8 +81,8 @@ architecturally impossible, see [§14](#14-end-to-end-encryption).
 
 ### For implementers, read these first
 
-Two appendices are load-bearing for anyone implementing this
-specification:
+If you're implementing this specification, read these two appendices
+first:
 
 - [Appendix C, Significant near-term projects](#appendix-c-significant-near-term-projects)
   enumerates active workstreams that will change parts of this
