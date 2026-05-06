@@ -1,5 +1,8 @@
 # Atsign Protocol Specification
 
+<!-- pyml disable-num-lines 2000 md046-->
+<!-- pyml disable-num-lines 2000 md007-->
+
 | **Subject**   | Atsign Protocol specification                      |
 |---------------|----------------------------------------------------|
 | **Author(s)** | Colin Constable, Kevin Nickels, Jagannadh Vanghuri |
@@ -51,17 +54,16 @@ characters (UTF-8) excluding "@", ":" and a white space (" "). A key in an
 atServer can be any of the following 5 types:
 
 1. Public Key
-
     - A public key is a key which can be looked up by any atSign owner.
     - A public key should be part of the _scan_ verb result.
     - Format of the public key should be `public:<key><atSign>`.
 
-   **Example:**
+    **Example:**
 
-   `public:location@alice`
+    `public:location@alice`
 
-   > The owner of the atServer should be allowed to update or delete the value
-   > of a public key.
+   >      The owner of the atServer should be allowed to update or delete the value
+   >      of a public key.
 
 2. Self Key
 

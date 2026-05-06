@@ -1,7 +1,9 @@
 # Atsign Protocol Specification
 
+<!-- pyml disable-num-lines 3000 md013-->
+
 This document specifies the **Atsign Protocol** at the level required to
-implement either side of the wire — an atClient or an atServer — in any
+implement either side of the wire, an atClient or an atServer, in any
 language. Every byte that crosses a TCP socket between an atClient,
 atServer, or atDirectory is in scope. Higher-level concerns that are
 client-only (file formats, key derivation, query languages) are out of
@@ -41,29 +43,31 @@ wins and this document is a bug. Pull requests welcomed.
 16. [Worked flows](#16-worked-flows)
 17. [Errors](#17-errors)
 18. [Glossary](#18-glossary)
-19. [Appendix A — Verb reference](#appendix-a--verb-reference)
-20. [Appendix B — Legacy and deprecated](#appendix-b--legacy-and-deprecated)
-21. [Appendix C — Significant near-term projects](#appendix-c--significant-near-term-projects)
-22. [Appendix D — Inconsistencies and quirks](#appendix-d--inconsistencies-and-quirks)
+19. [Appendix A, Verb reference](#appendix-a-verb-reference)
+20. [Appendix B, Legacy and deprecated](#appendix-b-legacy-and-deprecated)
+21. [Appendix C, Significant near-term projects](#appendix-c-significant-near-term-projects)
+22. [Appendix D, Inconsistencies and quirks](#appendix-d-inconsistencies-and-quirks)
 
 ---
 
 ## 1. Introduction
 
 The Atsign Protocol is a text-based, line-oriented, request/response
-protocol over TLS. Three roles participate:
+protocol over TLS. Three roles participate.
 
-- **atClient** — software acting on behalf of an atSign owner. Talks to
-  exactly one atServer at a time (the owner's atServer or a
-  remote-owner's atServer for cross-atSign reads/writes).
-- **atServer** — the personal server for one atSign. Stores that
-  atSign's keys (encrypted blobs at rest), serves them on request,
-  delivers notifications, and connects out to other atServers when its
-  owner's atClient asks for cross-atSign data.
-- **atDirectory** — a lookup service that maps an atSign to the
-  `host:port` of its atServer. Conceptually similar to DNS.
+An **atClient** is software acting on behalf of an atSign owner. It
+talks to exactly one atServer at a time, either the owner's atServer
+or a remote-owner's atServer for cross-atSign reads and writes.
 
-The protocol is built around a small set of **verbs** — single-line
+An **atServer** is the personal server for one atSign. It stores that
+atSign's keys (encrypted blobs at rest), serves them on request,
+delivers notifications, and connects out to other atServers when its
+owner's atClient asks for cross-atSign data.
+
+An **atDirectory** is a lookup service that maps an atSign to the
+`host:port` of its atServer. It is conceptually similar to DNS.
+
+The protocol is built around a small set of **verbs**, single-line
 commands a client sends to a server. Each verb has a regex-defined
 syntax. Servers respond with a single line of `data:…` or `error:…`,
 followed by a prompt that frames the next request. Two verbs (`monitor`
@@ -73,42 +77,37 @@ responses; everything else is single-shot.
 End-to-end encryption is **entirely an atClient concern**. atServers
 store opaque ciphertext and opaque metadata fields, and never see
 plaintext values. Server-side filtering on values is therefore
-architecturally impossible — see [§14](#14-end-to-end-encryption).
+architecturally impossible, see [§14](#14-end-to-end-encryption).
 
-### For implementers — read these first
+### For implementers, read these first
 
 Two appendices are load-bearing for anyone implementing this
 specification:
 
--
-    *
-*[Appendix C — Significant near-term projects](#appendix-c--significant-near-term-projects)
-**
-enumerates active workstreams that will change parts of this
-specification within the next few releases (post-quantum
-cryptography, fast-sync / "fsync", new atKeys structure, pluggable
-encryption, canonical conformance test suite, etc.). Read this
-before committing to a long-lived implementation choice.
--
-    *
-*[Appendix D — Inconsistencies and quirks](#appendix-d--inconsistencies-and-quirks)
-**
-enumerates the places where the wire reality is surprising — error
-separators that aren't uniform, response shapes that differ
-per-verb, semantics that flip on auth state, and similar gotchas.
-Read this if your implementation is failing in ways that the
-per-verb sections don't seem to predict.
+- [Appendix C, Significant near-term projects](#appendix-c-significant-near-term-projects)
+  enumerates active workstreams that will change parts of this
+  specification within the next few releases (post-quantum
+  cryptography, fast-sync / "fsync", new atKeys structure, pluggable
+  encryption, canonical conformance test suite, etc.). Read this
+  before committing to a long-lived implementation choice.
+
+- [Appendix D, Inconsistencies and quirks](#appendix-d-inconsistencies-and-quirks)
+  enumerates the places where the wire reality is surprising, error
+  separators that aren't uniform, response shapes that differ
+  per-verb, semantics that flip on auth state, and similar gotchas.
+  Read this if your implementation is failing in ways that the
+  per-verb sections don't seem to predict.
 
 ### Spelling and capitalisation
 
 The protocol's name is **Atsign Protocol** (capital A, capital P,
 single-spaced). The domain terms are:
 
-- `atSign` — an identity like `@alice`
-- `atServer` — the personal server for an atSign
-- `atDirectory` — the directory service
-- `atKey` — a key in an atServer's keystore
-- `atClient` — software talking to atServers
+- `atSign`, an identity like `@alice`
+- `atServer`, the personal server for an atSign
+- `atDirectory`, the directory service
+- `atKey`, a key in an atServer's keystore
+- `atClient`, software talking to atServers
 
 Preserve those capitalisations exactly in code and docs.
 
@@ -133,7 +132,7 @@ Three deployment modes are commonly seen:
    runs its own atServers, but the atSigns are still resolvable via
    `root.atsign.org:64`. The atDirectory entry points at the
    organisation's hosts.
-3. **Fully self-hosted (split-horizon).** An organisation runs its own
+3. **Fully self-hosted.** An organisation runs its own
    atDirectory **and** its own atServers, with atSign registration and
    provisioning entirely under its control. atSigns hosted in this
    topology are not resolvable on the public Atsign Protocol; clients
@@ -149,23 +148,24 @@ A hard-coded `root.atsign.org:64` is not Atsign-Protocol-compliant.
 
 ### 3.1 atDirectory
 
-- **Transport:** TCP.
-- **TLS:** **One-way TLS** — the atDirectory presents a server
-  certificate; the client does not present one.
-- **Default port:** `64`.
-- **Default host:** `root.atsign.org` (configurable).
+| Property     | Value                                                      |
+|--------------|------------------------------------------------------------|
+| Transport    | TCP                                                        |
+| TLS          | One-way (atDirectory presents a server certificate; client does not) |
+| Default port | `64`                                                       |
+| Default host | `root.atsign.org` (configurable)                           |
 
 ### 3.2 atServer
 
-- **Transport:** TCP.
-- **TLS:** **One-way TLS by default.** Some deployments require client
-  certificates (mTLS) for atServer-to-atServer connections — the
-  outbound connection factory chooses based on configuration. mTLS is
-  not used between atClients and atServers in the default
-  configuration.
-- **Port:** Per-atSign. Discovered via the atDirectory. The atDirectory
-  response is the canonical source for the host and port to connect
-  to.
+The atServer transport is TCP with one-way TLS by default. Some
+deployments require client certificates (mTLS) for
+atServer-to-atServer connections; the outbound connection factory
+chooses based on configuration. mTLS is not used between atClients
+and atServers in the default configuration.
+
+The port is per-atSign and is discovered via the atDirectory. The
+atDirectory response is the canonical source for the host and port to
+connect to.
 
 ### 3.3 Connection lifecycle
 
@@ -176,11 +176,11 @@ A hard-coded `root.atsign.org:64` is not Atsign-Protocol-compliant.
    waits for the client's first verb.
 4. Client sends verb, terminated by `\n`.
 5. Server responds with `data:…\n@…@` or `error:…\n@…@`. The trailing
-   `@…@` (or bare `@` before authentication) is the **prompt** — see
+   `@…@` (or bare `@` before authentication) is the **prompt**, see
    [§4](#4-framing).
 6. Steps 4–5 repeat. Either side may close the connection at any time;
    the client may signal a graceful close with `@exit\n` (atDirectory
-   only) or by simply closing the socket.
+   only) or by closing the socket.
 
 ### 3.4 Idle and timeout behaviour
 
@@ -225,7 +225,7 @@ detect "response complete" by scanning for the byte sequence `\n@`.
 Source: `at_lookup/lib/src/connection/outbound_message_listener.dart`
 treats `\n` followed by `@` as the frame boundary.
 
-```
+```text
 data:42\n@alice@
 ^^^^^^^^^^^^^^^^^
 | response data | prompt
@@ -239,14 +239,14 @@ is parsing incorrectly.
 
 UTF-8. atKeys, values, and metadata are all UTF-8 strings on the wire.
 
-### 4.4 Newline escaping in values
+### 4.4 Newline escapes in values
 
 Because `\n` is the framing terminator, an atServer rewrites embedded
 newlines in **public** data values: `\n` becomes the literal
-six-character sequence `~NL~` on the wire. Clients writing values that
+4-character sequence `~NL~` on the wire. Clients writing values that
 contain newlines apply the same escape; clients reading public values
 reverse it. The escape is not applied to encrypted (binary)
-ciphertext — that is base64-encoded and so contains no `\n` to begin
+ciphertext, that is base64-encoded and so contains no `\n` to begin
 with.
 
 ### 4.5 Binary values
@@ -270,7 +270,7 @@ connection. A client must not send a second verb before reading the
 first verb's complete response (terminated by the prompt). The
 exception is `monitor`, which streams notifications continuously and
 optionally accepts request-response interleaving when `:multiplexed:`
-is set — see [§11.7](#117-monitor).
+is set, see [§11.7](#117-monitor).
 
 ---
 
@@ -278,7 +278,7 @@ is set — see [§11.7](#117-monitor).
 
 An **atSign** is a unique identifier of the form `@<name>` where
 `<name>` matches `[^@:\s]+`. Comparison is case-preserving but
-case-insensitive on the wire — `@Alice` and `@alice` resolve to the
+case-insensitive on the wire, `@Alice` and `@alice` resolve to the
 same identity (atServers normalise to lowercase before keystore
 lookup).
 
@@ -288,7 +288,7 @@ The maximum atSign length is **55 characters** including the leading
 ### 5.1 Lifecycle phases
 
 The full lifecycle of an atSign from registration to active use breaks
-into three phases. The `at_auth` package documents this in detail; the
+into 3 phases. The `at_auth` package documents this in detail; the
 phases are summarised here because each produces credentials that
 appear on the wire.
 
@@ -301,7 +301,7 @@ appear on the wire.
    stores the private halves locally (`.atKeys` file or device
    keychain). After onboarding, the CRAM secret is no longer accepted.
 3. **Authenticate (per app).** Subsequent apps authenticate via
-   **APKAM enrollment** — they request a scoped key set bound to a
+   **APKAM enrollment**, they request a scoped key set bound to a
    namespace permission map (e.g. `{'todos': 'rw'}`); the master-keys
    holder approves; the atServer issues new scoped credentials.
    APKAM-issued keys are revocable.
@@ -313,11 +313,11 @@ PKAM (with or without APKAM scoping). See [§9](#9-authentication).
 
 ## 6. The atKey model
 
-A key in the atServer's keystore is an **atKey** — a structured string
-whose shape encodes its visibility and ownership. There are five key
-shapes plus two augmentations.
+A key in the atServer's keystore is an **atKey**, a structured string
+whose shape encodes its visibility and ownership. There are 5 key
+shapes plus 2 augmentations.
 
-### 6.1 The five shapes
+### 6.1 The 5 shapes
 
 | Shape   | Wire format                                | Visibility                                         |
 |---------|--------------------------------------------|----------------------------------------------------|
@@ -329,15 +329,17 @@ shapes plus two augmentations.
 
 ### 6.2 Augmentations
 
-- **Hidden** — if the `<key>` part starts with `_`, the key is not
-  returned by `scan` unless the caller passes `:showhidden:true`.
-  Public, self, and shared keys may all be hidden.
-- **Cached** — a copy of a remote-owned shared or public key, stored on
-  the recipient's atServer for offline / fast access. Wire format:
-  `cached:public:<key>@<owner>` or `cached:@<recipient>:<key>@<owner>`.
-  The recipient's atServer refreshes the cache per the original key's
-  `ttr` (time-to-refresh) and deletes it on owner-side delete if `ccd`
-  is set.
+A **hidden** key is one whose `<key>` part starts with `_`. The atServer
+omits hidden keys from the `scan` verb's output unless the caller
+passes `:showhidden:true`. Public, self, and shared keys may all be
+hidden.
+
+A **cached** key is a copy of a remote-owned shared or public key,
+stored on the recipient's atServer for offline or fast access. Wire
+format is `cached:public:<key>@<owner>` or
+`cached:@<recipient>:<key>@<owner>`. The recipient's atServer refreshes
+the cache per the original key's `ttr` (time-to-refresh) and deletes
+it on owner-side delete if `ccd` is set.
 
 ### 6.3 Namespace
 
@@ -354,7 +356,7 @@ infrastructural item (atSign-wide encryption keys, e.g.
 
 The maximum on-wire length of an atKey is **255 characters**
 inclusive of all segments and separators. Compute against this hard
-cap, not a typical size — atSigns alone may consume up to 55
+cap, not a typical size, atSigns alone may consume up to 55
 characters of the budget.
 
 ### 6.5 Reserved keys
@@ -377,7 +379,7 @@ These are required for the protocol to function and have stable names:
 APKAM-issued keys live under the `__pkams` and `__manage` reserved
 namespaces.
 
-### 6.6 atKey parsing examples
+### 6.6 atKey examples
 
 | Wire form                       | Shape   | Hidden? | Cached? |
 |---------------------------------|---------|---------|---------|
@@ -434,7 +436,7 @@ Source of truth: `at_commons/lib/src/verb/syntax.dart`'s
 
 Negative integer values for `ttl`/`ttb` are accepted by the regex (the
 syntax allows `(-?)\d+`) but server-side semantics are documented at
-the constants level — typically only `ttr:-1` ("cache forever") is a
+the constants level, typically only `ttr:-1` ("cache forever") is a
 useful negative.
 
 ### 7.2 Tag ordering
@@ -464,18 +466,17 @@ prompt.
 
 Send the atSign followed by `\n`. Either form is accepted:
 
-```
+```text
 @alice\n
 alice\n
 ```
 
 ### 8.3 Response
 
-Two possible replies:
-
-- **Found:** `<host>:<port>\n@` — `host` is a hostname or IP, `port` is
-  the atServer's TLS port for that atSign.
-- **Not found:** `null\n@`
+When the atSign is found, the atDirectory replies with
+`<host>:<port>\n@`, where `host` is a hostname or IP and `port` is the
+atServer's TLS port for that atSign. When the atSign is not found, the
+reply is `null\n@`.
 
 Some atDirectory implementations emit `\r\n@` instead of `\n@`;
 implementations should accept both.
@@ -487,7 +488,7 @@ flush and close the socket. No response is expected.
 
 ### 8.5 Worked example
 
-```
+```text
 C: <TLS handshake>
 S: @
 C: @alice\n
@@ -503,7 +504,7 @@ lookups; any other input is treated as an atSign to look up.
 
 ## 9. Authentication
 
-The atServer recognises three authentication mechanisms, all built on
+The atServer recognises 3 authentication mechanisms, all built on
 the same `from`-then-prove choreography. Modern atClients use **APKAM**
 exclusively, with **CRAM** appearing only during one-time onboarding.
 
@@ -513,15 +514,15 @@ exclusively, with **CRAM** appearing only during one-time onboarding.
 server which atSign is connecting and, for non-self connections, who
 the server should expect to authenticate via `pol`.
 
-**Syntax**
+#### Syntax
 
-```
+```text
 from:<atSign>[:clientConfig:<clientConfig-json>]
 ```
 
 Source: `at_commons/lib/src/verb/syntax.dart`:
 
-```
+```text
 ^from:(?<atSign>@?[^:@\s]+)(:clientConfig:(?<clientConfig>\{.+\}))?$
 ```
 
@@ -539,7 +540,7 @@ metadata:
 
 Unrecognised fields are ignored.
 
-**Response** — the server generates a UUIDv4 challenge and a session
+Response: the server generates a UUIDv4 challenge and a session
 ID and stores the challenge under
 `<keyPrefix><sessionId><fromAtSign>` (with TTL 60 s), where
 `keyPrefix` is `private:` if the connecting atSign matches the
@@ -548,19 +549,19 @@ matters for `pol`, which retrieves the challenge via `plookup`).
 
 The response payload is:
 
-```
+```text
 data:<sessionId><fromAtSign>:<proof>      # if self-connect
 data:proof:<sessionId><fromAtSign>:<proof> # if cross-atSign connect
 ```
 
-— each followed by the unauthenticated prompt `\n@`.
+Each is followed by the unauthenticated prompt `\n@`.
 
 Source: `at_secondary_server/lib/src/verb/handler/from_verb_handler.dart`
 lines 74–103.
 
-**Example** — self-connect by `@alice` to `@alice`'s atServer:
+Example: self-connect by `@alice` to `@alice`'s atServer:
 
-```
+```text
 C: from:@alice\n
 S: data:_4af24c03-d732-48f8-a9a2-570e8fb6a01c@alice:d6cac849-9c29-42b0-b0c5-493db62728b9\n@
 ```
@@ -573,30 +574,30 @@ clients must use PKAM/APKAM. CRAM remains in the protocol because
 onboarding from a fresh atServer requires a credential that exists
 before any keypair has been generated.
 
-**Syntax**
+#### Syntax
 
-```
+```text
 cram:<digest>
 ```
 
 Source:
 
-```
+```text
 ^cram:(?<digest>.+$)
 ```
 
-**Digest computation** — the client takes the `from` response, strips
+Digest computation: the client takes the `from` response, strips
 the leading `data:` prefix, and computes:
 
-```
+```text
 digest = sha512_hex( utf8( <cramSecret> + <strippedFromResponse> ) )
 ```
 
 For a self-connect, `<strippedFromResponse>` is
-`<sessionId><atSign>:<proof>` — the entire body with no further
+`<sessionId><atSign>:<proof>`, the entire body with no further
 parsing. Source: `at_lookup/lib/src/at_lookup_impl.dart` lines 540–544.
 
-**Response**
+#### Response
 
 - Success: `data:success\n@<atSign>@`
 - Failure: `error:AT0401-Client authentication failed\n@` (connection
@@ -610,19 +611,19 @@ Plain PKAM is the underlying signature-based authentication that APKAM
 extends. A client running plain PKAM holds the master signing private
 key directly.
 
-**Syntax**
+#### Syntax
 
-```
+```text
 pkam:[signingAlgo:<rsa2048|ecc_secp256r1>:][hashingAlgo:<sha256|sha512>:][enrollmentId:<id>:]<signature>
 ```
 
 Source:
 
-```
+```text
 ^pkam:(signingAlgo:(?<signingAlgo>ecc_secp256r1|rsa2048):)?(hashingAlgo:(?<hashingAlgo>sha256|sha512):)?(enrollmentId:(?<enrollmentId>.+):)?(?<signature>.+$)
 ```
 
-**Signature computation** — the client signs the `from` challenge
+Signature computation: the client signs the `from` challenge
 (everything the `from` response payload contained, less any leading
 `data:`) with the owner's signing private key, base64-encodes the
 result, and sends it as `<signature>`.
@@ -632,7 +633,7 @@ is omitted for plain PKAM; an APKAM-issued credential includes the
 enrollment's ID so the atServer can look up the namespace permission
 map.
 
-**Response** — same as CRAM: `data:success` on success,
+Response: same as CRAM: `data:success` on success,
 `error:AT0401-…` on failure.
 
 ### 9.4 APKAM (`enroll`, `otp`, `keys`)
@@ -644,33 +645,33 @@ atSign owner.
 
 A high-level flow:
 
-1. **Bootstrap atSign** — the new app generates a fresh APKAM keypair
+1. **Bootstrap atSign**, the new app generates a fresh APKAM keypair
    and a fresh APKAM symmetric key.
-2. **Get an OTP** — the user, on a session already authenticated as
+2. **Get an OTP**, the user, on a session already authenticated as
    owner, runs `otp:get` and reads the OTP to the new app.
-3. **`enroll:request`** — the new app submits the request, including
+3. **`enroll:request`**, the new app submits the request, including
    its APKAM public key, the OTP, the namespace permission map, and
    the APKAM symmetric key encrypted with the **default encryption
    public key** (so only an owner-keys holder can decrypt it).
-4. **`enroll:approve`** — the owner-keys holder fetches the request,
+4. **`enroll:approve`**, the owner-keys holder fetches the request,
    decrypts the APKAM symmetric key, then sends back the
    default encryption private key and self-encryption key, each
    encrypted with the now-shared APKAM symmetric key (with IVs).
-5. **PKAM-with-enrollmentId** — the new app authenticates as usual via
+5. **PKAM-with-enrollmentId**, the new app authenticates as usual via
    `from` + `pkam`, passing `enrollmentId:<id>` so the atServer scopes
    the connection to the granted namespaces.
 
 #### 9.4.1 The `enroll` verb
 
-**Syntax**
+#### Syntax
 
-```
+```text
 enroll:<operation>[:force][:<enrollParams-json>]
 ```
 
 Source:
 
-```
+```text
 ^enroll:(?<operation>(?:(request|approve|deny|revoke|list|fetch|unrevoke|delete)))(:(?<force>force))?(?::)?((?<enrollParams>.+)|(<=list:)<enrollParams>.?)?$
 ```
 
@@ -693,7 +694,7 @@ Source:
 | `enrollmentStatusFilter`               | list                                      | Optional list of statuses to filter on: `pending`, `approved`, `denied`, `revoked`, `expired`. |
 | `apkamKeysExpiryDuration`              | request                                   | ISO-8601 duration: lifetime of the APKAM credentials before forced re-enrollment.              |
 
-**Operations and responses**
+#### Operations and responses
 
 | Operation  | Response payload                                                                         |
 |------------|------------------------------------------------------------------------------------------|
@@ -708,22 +709,22 @@ Source:
 
 #### 9.4.2 The `otp` verb
 
-```
+```text
 otp:get[:ttl:<ms>]
 otp:put:<otp>[:ttl:<ms>]
 ```
 
 Source:
 
-```
+```text
 ^otp:(?<operation>get|put)(:(?<otp>(?<=put:)\w{6,}))?(:(?:ttl:(?<ttl>\d+)))?$
 ```
 
-- `otp:get` — owner-authenticated. Returns a fresh 6-character
+- `otp:get`, owner-authenticated. Returns a fresh 6-character
   alphanumeric OTP. Used as the `otp` field of `enroll:request`.
-- `otp:put:<otp>` — owner-authenticated. Stores a semi-permanent OTP
+- `otp:put:<otp>`, owner-authenticated. Stores a semi-permanent OTP
   for use in headless / CLI enrollment flows.
-- `:ttl:<ms>` — sets the OTP validity window.
+- `:ttl:<ms>`, sets the OTP validity window.
 
 **Response**: `data:<otp>` (for `get`) or `data:ok` (for `put`).
 
@@ -731,15 +732,15 @@ Source:
 
 > **Status: being deprecated.** New implementations should not produce
 > `keys` verbs. The current APKAM enrollment flow still emits them
-> under the covers, but the verb is on the path to removal — it
+> under the covers, but the verb is on the path to removal, it
 > overlaps with `update`/`llookup`/`delete` against the
 > `__pkams` / `__manage` namespaces and adds parsing surface without
 > adding capability. Track the deprecation work alongside the
 > [new AtKeys structure](#c3-new-atkeys-structure) and
 > [pluggable encryption](#c1-post-quantum-cryptography-and-crypto-agility)
-> projects in Appendix C — both intersect with this verb's role.
+> projects in Appendix C, both intersect with this verb's role.
 
-```
+```text
 keys:<put|get|delete>[:public|private|self][:namespace:<ns>][:appName:<n>][:deviceName:<n>][:keyType:<t>][:encryptionKeyName:<n>][:keyName:<n>] [<value>]
 ```
 
@@ -765,47 +766,47 @@ the dedicated `plookup` verb.
 
 Insert or overwrite a value, optionally with metadata.
 
-**Syntax (positional form)**
+#### Syntax (positional form)
 
-```
+```text
 update[:nc]<metadata>[:public|@<forAtSign>]:<atKey>[@<atSign>] <value>
 ```
 
-**Syntax (JSON form)**
+#### Syntax (JSON form)
 
-```
+```text
 update[:nc]:json:<json>
 ```
 
 Source:
 
-```
+```text
 ^update(:nc(?<noCommit>))?(:json:(?<json>.+)|<metadataFragment>(:(public|@(?<forAtSign>...)))?:(?<atKey>...)(@(?<atSign>...))? (?<value>.+))$
 ```
 
 `:nc` (no-commit) suppresses the commit-log entry, used for local
 keys that should not be synced.
 
-**Response** — `data:<commitId>` where `commitId` is the integer
+Response: `data:<commitId>` where `commitId` is the integer
 commit-log sequence number assigned to the operation. Self-connected
 clients use this to detect that their local cache is at least as
 fresh as the server.
 
-```
+```text
 C: update:@bob:phone.wavi@alice +1 555 0100\n
 S: data:42\n@alice@
 ```
 
 Setting metadata at update time:
 
-```
+```text
 C: update:ttr:60000:ccd:true:isEncrypted:true:@bob:secret.myapp@alice <ciphertext>\n
 S: data:43\n@alice@
 ```
 
 JSON form (atomic put with full metadata):
 
-```
+```text
 C: update:json:{"atKey":{"key":"phone","sharedWith":"@bob","sharedBy":"@alice","namespace":"wavi"},"value":"+1 555 0100","metadata":{"ttl":60000}}\n
 S: data:44\n@alice@
 ```
@@ -816,7 +817,7 @@ Update only the metadata of an existing key. Same metadata fragment as
 `update`. Useful for changing TTL or marking a key encrypted after
 the fact.
 
-```
+```text
 C: update:meta:@bob:phone.wavi@alice:ttl:600000:isEncrypted:true\n
 S: data:45\n@alice@
 ```
@@ -825,77 +826,77 @@ S: data:45\n@alice@
 
 Remove an atKey.
 
-**Syntax**
+#### Syntax
 
-```
+```text
 delete[:dAt:<timestamp>][:nc][:force][:priority:<low|medium|high>][:cached][:public|@<forAtSign>]:<atKey>[@<atSign>]
 ```
 
 Source:
 
-```
+```text
 ^delete(:dAt:...)?(:nc)?(:force)?(:priority:...)?(:cached)?(:public|@<forAtSign>)?:<atKey>(@<atSign>)?$
 ```
 
-- `:dAt:<timestamp>` — assert deletion time (used by sync).
-- `:nc` — no commit.
-- `:force` — required to delete an `immutable:true` key.
-- `:cached` — delete a cached copy on this server (does not affect the
+- `:dAt:<timestamp>`, assert deletion time (used by sync).
+- `:nc`, no commit.
+- `:force`, required to delete an `immutable:true` key.
+- `:cached`, delete a cached copy on this server (does not affect the
   origin).
 
-**Response** — `data:<commitId>` (yes, even when the key didn't exist
-— `delete` is idempotent and always commits).
+Response: `data:<commitId>` (yes, even when the key didn't exist;
+`delete` is idempotent and always commits).
 
-```
+```text
 C: delete:@bob:phone.wavi@alice\n
 S: data:46\n@alice@
 ```
 
 If `autoNotify` is enabled and the key was a shared key with a
 recipient on a different atServer, the server emits a `notify:delete`
-to the recipient — see [§11](#11-notification-verbs).
+to the recipient, see [§11](#11-notification-verbs).
 
 ### 10.4 `lookup`
 
 Read a value from another atSign's atServer (cross-atSign read,
 authenticated). Internally proxied via the requestor's local atServer
-— see [§15](#15-the-inter-atserver-protocol).
+(see [§15](#15-the-inter-atserver-protocol)).
 
-**Syntax**
+#### Syntax
 
-```
+```text
 lookup[:bypassCache:<true|false>][:meta|all]:<atKey>@<atSign>
 ```
 
 Source:
 
-```
+```text
 ^lookup:(bypassCache:(?<bypassCache>true|false):)?((?<operation>meta|all):)?(?<atKey>(?:[^:]).+)@(?<atSign>[^:@\s]+)$
 ```
 
 - Default operation: returns the value only.
-- `meta:` — return metadata only.
-- `all:` — return both value and metadata.
-- `bypassCache:true` — force a fetch from the remote rather than
+- `meta:`, return metadata only.
+- `all:`, return both value and metadata.
+- `bypassCache:true`, force a fetch from the remote rather than
   returning a cached copy.
 
-**Response shapes**
+#### Response shapes
 
 Default:
 
-```
+```text
 data:<value>
 ```
 
 `meta:`:
 
-```
+```text
 data:{"createdBy":"@bob","updatedBy":"@bob","createdAt":"…","updatedAt":"…","ttl":null,"ttb":null,"ttr":10000,"ccd":false,"isBinary":false,"isEncrypted":true, …}
 ```
 
 `all:`:
 
-```
+```text
 data:{"key":"@alice:country.wavi@bob","data":"USA","metaData":{ … }}
 ```
 
@@ -903,13 +904,13 @@ If the remote atServer is unreachable: `error:AT0007-atServer not found.`
 
 ### 10.5 `plookup`
 
-Public lookup — read a public key from any atSign without
+Public lookup, read a public key from any atSign without
 authentication. The server may answer from its own cache (per the
 key's `ttr`) unless `:bypassCache:true:` is set.
 
-**Syntax**
+#### Syntax
 
-```
+```text
 plookup[:bypassCache:<true|false>][:meta|all]:<atKey>@<atSign>
 ```
 
@@ -917,22 +918,22 @@ Same response shape as `lookup`.
 
 ### 10.6 `llookup`
 
-Local lookup — read a key from this atServer's own keystore. Returns
+Local lookup, read a key from this atServer's own keystore. Returns
 the stored value verbatim (no resolution, no remote fetch).
 
-**Syntax**
+#### Syntax
 
-```
+```text
 llookup[:meta|all][:cached][:public|@<forAtSign>]:<atKey>@<atSign>
 ```
 
 Source:
 
-```
+```text
 ^llookup(:(?<operation>meta|all))?(:cached)?(:(public|@<forAtSign>))?:<atKey>@<atSign>$
 ```
 
-- `:cached:` — look up a cached copy on this atServer.
+- `:cached:`, look up a cached copy on this atServer.
 
 Response is identical in shape to `lookup`.
 
@@ -940,34 +941,34 @@ Response is identical in shape to `lookup`.
 
 Enumerate keys.
 
-**Syntax**
+#### Syntax
 
-```
+```text
 scan[:cl][:showhidden:<true|false>][:<forAtSign>][:page:<n>][ <regex>]
 ```
 
 Source:
 
-```
+```text
 ^scan$|scan(:cl)?(:showhidden:...)?(:<forAtSign>)?(:page:...)?( <regex>)?$
 ```
 
-- `:cl` — scan the commit log instead of the keystore.
-- `:showhidden:true` — include keys whose `<key>` starts with `_`.
-- `:<forAtSign>` — only return keys shared with that atSign.
-- `:page:<n>` — pagination index (server-defined page size).
-- `<regex>` (space-separated) — filter results by regex.
+- `:cl`, scan the commit log instead of the keystore.
+- `:showhidden:true`, include keys whose `<key>` starts with `_`.
+- `:<forAtSign>`, only return keys shared with that atSign.
+- `:page:<n>`, pagination index (server-defined page size).
+- `<regex>` (space-separated), filter results by regex.
 
-**Response**
+#### Response
 
-```
+```text
 data:["public:phone.wavi@alice","@bob:email.wavi@alice", …]
 ```
 
 A JSON array of strings, on a single line. Empty result is `data:[]`.
 
 The `forAtSign` and `regex` filters operate on key **structure**, not
-value contents — value-level filtering is impossible because the
+value contents, value-level filtering is impossible because the
 server has no plaintext to filter against ([§14](#14-end-to-end-encryption)).
 
 ---
@@ -984,9 +985,9 @@ recipient's atClient via `monitor`.
 
 Emit a notification.
 
-**Syntax**
+#### Syntax
 
-```
+```text
 notify[:id:<id>][:<update|delete>][:messageType:key][:priority:<low|medium|high>][:strategy:<all|latest>][:latestN:<n>][:notifier:<n>][:ttln:<ms>]<metadata>:[public|@<forAtSign>]:<atKey>[@<atSign>][:<value>]
 ```
 
@@ -1004,9 +1005,9 @@ Source: see `at_commons/lib/src/verb/syntax.dart` `notify`.
 | `notifier`        | Identifier of the notifying subsystem. Defaults to `SYSTEM`.                                      |
 | `ttln`            | Notification time-to-live in ms. After expiry the server gives up delivering and marks `expired`. |
 
-**Response** — `data:<notificationId>` on success.
+Response: `data:<notificationId>` on success.
 
-```
+```text
 C: notify:update:ttr:-1:isEncrypted:true:@bob:phone.wavi@alice <ciphertext>\n
 S: data:7c6c8d7d-7e0e-4ab4-9c7d-4b07e1e84a52\n@alice@
 ```
@@ -1017,15 +1018,15 @@ Emit one notification to multiple recipients in one round-trip. The
 recipients are a comma-separated list (no `@` prefix) where the
 single `forAtSign` segment normally goes.
 
-**Syntax**
+#### Syntax
 
-```
+```text
 notify:all:[<update|delete>:][messageType:<key|text>:][ttl:<ms>:][ttb:<ms>:][ttr:<ms>:][ccd:<bool>:]<recipient,recipient,…>:<atKey>[@<atSign>][:<value>]
 ```
 
-**Response** — a JSON map of `recipient → notificationId`:
+Response: a JSON map of `recipient → notificationId`:
 
-```
+```text
 data:{"@bob":"…uuid…","@colin":"…uuid…"}
 ```
 
@@ -1033,21 +1034,21 @@ data:{"@bob":"…uuid…","@colin":"…uuid…"}
 
 List notifications received by the current atSign.
 
-**Syntax**
+#### Syntax
 
-```
+```text
 notify:list[:<fromDate>][:<toDate>][:<regex>]
 ```
 
 Dates are `YYYY-MM-DD`. Source:
 
-```
+```text
 ^notify:list(:(?<fromDate>\d{4}-[01]?\d?-[0123]?\d?))?(:(?<toDate>...))?(:(?<regex>[^:]+))?
 ```
 
-**Response** — JSON array of notification records:
+Response: JSON array of notification records:
 
-```
+```text
 data:[{"id":"…","from":"@bob","to":"@alice","key":"@alice:phone.wavi@bob","value":null,"operation":"update","epochMillis":1603714720965}, …]
 ```
 
@@ -1058,13 +1059,13 @@ to** that atSign instead.
 
 Query the delivery status of a notification by ID.
 
-**Syntax**
+#### Syntax
 
-```
+```text
 notify:status:<notificationId>
 ```
 
-**Response** — `data:<status>` where status is one of:
+Response: `data:<status>` where status is one of:
 
 | Status        | Meaning                                             |
 |---------------|-----------------------------------------------------|
@@ -1078,13 +1079,13 @@ notify:status:<notificationId>
 
 Fetch a full notification record by ID.
 
-**Syntax**
+#### Syntax
 
-```
+```text
 notify:fetch:<notificationId>
 ```
 
-**Response** — `data:<JSON notification record>`. If the notification
+Response: `data:<JSON notification record>`. If the notification
 was expired or never existed, returns
 `data:{"id":"<id>","notificationStatus":"expired"}`.
 
@@ -1094,27 +1095,27 @@ Remove a notification from the local notification log. Note: this is
 log housekeeping; it does **not** send a `notify:delete` to the
 recipient.
 
-**Syntax**
+#### Syntax
 
-```
+```text
 notify:remove:<notificationId>
 ```
 
-**Response** — `data:success`.
+Response: `data:success`.
 
 ### 11.7 `monitor`
 
 Open a long-lived stream of received notifications.
 
-**Syntax**
+#### Syntax
 
-```
+```text
 monitor[:strict][:selfNotifications][:multiplexed][:<epochMillis>][ <regex>]
 ```
 
 Source:
 
-```
+```text
 ^monitor(:strict)?(:selfNotifications)?(:multiplexed)?(:<epochMillis>)?( <regex>)?$
 ```
 
@@ -1126,9 +1127,9 @@ Source:
 | `<epochMillis>`     | Replay notifications received at or after this timestamp.                                           |
 | `<regex>`           | Filter notifications by atKey regex.                                                                |
 
-**Response** — a stream. Each notification arrives as one line:
+Response: a stream. Each notification arrives as one line:
 
-```
+```text
 notification: {"id":"…","from":"@bob","to":"@alice","key":"@alice:phone.wavi@bob",…}
 ```
 
@@ -1147,36 +1148,34 @@ prompt; notifications resume after the response.
 ## 12. The sync verb
 
 `sync:from` walks the commit log of an atServer from a given commit ID
-to the current head, returning the intervening operations. Used both
-by clients (to keep a local cache fresh) and by atServers (to
-synchronise with their cloud counterpart).
+to the current head, returning the intervening operations.
 
 ### 12.1 `sync:from`
 
-**Syntax**
+#### Syntax
 
-```
+```text
 sync:from:<from_commit_seq>[:limit:<n>][:skipDeletesUntil:<n>][:<regex>]
 ```
 
 Source:
 
-```
+```text
 ^sync:from:(?<from_commit_seq>[0-9]+|-1)(:limit:(?<limit>\d+))?(:skipDeletesUntil:(?<skipDeletesUntil>\d+))?(:(?<regex>.+))?$
 ```
 
-- `<from_commit_seq>` — last commit ID the caller has seen. `-1`
+- `<from_commit_seq>`, last commit ID the caller has seen. `-1`
   requests the full commit log from the start.
-- `:limit:<n>` — max entries returned in this round-trip. Caller
+- `:limit:<n>`, max entries returned in this round-trip. Caller
   paginates by repeating with the highest commit ID seen.
-- `:skipDeletesUntil:<n>` — suppress delete operations whose
+- `:skipDeletesUntil:<n>`, suppress delete operations whose
   `commitId <= n`. Used to elide tombstones older than a known sync
   high-water mark.
-- `:<regex>` — filter entries by atKey regex.
+- `:<regex>`, filter entries by atKey regex.
 
-**Response** — JSON array of commit-log entries:
+Response: JSON array of commit-log entries:
 
-```
+```text
 data:[{"atKey":"@bob:phone.wavi@alice","operation":"+","opTime":"2026-05-05T10:30:00.000Z","commitId":42,"value":"<ciphertext>","metadata":{"ttr":-1,"ccd":false,"isEncrypted":true}},
       {"atKey":"@bob:shared_key.wavi@alice","operation":"-","opTime":"2026-05-05T10:31:42.000Z","commitId":43}]
 ```
@@ -1186,7 +1185,7 @@ update.
 
 The legacy `sync:<from_commit_seq>` syntax (without `:from:`) is
 retained for backward compatibility and is documented in
-[Appendix B](#appendix-b--legacy-and-deprecated). New clients must
+[Appendix B](#appendix-b-legacy-and-deprecated). New clients must
 use `sync:from`.
 
 ---
@@ -1198,9 +1197,9 @@ use `sync:from`.
 Manage server-side block lists and configuration parameters. Owner-
 authenticated only.
 
-**Syntax**
+#### Syntax
 
-```
+```text
 config:block:add:@<atSign>[ @<atSign> …]
 config:block:remove:@<atSign>[ @<atSign> …]
 config:block:show
@@ -1209,26 +1208,26 @@ config:reset:<key>
 config:print:<key>
 ```
 
-The block list, once populated, is consulted by `from` — a blocked
+The block list, once populated, is consulted by `from`, a blocked
 atSign receives `error:AT0013-Connection Exception` and the connection
 is closed.
 
-**Response** — `data:success` for mutating operations, `data:[…]` for
+Response: `data:success` for mutating operations, `data:[…]` for
 `show` (a JSON array of blocked atSigns), `data:<value>` for `print`.
 
 ### 13.2 `stats`
 
 Return server statistics.
 
-**Syntax**
+#### Syntax
 
-```
+```text
 stats[:<id>[,<id>…]][:<regex>]
 ```
 
 Source:
 
-```
+```text
 ^stats(?<statId>:((?!0)\d+)?(,(\d+))*)?(:(?<regex>(?<=:3:|:15:).+))?$
 ```
 
@@ -1244,12 +1243,12 @@ by integer IDs:
 | 5  | `topAtSigns`                | `{<atSign>: <hits>, …}` |
 | 6  | `topKeys`                   | `{<atKey>: <hits>, …}`  |
 
-(Servers may expose additional IDs — IDs 11 and 15 take regex filters
+(Servers may expose additional IDs, IDs 11 and 15 take regex filters
 per the syntax; see source for current set.)
 
-**Response**
+#### Response
 
-```
+```text
 data:[{"id":"1","name":"activeInboundConnections","value":"1"},
       {"id":"3","name":"lastCommitId","value":"42"}, …]
 ```
@@ -1258,35 +1257,35 @@ data:[{"id":"1","name":"activeInboundConnections","value":"1"},
 
 Return server runtime information.
 
-**Syntax**
+#### Syntax
 
-```
+```text
 info[:brief|mtls|mtlsbrief]
 ```
 
-**Response shapes**
+#### Response shapes
 
 `info` (full):
 
-```
+```text
 data:{"version":"3.0.28","uptimeAsWords":"1 hours 35 minutes 29 seconds","features":[ {…feature record…}, … ]}
 ```
 
 `info:brief`:
 
-```
+```text
 data:{"version":"3.0.28","uptimeAsMillis":5855295}
 ```
 
 `info:mtls`:
 
-```
+```text
 data:{"mtls_fullchain":"<PEM>"}
 ```
 
 `info:mtlsbrief`:
 
-```
+```text
 data:{"mtls_fullchain_last_modified":"2026-05-05T08:00:00.000Z","mtls_privkey_last_modified":"2026-05-05T08:00:00.000Z"}
 ```
 
@@ -1298,15 +1297,15 @@ deployment.
 Sleep for the given number of milliseconds, then respond. Used as a
 keep-alive / latency probe.
 
-**Syntax**
+#### Syntax
 
-```
+```text
 noop:<delayMillis>
 ```
 
 `<delayMillis>` ≤ 5000.
 
-**Response** — `data:ok` after the delay. Out-of-range values produce
+Response: `data:ok` after the delay. Out-of-range values produce
 `error:AT0022-Exception: noop:<durationInMillis> where the duration
 maximum is 5000 milliseconds`.
 
@@ -1315,18 +1314,18 @@ maximum is 5000 milliseconds`.
 Execute multiple verbs in a single round-trip. Each member of the
 batch is independently parsed and dispatched; failures are per-entry.
 
-**Syntax**
+#### Syntax
 
-```
+```text
 batch:<json-array>
 ```
 
 Where `<json-array>` is `[{"id":<n>,"command":"<verb>"}, …]` and each
 `<verb>` is a single-line verb without the trailing `\n`.
 
-**Response** — array of `{id, response}` pairs in submission order:
+Response: array of `{id, response}` pairs in submission order:
 
-```
+```text
 data:[{"id":1,"response":{"data":"42"}},{"id":2,"response":{"data":"43"}}]
 ```
 
@@ -1337,7 +1336,7 @@ data:[{"id":1,"response":{"data":"42"}},{"id":2,"response":{"data":"43"}}]
 End-to-end encryption is **entirely an atClient concern**. atServers
 store opaque ciphertext in the `value` field, opaque ciphertext in the
 `sharedKeyEnc` metadata field, and opaque metadata about which keys
-encrypted which — but they never see plaintext keys, plaintext values,
+encrypted which, but they never see plaintext keys, plaintext values,
 or have any way to decrypt anything they store. No server-side
 behaviour in this specification depends on understanding what the
 encrypted material means.
@@ -1373,7 +1372,7 @@ accepted for backward compatibility but not recommended.
 Public values may be signed by the owner's signing private key; the
 signature appears in `dataSignature`. Recipients verify against the
 owner's `public:signing_publickey@<owner>`. This is the only signature
-on a value-side payload — encrypted (shared) values rely on the AES
+on a value-side payload, encrypted (shared) values rely on the AES
 authenticated-encryption mode in `encAlgo` to detect tampering.
 
 ### 14.3 Public-key rotation
@@ -1382,7 +1381,7 @@ If the recipient rotates their encryption keypair, every shared key
 encrypted to the old public key becomes unrecoverable. `pubKeyHash`
 lets the recipient detect this on read: if the hash doesn't match
 their current public key, the recipient asks the sender to re-share.
-There is no in-protocol re-key flow; the sender simply re-issues the
+There is no in-protocol re-key flow; the sender re-issues the
 update with a fresh `sharedKeyEnc`.
 
 ### 14.4 Why server-side filtering is impossible
@@ -1394,9 +1393,9 @@ The atServer holds:
 - metadata fields whose meaning it cannot interpret without keys it
   does not have
 
-Any feature requiring the server to reason about plaintext — value-
+Any feature requiring the server to reason about plaintext, value-
 level filters, server-side aggregations over content, content-based
-notifications — is therefore architecturally impossible. This is a
+notifications, is therefore architecturally impossible. This is a
 **security property**, not a performance limitation. Filtering by
 atKey **structure** (regex on the wire-form name) is supported and is
 how `scan`, `notify:list` regexes, and `monitor` filters work.
@@ -1405,12 +1404,16 @@ how `scan`, `notify:list` regexes, and `monitor` filters work.
 
 ## 15. The inter-atServer protocol
 
-When an atClient asks its atServer for cross-atSign data — `lookup`,
+When an atClient asks its atServer for cross-atSign data, `lookup`,
 remote `scan`, or sending a `notify` whose recipient is on a different
-atServer — the atServer **proxies** the request. It opens a TLS
+atServer, the atServer **proxies** the request. It opens a TLS
 connection to the target atServer (resolved via the atDirectory),
 authenticates via the `pol` handshake, and runs the appropriate verb
 on behalf of the requesting client.
+
+The complete set of verbs an atServer ever sends to another atServer
+on this proxied channel is: `from`, `pol`, `lookup`, `plookup`, `scan`,
+and `notify`. Each atServer is the sole authority for its own atSign's data.
 
 This chapter specifies that proxying. The single most important verb
 here is `pol`, the proof-of-life handshake between two atServers.
@@ -1421,7 +1424,7 @@ Source: `at_secondary_server/lib/src/connection/outbound/outbound_client.dart`.
 
 1. Local atServer (call it **A**) needs to talk to remote atServer
    **B**. A's `OutboundClientManager` returns an `OutboundClient`
-   for the target atSign — pooled per-target so repeat traffic to the
+   for the target atSign, pooled per-target so repeat traffic to the
    same B reuses one connection.
 2. **Resolve.** A queries its atDirectory for B's host:port.
 3. **Connect.** A opens a TLS connection to B. Most A→B connections
@@ -1434,7 +1437,7 @@ Source: `at_secondary_server/lib/src/connection/outbound/outbound_client.dart`.
    subsequent encryption-to-B operations cheap and detects key
    rotation early.
 5. **Handshake.** If the planned operation requires authentication, A
-   runs the `pol` handshake — see [§15.2](#152-the-pol-handshake).
+   runs the `pol` handshake, see [§15.2](#152-the-pol-handshake).
    `lookup` requires it; `plookup` does not.
 6. **Run verbs.** A sends the verb (e.g. `lookup:phone.wavi@alice`),
    reads the response, strips the trailing prompt, returns the
@@ -1457,7 +1460,7 @@ public signing key from A and verifying the signature.
 `at_secondary_server/lib/src/verb/handler/pol_verb_handler.dart` and
 `outbound_client.dart::_establishHandShake`.
 
-```
+```text
 A ──TLS──► B  (already connected)
 
 A → B:  from:@A
@@ -1483,7 +1486,7 @@ B's pol handler:
 
 B → A:  @A@
        (verb result inside B is `pol:@A@`; the PolResponseHandler
-        strips the `pol:` prefix, leaving just the prompt-shaped
+        strips the `pol:` prefix, leaving only the prompt-shaped
         confirmation `@A@` on the wire — no separate `data:`
         framing, no trailing `\n@…@`. A's outbound listener
         recognises completion by the `@<currentAtSign>@` shape.)
@@ -1493,12 +1496,12 @@ A:  reads handshake result; if it begins with "@A@", marks the
 ```
 
 After `pol` succeeds, A's connection to B is authenticated **as @A**.
-B treats subsequent verbs on this connection as coming from `@A` — for
+B treats subsequent verbs on this connection as coming from `@A`, for
 example, a `lookup:phone.wavi@A` returns only the keys `@A` is allowed
 to read on B's atServer (`@bob:phone.wavi@A`-shaped, where `@bob` is
 B's atSign).
 
-**Failure modes:**
+#### Failure modes
 
 | Cause                             | Error                                                                                |
 |-----------------------------------|--------------------------------------------------------------------------------------|
@@ -1520,7 +1523,7 @@ atServer:
 3. It sends `lookup:phone.wavi@alice` over the now-authenticated
    outbound connection.
 4. @alice's atServer evaluates the lookup with the inbound connection
-   marked `polAuthenticated as @bob` — the result is whatever @alice
+   marked `polAuthenticated as @bob`, the result is whatever @alice
    has shared **with @bob** (typically `@bob:phone.wavi@alice`).
 5. @alice's atServer responds `data:<value>\n@bob@` (the
    pol-authenticated prompt).
@@ -1539,13 +1542,8 @@ recipient's atServer recognises the inbound connection as
 pol-authenticated and stores the notification in the recipient's
 inbox; the recipient sees it via `monitor`.
 
-### 15.5 Server-to-server `sync:from`
-
-For self-hosted deployments where an atServer pairs with a "cloud"
-mirror (or vice versa), `sync:from` runs over the same
-pol-authenticated outbound connection. Both ends use the same
-commit-log walking protocol described in [§12](#12-the-sync-verb); no
-new verbs are introduced.
+Also relevant: the worked flow in [§16.4](#164-monitor--notify-round-trip)
+shows the full notify→deliver→monitor path end-to-end.
 
 ---
 
@@ -1558,7 +1556,7 @@ atSign, it has only the CRAM secret. It must (a) authenticate, (b)
 generate keypairs, (c) publish the public halves, (d) write the
 private halves to disk.
 
-```
+```text
 C: <TCP+TLS connect to alice's atServer>
 C: from:@alice\n
 S: data:_4af24c03-d732-48f8-a9a2-570e8fb6a01c@alice:d6cac849-9c29-42b0-b0c5-493db62728b9\n@
@@ -1587,10 +1585,10 @@ client now reconnects with `from` + `pkam` for any subsequent session.
 
 ### 16.2 APKAM enrollment end-to-end
 
-Phase 3 — a new app on a new device authenticates as `@alice` without
+Phase 3, a new app on a new device authenticates as `@alice` without
 ever holding the master keys.
 
-```
+```text
 # === New device: generate APKAM keypair, generate APKAM symmetric key,
 #                 RSA-encrypt the APKAM symmetric key to alice's
 #                 public:publickey@alice ===
@@ -1662,7 +1660,7 @@ keys are revocable via `enroll:revoke`.
 @bob looks up `@alice`'s phone number, which `@alice` has shared with
 him.
 
-```
+```text
 # === atClient session as @bob, authenticated to @bob's atServer. ===
 C(bob): lookup:phone.wavi@alice\n
 
@@ -1705,7 +1703,7 @@ phone number.
 
 `@bob` listens for live updates from `@alice`; `@alice` notifies him.
 
-```
+```text
 # === @bob: open monitor session. ===
 C(bob): monitor\n
 # (no immediate response; stream begins.)
@@ -1731,7 +1729,7 @@ S(bob): notification: {"id":"7c6c8d7d-…","from":"@alice","to":"@bob","key":"@b
 
 An atClient that has been offline picks up where it left off.
 
-```
+```text
 # Last seen commit ID: 41.
 C: sync:from:41:limit:100\n
 S: data:[
@@ -1748,7 +1746,7 @@ S: data:[]\n@alice@   # fully caught up.
 Deletes older than the client's `skipDeletesUntil` threshold can be
 elided to compact long sync windows:
 
-```
+```text
 C: sync:from:0:limit:1000:skipDeletesUntil:43\n
 ```
 
@@ -1759,7 +1757,7 @@ C: sync:from:0:limit:1000:skipDeletesUntil:43\n
 Error responses are framed identically to data responses but with the
 prefix `error:` instead of `data:`:
 
-```
+```text
 error:AT0003-Invalid Syntax
 ```
 
@@ -1812,7 +1810,7 @@ should map to an equivalent.
 
 `AT0401` is emitted on **authentication** failure (the credential is
 wrong). `AT0009` is emitted on **authorisation** failure (the
-authenticated principal lacks permission for the requested key —
+authenticated principal lacks permission for the requested key,
 notably APKAM scopes prohibiting the namespace). Implementations must
 distinguish between them; clients may retry on `AT0401` but not on
 `AT0009`.
@@ -1821,46 +1819,45 @@ distinguish between them; clients may retry on `AT0401` but not on
 
 ## 18. Glossary
 
-- **APKAM** — Application PKAM. Per-app, per-device, namespace-scoped
+- **APKAM**, Application PKAM. Per-app, per-device, namespace-scoped
   authentication built on PKAM. The modern way to authenticate.
-- **atClient** — Software acting on behalf of an atSign owner.
-- **atDirectory** — Service mapping atSign → `host:port` of the
+- **atClient**, Software acting on behalf of an atSign owner.
+- **atDirectory**, Service mapping atSign → `host:port` of the
   atSign's atServer.
-- **atKey** — A key in an atServer's keystore. Five shapes (public,
+- **atKey**, A key in an atServer's keystore. Five shapes (public,
   self, shared, local, private) plus augmentations (hidden, cached).
-- **atServer** — The personal server for one atSign.
-- **atSign** — An identifier of the form `@<name>`. Maximum length 55
+- **atServer**, The personal server for one atSign.
+- **atSign**, An identifier of the form `@<name>`. Maximum length 55
   characters.
-- **Commit log** — Append-only log of `update`/`delete` operations.
+- **Commit log**, Append-only log of `update`/`delete` operations.
   Walked by `sync:from`.
-- **CRAM** — Challenge-Response Authentication Mechanism. The
+- **CRAM**, Challenge-Response Authentication Mechanism. The
   bootstrap-only credential, used during onboarding.
-- **Enrollment** — An APKAM record granting an app a namespace-scoped
+- **Enrollment**, An APKAM record granting an app a namespace-scoped
   keypair. Has lifecycle states `pending`, `approved`, `denied`,
   `revoked`, `expired`.
-- **Master AtKeys** — The atSign's root keypairs (PKAM signing,
+- **Master AtKeys**, The atSign's root keypairs (PKAM signing,
   encryption, self-encryption), produced at onboarding.
-- **OTP** — Six-character alphanumeric one-time password. Used to bind
+- **OTP**, Six-character alphanumeric one-time password. Used to bind
   an APKAM enrollment to an out-of-band human approval.
-- **PKAM** — Public-Key Authentication Mechanism. Sign-the-challenge
+- **PKAM**, Public-Key Authentication Mechanism. Sign-the-challenge
   authentication; underpins APKAM.
-- **`pol`** — Proof-of-life. The atServer-to-atServer authentication
+- **`pol`**, Proof-of-life. The atServer-to-atServer authentication
   handshake in which the connecting atServer publishes a signed
   challenge as a public atKey on its own atServer for the receiving
   atServer to fetch and verify.
-- **Prompt** — The trailing `\n@…@` (or `\n@`) that frames the next
+- **Prompt**, The trailing `\n@…@` (or `\n@`) that frames the next
   request on a connection.
-- **`sharedKeyEnc`** — Inline-in-metadata, RSA-encrypted shared
+- **`sharedKeyEnc`**, Inline-in-metadata, RSA-encrypted shared
   symmetric key.
-- **Verb** — A single-line command in the protocol.
+- **Verb**, A single-line command in the protocol.
 
 ---
 
-## Appendix A — Verb reference
+## Appendix A, Verb reference
 
 Terse reference for ctrl-F. Authoritative regex source:
-[
-`at_commons/lib/src/verb/syntax.dart`](https://github.com/atsign-foundation/at_client_sdk/blob/trunk/packages/at_commons/lib/src/verb/syntax.dart).
+[`at_commons/lib/src/verb/syntax.dart`](https://github.com/atsign-foundation/at_client_sdk/blob/trunk/packages/at_commons/lib/src/verb/syntax.dart).
 
 | Verb            | Auth   | Purpose                                                               | Section |
 |-----------------|--------|-----------------------------------------------------------------------|---------|
@@ -1895,7 +1892,7 @@ Terse reference for ctrl-F. Authoritative regex source:
 
 ---
 
-## Appendix B — Legacy and deprecated
+## Appendix B, Legacy and deprecated
 
 The following items remain in the wire grammar for backward
 compatibility but new implementations should not produce them.
@@ -1909,7 +1906,7 @@ post-onboarding entirely.
 
 ### B.2 `sync` (without `:from:`)
 
-```
+```text
 sync:<from_commit_seq>[:<regex>]
 ```
 
@@ -1962,14 +1959,14 @@ should accept it for the foreseeable future.
 
 ---
 
-## Appendix C — Significant near-term projects
+## Appendix C, Significant near-term projects
 
 This appendix lists active workstreams that will materially change
 parts of this specification. Each entry links to the tracking issue;
 issue threads carry the current design state. Implementers should not
 commit to long-lived choices in these areas without checking the
 tracking issues for the present direction. The list is current as of
-2026-05-05; it is not a roadmap commitment, just a snapshot of what is
+2026-05-05; it is not a roadmap commitment, only a snapshot of what is
 moving.
 
 ### C.1 Post-quantum cryptography and crypto agility
@@ -1978,27 +1975,26 @@ The current encryption stack is RSA-2048 (asymmetric) + AES-256
 (symmetric) + SHA-256/SHA-512 (hashing). Transition to post-quantum
 primitives is in active design.
 
-- **Pluggable encryption / decryption schemes** —
-  [at_client_sdk #1891](https://github.com/atsign-foundation/at_client_sdk/issues/1891).
-  Refactor the client encrypt/decrypt path so the algorithm is a
-  pluggable strategy rather than hard-coded RSA + AES. Direction:
-  Signal-style triple-ratchet as the new default. Affects every
-  metadata field that names an algorithm (`encAlgo`, `skeEncAlgo`,
-  `hashingAlgo`).
-- **Implement post-quantum (PQ) cryptography along with crypto
-  agility** —
-  [at_client_sdk #1889](https://github.com/atsign-foundation/at_client_sdk/issues/1889).
-  Land the first PQ primitives behind the pluggable interface above.
-- **Implement post-quantum end-to-end encryption where actors
-  communicate over Atsign Protocol** —
-  [at_client_sdk #1893](https://github.com/atsign-foundation/at_client_sdk/issues/1893).
-  End-to-end PQ encryption on the wire — the protocol-visible part of
-  the PQ work.
+[at_client_sdk #1891](https://github.com/atsign-foundation/at_client_sdk/issues/1891)
+covers **pluggable encryption / decryption schemes**. The plan is to
+refactor the client encrypt/decrypt path so the algorithm is a
+pluggable strategy rather than hard-coded RSA + AES. Direction:
+Signal-style triple-ratchet as the new default. Affects every
+metadata field that names an algorithm (`encAlgo`, `skeEncAlgo`,
+`hashingAlgo`).
+
+[at_client_sdk #1889](https://github.com/atsign-foundation/at_client_sdk/issues/1889)
+covers **post-quantum (PQ) cryptography with crypto agility**, landing
+the first PQ primitives behind the pluggable interface above.
+
+[at_client_sdk #1893](https://github.com/atsign-foundation/at_client_sdk/issues/1893)
+covers **post-quantum end-to-end encryption where actors communicate
+over Atsign Protocol**, the protocol-visible part of the PQ work.
 
 Implementers should treat algorithm names in metadata as
 forward-compatible enums and design for new values appearing.
 
-### C.2 Fast sync ("fsync") — Better sync
+### C.2 Fast sync ("fsync"), Better sync
 
 [at_client_sdk #1894](https://github.com/atsign-foundation/at_client_sdk/issues/1894).
 Replacement for the current commit-log walk-based sync. Targets
@@ -2041,8 +2037,9 @@ this lands it becomes the de-facto compliance gate for an
 "Atsign-Protocol-compliant" implementation; clients of this
 specification should adopt it.
 
-Related: **at_commons tests reflecting at_server / NoPorts usage** —
-[at_client_sdk #1782](https://github.com/atsign-foundation/at_client_sdk/issues/1782).
+Related:
+[at_client_sdk #1782](https://github.com/atsign-foundation/at_client_sdk/issues/1782)
+adds at_commons tests reflecting at_server and NoPorts usage.
 
 ### C.6 Move and improve `at_server_spec` into `at_client_sdk/at_commons`
 
@@ -2055,14 +2052,13 @@ that will remain stable, but related interface paths under
 
 ### C.7 Multi-language SDKs (Java APKAM, others)
 
-- **Java SDK APKAM support** —
-  [operations #348](https://github.com/atsign-foundation/operations/issues/348).
-  The Java SDK is gaining APKAM support, bringing it to parity with
-  the Dart SDK on Phase-3 authentication.
-- **Multi-language support** —
-  [at_client_sdk #1885](https://github.com/atsign-foundation/at_client_sdk/issues/1885).
-  Tracking parent for ports of the SDK to additional languages. This
-  specification document is the basis for those ports.
+[operations #348](https://github.com/atsign-foundation/operations/issues/348)
+adds **APKAM support to the Java SDK**, bringing it to parity with
+the Dart SDK on Phase-3 authentication.
+
+[at_client_sdk #1885](https://github.com/atsign-foundation/at_client_sdk/issues/1885)
+is the tracking parent for **ports of the SDK to additional
+languages**. This specification document is the basis for those ports.
 
 ### C.8 `monitor` immediate-ack response
 
@@ -2094,17 +2090,17 @@ the SDK; not a wire-protocol change.
 [at_server #2568](https://github.com/atsign-foundation/at_server/issues/2568).
 Today, looking up a key whose `eAt` has passed returns `data:null`;
 the proposed correction is `error:AT0015-Key not found`. A small
-change but observable on the wire —
-see [§D.4](#d4-expired-keys-return-null-instead-of-an-at0015-error).
+change but observable on the wire (see
+[§D.4](#d4-expired-keys-return-null-instead-of-an-at0015-error)).
 
 ---
 
-## Appendix D — Inconsistencies and quirks
+## Appendix D, Inconsistencies and quirks
 
 This appendix documents on-the-wire surprises that the per-verb
 sections don't make obvious. Implementers writing a parser, a server,
 or an interoperable client need this list. None of these are
-specification bugs in this document — they are facts about the
+specification bugs in this document, they are facts about the
 deployed protocol that this document accurately describes; they are
 collected here so an implementer can sanity-check failure modes
 against them.
@@ -2113,13 +2109,13 @@ against them.
 
 Both forms appear in current servers:
 
-```
+```text
 error:AT0003-Invalid Syntax
 error:AT0025:Authentication Failed
 ```
 
 The hyphen form predates the colon form; newer error sites tend to
-use `:`. Clients must accept both — splitting only on `-` will fail
+use `:`. Clients must accept both, splitting only on `-` will fail
 on `AT0025`-class errors, splitting only on `:` will misparse
 hyphen-separated messages.
 
@@ -2132,7 +2128,7 @@ will normalise this.
 ### D.2 "Secondary Server" vs "atServer" in error messages
 
 Several error messages still use the old "Secondary Server"
-terminology — e.g. `error:AT0007-Secondary Server not found.` Some
+terminology, e.g. `error:AT0007-Secondary Server not found.` Some
 sites have been updated to "atServer not found"; both wordings are
 emitted in different code paths. Same code (`AT0007`), different
 text. Match on the code, not the message.
@@ -2144,17 +2140,17 @@ See also [Appendix B.6](#b6-commons-and-atserveratsecondary-terminology-drift).
 Most verbs follow `data:<payload>\n@<atSign>@` (or `\n@`
 unauthenticated). A handful do not:
 
-- **`pol`** — emits just `@<atSign>@` with no `data:` prefix and no
+- **`pol`**, emits just `@<atSign>@` with no `data:` prefix and no
   trailing `\n@…@` framing. The `PolResponseHandler` strips the
   `pol:` prefix from the verb's internal result. Outbound clients
   detect "pol succeeded" by matching the wire shape `<currentAtSign>@`.
-- **`monitor`** — emits a stream of `notification: {<json>}\n` lines
+- **`monitor`**, emits a stream of `notification: {<json>}\n` lines
   with no per-line `data:` prefix and no trailing prompt between
   events. Connection remains open until either side closes.
-- **`stream`** — uses binary framing with `stream:ack` / `stream:done`
+- **`stream`**, uses binary framing with `stream:ack` / `stream:done`
   control lines interleaved with raw payload bytes. (`stream` is
   legacy, see Appendix B.5.)
-- **`from`** — see [§D.6](#d6-from-response-shape-self-vs-cross).
+- **`from`**, see [§D.6](#d6-from-response-shape-self-vs-cross).
 
 ### D.4 Expired keys return null instead of an AT0015 error
 
@@ -2162,8 +2158,8 @@ A `lookup` against an expired key returns `data:null` rather than
 `error:AT0015-Key not found`. This conflicts with the documented
 behaviour of `KeyNotFoundException` and surprises clients that switch
 on the error path. Tracked in
-[at_server #2568](https://github.com/atsign-foundation/at_server/issues/2568)
-— the proposed fix is to emit `AT0015` consistently. Until then,
+[at_server #2568](https://github.com/atsign-foundation/at_server/issues/2568);
+the proposed fix is to emit `AT0015` consistently. Until then,
 clients reading possibly-expired keys must handle `data:null` as a
 not-found indicator.
 
@@ -2185,18 +2181,18 @@ surprised when they switch authentication contexts.
 
 For a self-connect, the `from` response payload is
 
-```
+```text
 data:<sessionId><atSign>:<proof>
 ```
 
 For a cross-atSign connect, it is
 
-```
+```text
 data:proof:<sessionId>@<atSign>:<proof>
 ```
 
 The `proof:` infix is the difference. The `FromResponseHandler`
-prepends `data:` only when the verb result starts with `proof:` — the
+prepends `data:` only when the verb result starts with `proof:`, the
 self-connect handler emits a string already prefixed `data:`, so
 there is no double-prefixing. Parsers must not assume a uniform
 "`data:` then payload" shape for `from`.
@@ -2208,7 +2204,7 @@ written to the commit log. Rather than return a real commit ID, the
 handler returns the sentinel `-1`. Clients must not interpret this
 as an error.
 
-### D.8 Mutating verbs typically require auth — `enroll:request` does not
+### D.8 Mutating verbs typically require auth, `enroll:request` does not
 
 `enroll:request` is a mutating verb (it creates a pending enrollment
 record on the server) but it can be sent on an **unauthenticated**
@@ -2230,7 +2226,7 @@ it is applied **only to plaintext public values** by the atServer.
   specific; do not rely on either path.
 
 Because `\n` is the framing terminator, a client must never write a
-plaintext value containing an unescaped `\n` — the server will treat
+plaintext value containing an unescaped `\n`, the server will treat
 the `\n` as end-of-command.
 
 ### D.10 atDirectory historically emits `\r\n@`
@@ -2285,7 +2281,7 @@ first and fall back if rejected.
 `pubKeyCS` (a checksum) was the predecessor of `pubKeyHash` (a hash
 plus `hashingAlgo` companion field). Servers accept both on read.
 New writes must emit `pubKeyHash` + `hashingAlgo`. A record may
-carry one or the other, never both meaningfully — see Appendix B.4.
+carry one or the other, never both meaningfully, see Appendix B.4.
 
 ### D.17 Session ID format
 

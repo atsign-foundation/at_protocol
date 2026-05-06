@@ -9,6 +9,7 @@ payloads are encrypted in the same way as is described below for the `put`
 and `get` operations.
 
 <!-- TOC -->
+
 * [How to exchange encrypted data](#how-to-exchange-encrypted-data)
 * [Background](#background)
 * [Goals](#goals)
@@ -57,7 +58,8 @@ another atSign.
 
 ## Technical prerequisites
 
-Ability to
+Ability to:
+
 * create RSA encryption public/private keypairs and use them to do encryption
 and decryption
 * cryptographically sign data using a private key, and verify signatures using
@@ -212,6 +214,7 @@ shared symmetric key. Java example:
 ### Key descriptions
 
 .atKeys:
+
 * `aesPkamPublicKey`: used by the AtServer to verify the signature (unused by
 Client)
 * `aesPkamPrivateKey`: key for signing the challenge during authentication
@@ -222,6 +225,7 @@ to AtSign
 AES symmetric key
 
 Other:
+
 * `aesSymmetricalKey`: Generated for each atSign that is communicated with.
 This is created the first time one AtSign tries to communicate with another.
 
