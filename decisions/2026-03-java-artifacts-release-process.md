@@ -70,7 +70,7 @@ There are 3 types of outcomes from a release.
    versions to the release version (README and CHANGELOG.md etc...), a tag
    on that commit and then a commit that sets the pom versions to the next
    dev version.
-3. A GitHub release that contains SBOMs for each submodule and checksums for 
+3. A GitHub release that contains SBOMs for each submodule and checksums for
    those SBOMs.
 
 ## Proposal in Detail
