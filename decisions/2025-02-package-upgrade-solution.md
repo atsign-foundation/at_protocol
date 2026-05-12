@@ -75,6 +75,7 @@ Dart dependencies are never allowed to surpass the Flutter SDK's constraints.
 
 Obviously, the problem with this solution is that it requires a massive migration,
 and then we run into a bunch more problems with migrating:
+
 * in progress changesets
 * CI workflows
 * Updating references to packages/repos
@@ -151,6 +152,7 @@ We often perform the following development cycles:
 * Upon CI passing, request initial approval
 
 Upon initial approval:
+
 * Remove the dependency overrides.
 * Publish the packages
 * Resubmit for review (since the dependency overrides removal commit was pushed)

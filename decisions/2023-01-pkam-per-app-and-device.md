@@ -36,6 +36,7 @@
 ## Context & Problem Statement
 
 Current PKAM (Public Key Authentication Method) supports only a single keypair.
+
 * Key pairs are created by first device/app on the edge.
 * Device/app holds the private key; the public key is placed on the secondary server
 * Access is “all or nothing” - access to the private key delivers access to everything
@@ -67,6 +68,7 @@ Current PKAM (Public Key Authentication Method) supports only a single keypair.
 ## Proposal Summary
 
 This proposal is based upon, and expands upon, [this summary proposal](https://docs.google.com/presentation/d/1Yo30hVGfasBEZqeYGNlhhuqLbLLE-l6Qm8RpbBGvNBs/edit#slide=id.gd1dd4acffa_0_5)
+
 * APKAM (Application PKAM) - a keypair per app+device
 * MPKAM - an APKAM which has access to the `.__manage` namespace
 * APKAM enrollment requests can be approved only by apps which have an MPKAM
@@ -114,6 +116,7 @@ encryption keys
 In addition to what is done now (CRAM auth, PKAM auth, cutting default
 encryption keypair and default 'self' encryption key), the client
 also:
+
 * generates an 'APKAM symmetric key' and encrypts it with default encryption
 public key
 * client stores two keys on the server via `enroll` request
