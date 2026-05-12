@@ -1,7 +1,7 @@
 # Primary License
 
 The primary software license used by The Atsign Foundation's projects,
-including atProtocol implementations is the BSD 3-Clause License.
+including Atsign Protocol implementations is the BSD 3-Clause License.
 
 ## License Copy
 

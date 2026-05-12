@@ -1,4 +1,4 @@
-# How atProtocol notifications work
+# How Atsign Protocol notifications work
 
 ## High level
 

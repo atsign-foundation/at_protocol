@@ -38,7 +38,7 @@ and `get` operations.
 ## Background
 
 Some details of how the atPlatform works are not specified in detail by the
-atProtocol itself, but are usage conventions which are embedded in the client
+Atsign Protocol itself, but are usage conventions which are embedded in the client
 SDKs. As a result, building new client software, be it in a new language or
 building alternative client software for a language for which client software
 is already available, currently requires the engineer to base their efforts
@@ -58,7 +58,7 @@ another atSign.
 
 ## Technical prerequisites
 
-Ability to
+Ability to:
 
 * create RSA encryption public/private keypairs and use them to do encryption
 and decryption
