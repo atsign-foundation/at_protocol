@@ -16,14 +16,14 @@ and `get` operations.
   * [Non-goals](#non-goals)
 * [Technical prerequisites](#technical-prerequisites)
 * [Specification](#specification)
-  * ["Sending" atSign](#-sending--atsign)
+  * ["Sending" atSign](#sending-atsign)
     * [1. Lookup address of the _@alice_ atServer](#1-lookup-address-of-the-alice-atserver)
     * [2. Authenticate to _@alice_ atServer](#2-authenticate-to-alice-atserver)
     * [3a. Fetch existing shared symmetric key if it has already been created,]#3a-fetch-existing-shared-symmetric-key-if-it-has-already-been-created)
     * [3b. or create a new shared symmetric key](#3b-or-create-a-new-shared-symmetric-key)
     * [4. Encrypt some data](#4-encrypt-some-data)
     * [5. Share the data with _@bob_](#5-share-the-data-with-bob)
-  * ["Receiving" atSign](#-receiving--atsign)
+  * ["Receiving" atSign](#receiving-atsign)
     * [1. Lookup address of the _@bob_ atServer](#1-lookup-address-of-the-bob-atserver)
     * [2. PKAM authenticate to _@bob_ atServer](#2-pkam-authenticate-to-bob-atserver)
     * [3. Fetch the data which _@alice_ shared](#3-fetch-the-data-which-alice-shared)
@@ -70,7 +70,7 @@ a public key
 
 ## Specification
 
-### "Sending" atSign
+### Sending atSign
 
 Given an already-onboarded client (i.e. access to authentication private key
 and encryption private key) for atsign `@alice`
@@ -164,7 +164,7 @@ $base64EncodedSharedAESKey
 attributes:>@bob:some.key_name.in.some.namespace@alice base64EncodedEncryptedData`
 and handle the response
 
-### "Receiving" atSign
+### Receiving atSign
 
 #### 1. Lookup address of the _@bob_ atServer
 

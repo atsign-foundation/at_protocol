@@ -30,8 +30,8 @@ reality of breaking changes occurring when the semver increase dictates otherwis
 
 ### Flutter SDK Pinned Packages
 
-In the Dart SDK docs they mention the reason for package pins in the Flutter SDK
-[here](https://github.com/dart-lang/sdk/blob/2ac59922d2e6ab5f62ceb8725ffad96cfd147c68/docs/Flutter-Pinned-Packages.md?plain=1#L13-L15).
+In the Dart SDK docs they mention the
+[reason for package pins in the Flutter SDK](https://github.com/dart-lang/sdk/blob/2ac59922d2e6ab5f62ceb8725ffad96cfd147c68/docs/Flutter-Pinned-Packages.md?plain=1#L13-L15).
 This statement indicates that teams maintaining Flutter & Dart have no intention
 of respecting semver, as they don't even trust themselves to respect it.
 More elaboration on the consequences of this in the following options.
