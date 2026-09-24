@@ -182,10 +182,10 @@ wheels = [
 
 [[packages]]
 name = "pymarkdownlnt"
-version = "0.9.39"
+version = "0.9.40"
 index = "https://pypi.org/simple"
-sdist = { url = "https://files.pythonhosted.org/packages/d4/aa/9f6ac3a91b5c02cedb5ada2ae12fddf4954fe3faab176941a68510e9830e/pymarkdownlnt-0.9.39.tar.gz", upload-time = 2026-07-12T01:14:22Z, size = 454763, hashes = { sha256 = "5f422d593244942e4b545b54b512f6b7e509f907752d707695c051bfe8584948" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/68/4f/9e129701e6799733fd541d0e4bc624695e70259b4c279dd43fb124e4ff63/pymarkdownlnt-0.9.39-py3-none-any.whl", upload-time = 2026-07-12T01:14:20Z, size = 532072, hashes = { sha256 = "3e6f32517c7cc088dc466830b43ca7a04326bd4fc62d7f5379925ae7ee2f5ad9" } }]
+sdist = { url = "https://files.pythonhosted.org/packages/60/ea/a784da505745c5eb19b7b6be62a0cee4c25c42ba72e010413a7ebaa40ca7/pymarkdownlnt-0.9.40.tar.gz", upload-time = 2026-09-13T20:29:33Z, size = 467022, hashes = { sha256 = "9e6b1137b9f4b496da10f838bc30f66e4c182a0bf53d93d3afce65a541ded091" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/4e/1e/e2d60317291cedff329cfe08dff7d5a2aefe51ef5f336997e1f2e8a08a94/pymarkdownlnt-0.9.40-py3-none-any.whl", upload-time = 2026-09-13T20:29:31Z, size = 549389, hashes = { sha256 = "de92072911fcb1e5476a7d453078d51457329f5e5cfd78c37d29efc363500262" } }]
 
 [[packages]]
 name = "pyyaml"
@@ -328,7 +328,7 @@ wheels = [{ url = "https://files.pythonhosted.org/packages/49/d3/b8441a820a491dd
 
 [[packages]]
 name = "wcwidth"
-version = "0.8.2"
+version = "0.8.4"
 index = "https://pypi.org/simple"
-sdist = { url = "https://files.pythonhosted.org/packages/34/74/c6428f875774288bec1396f5bfcbc2d925700a4dad61727fd5f2b12f249d/wcwidth-0.8.2.tar.gz", upload-time = 2026-06-29T18:11:11Z, size = 1466253, hashes = { sha256 = "91fbef97204b96a3d4d421609b80340b760cf33e26da123ff243d76b1fda8dda" } }
-wheels = [{ url = "https://files.pythonhosted.org/packages/96/42/3e5985a0a7e57de470b320c6d6a1a67c844f6737a587f3d44dd13d1819e7/wcwidth-0.8.2-py3-none-any.whl", upload-time = 2026-06-29T18:11:09Z, size = 323166, hashes = { sha256 = "d63947694a0539a1d51e01eda7caf800c291020e6cdd7e28ad7b14dd33ad4f85" } }]
+sdist = { url = "https://files.pythonhosted.org/packages/3d/7a/f98d4ada7c499565ab0c0fcef28a4e54fafa72b8228a6309803c80493c92/wcwidth-0.8.4.tar.gz", upload-time = 2026-09-17T23:31:45Z, size = 414609, hashes = { sha256 = "2dae09efa25253ae2874188e86d6861af3b1652aef4118cdf3f0bda288a957fb" } }
+wheels = [{ url = "https://files.pythonhosted.org/packages/39/cc/9c0adc5861020de426ec71716b6c1bef8d90694b7d6d0a16202cdb1647f5/wcwidth-0.8.4-py3-none-any.whl", upload-time = 2026-09-17T23:31:43Z, size = 299474, hashes = { sha256 = "2097bb1d28a0ba8fe177c2eb607317f9b1627b03f33ebebfd3da670b337a65ba" } }]

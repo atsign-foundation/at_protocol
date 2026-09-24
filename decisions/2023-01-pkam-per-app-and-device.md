@@ -12,7 +12,7 @@
 <!-- TOC -->
 
 * [PKAMs per app per device](#pkams-per-app-per-device)
-  * [Context & Problem Statement](#context--problem-statement)
+  * [Context & Problem Statement](#context-and-problem-statement)
   * [Goals](#goals)
     * [Non-goals](#non-goals)
   * [Other considerations](#other-considerations)
@@ -33,7 +33,7 @@
 
 <!-- TOC -->
 
-## Context & Problem Statement
+## Context and Problem Statement
 
 Current PKAM (Public Key Authentication Method) supports only a single keypair.
 
