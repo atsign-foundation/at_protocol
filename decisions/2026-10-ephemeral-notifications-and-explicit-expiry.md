@@ -104,11 +104,17 @@ persists. It's a bare flag: present means ephemeral, absent means not, and
 `eph:true` is a syntax error. It's held in memory, where `notify:list`,
 `notify:status`, `notify:fetch` and a monitor's backlog all see it, until it
 expires or the atServer restarts. Its expiry is clamped to 2 minutes, which
-bounds that memory. It's refused with `delete`, `ttr` or `ccd`, each of which
-would make the recipient's atServer write its keystore (a delete removes a
-record that an earlier `ttr` update cached). An atServer forwards it as
-ephemeral only to an atServer that lists `notify.eph`, and as an ordinary
-notification otherwise.
+bounds that memory.
+
+`ttr` is refused when `eph` is set: an atServer refuses a notification that
+carries both, naming them, and a client never sends one. `ttr` asks the
+recipient's atServer to cache the value, which an ephemeral notification must
+not leave behind. `ccd` and `delete` are refused with `eph` for the same
+reason: each makes the recipient's atServer write its keystore (a delete
+removes a record that an earlier `ttr` update cached).
+
+An atServer forwards an ephemeral notification as ephemeral only to an atServer
+that lists `notify.eph`, and as an ordinary notification otherwise.
 
 ### Forwarding
 
