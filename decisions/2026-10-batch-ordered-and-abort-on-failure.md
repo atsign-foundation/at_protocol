@@ -40,6 +40,7 @@ window in which two enrollments can collide.
 * A client can ask a batch to stop at the first command that fails, so one
   request can take a lock and act under it.
 * Every command in a batch gets an entry in the reply.
+* `notify:all` is deprecated in favour of a batch of `notify` commands.
 
 ### Non-goals
 
@@ -66,6 +67,8 @@ the first command that fails, and the commands after that one are not run.
 An atServer advertises this as `batch.abortOnFailure` in the `features` list
 described in
 [Ephemeral notifications and explicit expiry](2026-10-ephemeral-notifications-and-explicit-expiry.md).
+`notify:all`, which nothing uses, is deprecated in favour of a batch of
+`notify` commands.
 
 ## Proposal in Detail
 
@@ -124,6 +127,15 @@ When another enrollment holds the lock, the first command fails and nothing
 else runs. When it succeeds, the guarded writes follow in the same request,
 with no round trip between taking the lock and acting under it.
 
+### notify:all
+
+`notify:all` is unused legacy. A batch of `notify` commands does what it was
+for, carrying a notification to each of many recipients in one request, and
+gives each recipient its own metadata, which `notify:all` can't. So
+`notify:all` is deprecated: an atServer lists it in `info` as `notify.all` with
+status `Deprecated` while it still accepts it, and as `Retired` once it
+refuses it.
+
 ### Expected Consequences
 
 * at_commons carries the flag in the grammar and the builder, and the reply's
@@ -136,3 +148,6 @@ with no round trip between taking the lock and acting under it.
   succeed before the next, can each become one request.
 * One request can carry a notification to each of many recipients, as a batch
   of `notify` commands.
+* at_commons marks `notify:all`'s grammar and builder deprecated, and every
+  atServer implementation lists `notify.all` as `Deprecated`, then `Retired`
+  when it stops accepting the verb.
