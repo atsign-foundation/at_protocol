@@ -51,16 +51,17 @@ A multi-recipient content key lets every recipient open the one ciphertext.
 ### notify:multi
 
 ```text
-notify:multi[:update|:delete][:ttln:<ms>][:eAtn:<ISO-8601>][:eph]
+notify:multi[:ttln:<ms>][:eAtn:<ISO-8601>][:eph]
   <metadata fragment>:@<recipient>[,@<recipient>...]:<key>@<sender>[:<value>]
 ```
 
 Every recipient starts with `@` and the sender is required, so a malformed
 metadata field is a syntax error rather than a recipient. It's always a
-key-type notification, and it carries no `ttr` or `ccd`, so no recipient keeps
-a cached record. It carries `eAtn` and `eph` with the same meaning and the same
-rules as `notify` does. The atServer refuses, by name, the fields that are
-right for one recipient only (`sharedKeyEnc`, `pubKeyCS`, `pubKeyHash`,
+key-type update. It carries no operation, since a delete would remove a cached
+record at every recipient, and no `ttr` or `ccd`, so no recipient keeps one. It
+carries `eAtn` and `eph` with the same meaning and the same rules as `notify`
+does. The atServer refuses, by name, the fields that are right for one
+recipient only (`sharedKeyEnc`, `pubKeyCS`, `pubKeyHash`,
 `hashingAlgo`, `skeEncKeyName`, `skeEncAlgo`) and those plain `notify` never
 delivers (`isBinary`, `encoding`, `sharedKeyStatus`, `dataSignature`). The
 reply maps each recipient to its notification id:
