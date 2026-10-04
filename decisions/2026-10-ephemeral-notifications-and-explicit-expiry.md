@@ -52,8 +52,12 @@ atServer uses it only where it's advertised.
 
 ### Capabilities in info
 
-Every form of `info` gains the `features` list that at_server_spec already
-documents:
+Every form of `info` gains a `features` list. The feature names, the status
+vocabulary and the rule for reading them are defined once, in at_commons
+(`InfoFeature`, `InfoFeatureStatus` and `InfoFeatures`), which clients and
+atServers both use; at_server_spec describes the rest of the reply. Each
+atServer decides the status it gives each feature. A published name is never
+reused: a retired feature stays listed, as `Retired`.
 
 ```json
 "features": [
@@ -62,8 +66,18 @@ documents:
 ]
 ```
 
-A client or atServer acts on the `name` alone. An `info` it can't read, or one
-without the entry, means the capability isn't there.
+`status` is one of `Preview`, `Beta`, `GA`, `Deprecated` (it still works, and
+will be retired) or `Retired` (it's refused). A feature counts as present when
+it's listed with any status but `Retired`. Statuses are compared exactly, so
+`retired` isn't `Retired`, and an entry with a status a reader doesn't know, or
+with none, counts as present too. Code that uses a feature whose status isn't
+`GA` logs a warning naming it, once per feature per connection. An `info` that
+can't be read, or one without the entry, means the capability isn't there.
+
+A client or atServer asks once per connection and reuses the answer while that
+connection stays open. An atServer that's upgraded or rolled back restarts and
+drops its connections, so an answer is never older than the atServer that gave
+it.
 
 ### Grammar
 
@@ -112,8 +126,7 @@ backlog.
   at_server_spec, whose specs depend on it.
 * Every atServer implementation adds the two fields, the `features` list, and
   the peer check before forwarding `eph` or `eAtn`.
-* at_client asks its atServer's `info` once per client (and again after 5
-  minutes), and sends `ttln` and stored notifications wherever a capability
-  isn't advertised.
+* at_client asks its atServer's `info` once per connection to it, and sends
+  `ttln` and stored notifications wherever a capability isn't advertised.
 * Ephemeral notifications take load off both atServers' notification stores,
   at the price of being lost to a restart.
