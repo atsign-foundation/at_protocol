@@ -36,7 +36,8 @@ atServer limits how far that spreads.
 * A refusal is final, so a sending atServer discards the notification rather
   than retrying it.
 * Once applications are ready, the default becomes closed, so a namespace no
-  application has claimed exchanges with nobody.
+  application has claimed exchanges only with the atSigns recorded for it and
+  the owner's atSign-wide admitted set.
 
 ### Non-goals
 
@@ -83,15 +84,20 @@ to `closed`, so released applications keep working until they're ready.
 ### Rules, and who sets them
 
 A namespace with a rule is open or closed. An open one holds three sets of
-atSigns, admitted, quarantined and denied, and a closed one holds only an
-admitted set. A rule on `chat` covers `x.chat` and `group.chat` by the suffix
-match enrollments use, and the more specific rule decides. Beside the sets of
-each namespace there's one atSign-wide admitted set, which admits in every
-open namespace and in no closed one, and a namespace's deny overrides it. The
-blocklist stays as it is, and overrides everything.
+atSigns, admitted, quarantined and denied, and a closed one admits only its
+admitted set, keeping its denied set for when it reopens. A rule on `chat`
+covers `x.chat` and `group.chat` by the suffix match enrollments use, and the
+more specific rule decides. A rule can be removed, and admissions can be
+recorded for a namespace with no rule, for the default to decide by. Beside
+the sets of each namespace there's one atSign-wide admitted set, which admits
+in every open namespace and wherever the closed default decides, and in no
+closed one, and a namespace's deny overrides it. The blocklist stays as it is,
+and overrides everything.
 
 An enrollment with `rw` on a namespace sets its rule, its limits and its sets,
-and `r` reads them. The atSign-wide set and the default need a root enrollment.
+and `r` reads them and asks the standing of an atSign there. The atSign-wide
+set and switching the default need a root enrollment, and any enrollment reads
+the default.
 
 Scan and `notify:list` from another atSign answer only namespaces where it's
 admitted, and a value reference in a looked-up key resolves only into one.
@@ -144,7 +150,9 @@ notification for that atSign.
 ### Defaults, and losing admission
 
 An atSign's default is `ungated` or `closed`. Only a root enrollment switches
-it, and the atServer operator sets the default a new atSign starts with. When
+it, and the atServer operator sets the default a new atSign starts with. Where
+no rule covers a namespace, the closed default admits the atSigns recorded for
+it or for a namespace above it, and the atSign-wide admitted set. When
 an atSign loses admission, keys shared with it and notifications already stored
 from it stay, cached copies of its keys go, and anything queued for it is
 checked again at delivery.
