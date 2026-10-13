@@ -657,6 +657,9 @@ A high-level flow:
    decrypts the APKAM symmetric key, then sends back the
    default encryption private key and self-encryption key, each
    encrypted with the now-shared APKAM symmetric key (with IVs).
+   Since atServer 3.17.1, the approved enrollment expires no later than
+   the approver's own enrollment: the atServer caps its expiry on
+   approval.
 5. **PKAM-with-enrollmentId**, the new app authenticates as usual via
    `from` + `pkam`, passing `enrollmentId:<id>` so the atServer scopes
    the connection to the granted namespaces.
@@ -692,20 +695,56 @@ Source:
 | `encryptedDefaultSelfEncryptionKey`    | approve                                   | Owner's self-encryption key, AES-encrypted with the APKAM symmetric key.                       |
 | `selfEncKeyIV`                         | approve                                   | IV (base64) for the line above.                                                                |
 | `enrollmentStatusFilter`               | list                                      | Optional list of statuses to filter on: `pending`, `approved`, `denied`, `revoked`, `expired`. |
-| `apkamKeysExpiryDuration`              | request                                   | ISO-8601 duration: lifetime of the APKAM credentials before forced re-enrollment.              |
+| `apkamKeysExpiryInMillis`              | request                                   | Lifetime the request asks for, in milliseconds from approval; absent or 0 for none.            |
 
 #### Operations and responses
 
-| Operation  | Response payload                                                                         |
-|------------|------------------------------------------------------------------------------------------|
-| `request`  | `data:{"enrollmentId":"<uuid>","status":"pending"}`                                      |
-| `approve`  | `data:{"enrollmentId":"<uuid>","status":"approved"}`                                     |
-| `deny`     | `data:{"enrollmentId":"<uuid>","status":"denied"}`                                       |
-| `revoke`   | `data:{"enrollmentId":"<uuid>","status":"revoked"}` (`:force:` to revoke own enrollment) |
-| `unrevoke` | `data:{"enrollmentId":"<uuid>","status":"approved"}`                                     |
-| `delete`   | `data:{"enrollmentId":"<uuid>","status":"deleted"}`                                      |
-| `fetch`    | `data:{ <full enrollment record JSON> }`                                                 |
-| `list`     | `data:{"<enrollKey>":{<enrollment record JSON>}, …}`                                     |
+| Operation  | Response payload                                                                                |
+|------------|-------------------------------------------------------------------------------------------------|
+| `request`  | `data:{"enrollmentId":"<uuid>","status":"pending"}`, or `"approved"` when approved at once      |
+| `approve`  | `data:{"enrollmentId":"<uuid>","status":"approved","expiresAt":<ISO-8601 UTC string, or null>}` |
+| `deny`     | `data:{"enrollmentId":"<uuid>","status":"denied"}`                                              |
+| `revoke`   | `data:{"enrollmentId":"<uuid>","status":"revoked"}` (`:force:` to revoke own enrollment)        |
+| `unrevoke` | `data:{"enrollmentId":"<uuid>","status":"approved"}`                                            |
+| `delete`   | `data:{"enrollmentId":"<uuid>","status":"deleted"}`                                             |
+| `fetch`    | `data:{ <full enrollment record JSON> }`                                                        |
+| `list`     | `data:{"<enrollKey>":{<enrollment record JSON>}, …}`                                            |
+
+Since atServer 3.17.1, a request is refused with `AT0022` unless its
+`apkamKeysExpiryInMillis`, when given, is a whole number from 0 to
+3155760000000 (36,525 days); before, a negative value also asked for
+none.
+
+Since atServer 3.17.1, `approve` caps the approved enrollment's expiry at
+that of the enrollment the connection authenticated as, when that one
+expires, and reports the moment the approved enrollment ends as
+`expiresAt`, null when it never does. An earlier expiry the request asked
+for is kept. An approval over a CRAM connection, or by an enrollment that
+never expires, caps nothing.
+
+The encryption keys stored for an enrollment on approval expire when the
+enrollment does.
+
+An `enroll:request` sent over a CRAM connection is the atSign's root
+enrollment: it is approved at once and never expires, whatever expiry it
+asks for. Since atServer 3.17.1 it reports `apkamKeysExpiryInMillis` as
+0; a root requested earlier reports the expiry it asked for.
+
+`list` entries and `fetch` carry `apkamKeysExpiryInMillis` and
+`expiresAt`. For a pending request, `apkamKeysExpiryInMillis` is the key
+expiry it asks for (0 or less for none), and `expiresAt` is when the
+request lapses unapproved, 48 hours after it was made by default. Once
+a request is approved, they are the term granted and the moment it ends;
+a root requested before atServer 3.17.1 is the exception above.
+`list` and `fetch` carry `expiresAt` since atServer 3.16.4, and `fetch`
+carries `apkamKeysExpiryInMillis` since 3.17.1.
+
+A pending request is announced to approver apps as a self notification
+keyed `<enrollmentId>.new.enrollments.__manage@<atSign>`. Its value
+carries `appName`, `deviceName`, `namespace`, the encrypted APKAM
+symmetric key under both `encryptedApkamSymmetricKey` and
+`encryptedAPKAMSymmetricKey`, and, since atServer 3.17.1,
+`apkamKeysExpiryInMillis`. A request approved at once is not announced.
 
 #### 9.4.2 The `otp` verb
 
@@ -1635,7 +1674,7 @@ C(master): enroll:approve:{
              "encryptedDefaultSelfEncryptionKey":"<AES ciphertext>",
              "selfEncKeyIV":"<base64 IV>"
            }\n
-S:         data:{"enrollmentId":"<uuid>","status":"approved"}\n@alice@
+S:         data:{"enrollmentId":"<uuid>","status":"approved","expiresAt":null}\n@alice@
 
 # === New device: PKAM-authenticate using the APKAM private key + enrollmentId. ===
 C(new): from:@alice\n
