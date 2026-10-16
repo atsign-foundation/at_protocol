@@ -1021,13 +1021,16 @@ Source:
 ^update(:nc(?<noCommit>))?(:json:(?<json>.+)|<metadataFragment>(:(public|@(?<forAtSign>...)))?:(?<atKey>...)(@(?<atSign>...))? (?<value>.+))$
 ```
 
-`:nc` (no-commit) suppresses the commit-log entry, used for local
-keys that should not be synced.
+Since atServer 3.16.3, `:nc` (no-commit) writes no commit-log entry
+for the change, removes any entry the key already has, and answers
+`data:-1`.
 
 Response: `data:<commitId>` where `commitId` is the integer
-commit-log sequence number assigned to the operation. Self-connected
-clients use this to detect that their local cache is at least as
-fresh as the server.
+commit-log sequence number assigned to the operation. The reference
+SDK's sync takes it as the atServer's acknowledgement of a pushed
+write. A write to a key the commit log never records, a `public:_`
+key (but not `public:__`), a `private:` key or a `privatekey:` key,
+also answers `data:-1`.
 
 ```text
 C: update:@bob:phone.wavi@alice +1 555 0100\n
@@ -1041,23 +1044,57 @@ C: update:ttr:60000:ccd:true:isEncrypted:true:@bob:secret.myapp@alice <ciphertex
 S: data:43\n@alice@
 ```
 
-JSON form (atomic put with full metadata):
+JSON form:
 
 ```text
-C: update:json:{"atKey":{"key":"phone","sharedWith":"@bob","sharedBy":"@alice","namespace":"wavi"},"value":"+1 555 0100","metadata":{"ttl":60000}}\n
+C: update:json:{"atKey":"phone.wavi","sharedBy":"@alice","sharedWith":"@bob","value":"+1 555 0100","metadata":{"ttl":60000,"isPublic":false,"isBinary":false,"isEncrypted":false}}\n
 S: data:44\n@alice@
 ```
 
+`atKey` is a string. The atServer builds the stored key as
+`[public:][<sharedWith>:]<atKey>[<sharedBy>]`, with `public:` when
+`metadata.isPublic` is `true`; the example stores
+`@bob:phone.wavi@alice`. `metadata` is required, and must hold
+`isPublic`, `isBinary` and `isEncrypted` as booleans; a document
+without them is refused. Its other fields are optional and take the
+wire tags' names (§7.1), except that the timestamps are `createdAt`,
+`updatedAt`, `expiresAt` and `availableAt`, and `pubKeyHash` is an
+object, `{"hash":"…","hashingAlgo":"…"}`.
+
+The atServer refuses to `update` a `local:` key, a `cached:` key
+other than `cached:public:publickey@<atSign>` or
+`cached:public:signing_publickey@<atSign>`, a `private:` key other
+than `private:blocklist@<atSign>`, or a name that is not a valid
+atKey. Only the JSON form can name the first three. The atServer also
+refuses to overwrite a record that carries `immutable:true`. Since
+atServer 3.16.2, a record whose expiry has passed counts as absent, so
+an expired immutable record no longer blocks the write.
+
+When the write creates the key, `ccd` is kept only if the request
+also sets a non-zero `ttr`.
+
 ### 10.2 `update:meta`
 
-Update only the metadata of an existing key. Same metadata fragment as
-`update`. Useful for changing TTL or marking a key encrypted after
+Update only the metadata of a key. Same metadata fragment as
+`update`, but it comes after the atKey, and the owner's atSign is
+required. Useful for changing TTL or marking a key encrypted after
 the fact.
+
+#### Syntax
+
+```text
+update:meta[:nc][:public|@<forAtSign>]:<atKey>@<atSign><metadata>
+```
 
 ```text
 C: update:meta:@bob:phone.wavi@alice:ttl:600000:isEncrypted:true\n
 S: data:45\n@alice@
 ```
+
+On a key the atServer does not hold, `update:meta` creates a record
+with that metadata and no value. The response, `:nc` and the
+refusals are as for `update`. On an APKAM connection, `update:meta`
+needs `rw` access to the key's namespace, as `update` does.
 
 ### 10.3 `delete`
 
@@ -1075,9 +1112,15 @@ Source:
 ^delete(:dAt:...)?(:nc)?(:force)?(:priority:...)?(:cached)?(:public|@<forAtSign>)?:<atKey>(@<atSign>)?$
 ```
 
-- `:dAt:<timestamp>`, assert deletion time (used by sync).
-- `:nc`, no commit.
+- `:dAt:<timestamp>`, the deletion time the caller asserts, an ISO
+  8601 UTC timestamp as for `cAt` (§7.1). Since atServer 3.16.3, the
+  atServer stamps the DELETE commit entry with it.
+- `:nc`, no commit. Since atServer 3.16.3, no entry is written, any
+  entry the key already has is removed, and the response is
+  `data:-1`.
 - `:force`, required to delete an `immutable:true` key.
+- `:priority:<low|medium|high>`, the priority of the auto-notification
+  described below.
 - `:cached`, delete a cached copy on this server (does not affect the
   origin).
 
@@ -1087,8 +1130,10 @@ Source:
 any key listed under `hive.protectedKeys` in the atServer's
 configuration. A `:cached` delete is not refused.
 
-Response: `data:<commitId>` (yes, even when the key didn't exist;
-`delete` is idempotent and always commits).
+Response: `data:<commitId>`, even when the key did not exist (see
+[§D.13](#d13-delete-is-idempotent-and-always-commits)). A key the
+commit log never records, a `public:_` key (but not `public:__`) or
+`privatekey:at_secret`, answers `data:-1`.
 
 ```text
 C: delete:@bob:phone.wavi@alice\n
@@ -1201,6 +1246,15 @@ Source:
 
 - `:cached:`, look up a cached copy on this atServer.
 
+A key the atServer does not hold answers error `AT0015`. A key past
+its expiry (`ttl`), or not yet available (`ttb`), answers `data:null`
+(see [§D.4](#d4-expired-keys-return-null-instead-of-an-at0015-error)).
+
+On an APKAM connection, a key that is not `public:` must be one the
+enrollment may read, which for a key in a namespace means `r` or `rw`
+access to that namespace. A `public:` key, cached or not, is not
+checked.
+
 Response is identical in shape to `lookup`.
 
 ### 10.7 `scan`
@@ -1210,20 +1264,48 @@ Enumerate keys.
 #### Syntax
 
 ```text
-scan[:cl][:showhidden:<true|false>][:<forAtSign>][:page:<n>][ <regex>]
+scan[:cl][:showhidden:<true|false>][:@<forAtSign>][:page:<n>][ <regex>]
 ```
 
 Source:
 
 ```text
-^scan$|scan(:cl)?(:showhidden:...)?(:<forAtSign>)?(:page:...)?( <regex>)?$
+^scan$|scan(:cl)?(:showhidden:...)?(:@<forAtSign>)?(:page:...)?( <regex>)?$
 ```
 
-- `:cl`, scan the commit log instead of the keystore.
-- `:showhidden:true`, include keys whose `<key>` starts with `_`.
-- `:<forAtSign>`, only return keys shared with that atSign.
-- `:page:<n>`, pagination index (server-defined page size).
-- `<regex>` (space-separated), filter results by regex.
+- `:cl`, since atServer 3.16.3, list commit-log entries instead of
+  keys (see Response below). It needs a connection authenticated as
+  the atSign, and naming another atSign with it is refused.
+- `:showhidden:true`, on an authenticated connection, also list the
+  hidden keys: keys that start with `_` (such as `_x.wavi@alice`) and
+  `public:__` keys. `public:_` keys with a single underscore,
+  `private:` keys and `privatekey:` keys are never listed. A key that
+  starts with `@` (a shared key) is not hidden, whatever its name.
+- `:@<forAtSign>`, naming another atSign, asks that atSign's atServer,
+  over a `pol` connection, for the keys it shares with this atSign
+  (see [§15](#15-the-inter-atserver-protocol)). It needs a connection
+  authenticated as the atSign. Only `<regex>` is passed on, and the
+  response is the other atServer's. Naming this atServer's own atSign
+  is an ordinary scan.
+- `:page:<n>`, accepted by the grammar and ignored: the whole result
+  comes back in one response.
+- `<regex>` (after a space), a regular expression matched anywhere in
+  each stored key name, such as `@bob:phone.wavi@alice`. It cannot
+  contain whitespace.
+
+Keys past their expiry (`ttl`), or not yet available (`ttb`), are not
+listed. What else `scan` lists depends on the connection:
+
+- Not authenticated: the `public:` keys, without the `public:` prefix.
+  `public:_` keys, `public:__` keys among them, are left out.
+- `pol`, as `@<x>`: the keys shared with `@<x>`, without the `@<x>:`
+  prefix.
+- CRAM: every key that `:showhidden` does not leave out.
+- APKAM: the public keys, and the keys the enrollment may read (`r` or
+  `rw`) through their namespace. Other keys with no namespace are left
+  out unless the enrollment holds `*`. Non-public `__manage` keys, and
+  other enrollments' `<enrollmentId>.a|r|d.__e` keys, are always left
+  out.
 
 #### Response
 
@@ -1233,7 +1315,20 @@ data:["public:phone.wavi@alice","@bob:email.wavi@alice", …]
 
 A JSON array of strings, on a single line. Empty result is `data:[]`.
 
-The `forAtSign` and `regex` filters operate on key **structure**, not
+`scan:cl` answers a JSON array of objects, one per key, in ascending
+`commitId` order. DELETE entries are included. The hidden-key, regex
+and enrollment filters apply as for a keystore scan on that
+connection.
+
+```text
+data:[{"atKey":"phone.wavi@alice","operation":"+","commitId":42,"opTime":"2026-10-16T10:52:58.123000Z"}, …]
+```
+
+`operation` is `+` or `*` for a write, `#` for a metadata-only write
+and `-` for a delete. `opTime` is ISO 8601 UTC with six fractional
+digits, or `null`.
+
+The `regex` filter operates on key **structure**, not
 value contents, value-level filtering is impossible because the
 server has no plaintext to filter against ([§14](#14-end-to-end-encryption)).
 
@@ -2599,9 +2694,13 @@ unrecognised key produces no warning.
 ### D.13 `delete` is idempotent and always commits
 
 Calling `delete` on a non-existent key returns `data:<commitId>`
-exactly as if the key had existed. The commit log gains a tombstone
-entry regardless. Other CRUD verbs error on a missing target; only
-`delete` is idempotent in this way.
+exactly as if the key had existed. The commit log gains a DELETE
+entry regardless. The exceptions answer `data:-1` and write no entry:
+`:nc` (since atServer 3.16.3), and a key the commit log never records
+(a `public:_` key, but not `public:__`, or `privatekey:at_secret`).
+
+`update` and `update:meta` do not error on a missing key either: they
+create it. `llookup` of a missing key answers `AT0015`.
 
 ### D.14 Negative metadata integers are mostly meaningless
 
