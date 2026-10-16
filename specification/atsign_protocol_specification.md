@@ -1598,39 +1598,67 @@ data:[{"id":1,"response":{"data":"42"}},{"id":2,"response":{"data":"43"}}]
 
 ## 14. End-to-end encryption
 
-End-to-end encryption is **entirely an atClient concern**. atServers
-store opaque ciphertext in the `value` field, opaque ciphertext in the
-`sharedKeyEnc` metadata field, and opaque metadata about which keys
-encrypted which, but they never see plaintext keys, plaintext values,
-or have any way to decrypt anything they store. No server-side
-behaviour in this specification depends on understanding what the
-encrypted material means.
+End-to-end encryption is **entirely an atClient concern**. For an
+encrypted value, the atServer stores ciphertext in the `value` field,
+metadata about how the value was encrypted and, for a value shared
+with another atSign, the encrypted shared key in the `sharedKeyEnc`
+metadata field. Nothing in the atServer decrypts what it stores, and
+no server-side behaviour in this specification depends on
+understanding what the encrypted material means.
+
+Not everything an atServer stores is ciphertext. Public values and
+public keys are plaintext by design, as is any value an atClient sends
+unencrypted.
 
 This section describes how the wire-level metadata fields hang together
-so an atClient implementer can interoperate with the existing Dart
-SDK. It does **not** specify the encryption protocol normatively; that
-lives in the [`at_chops`](https://pub.dev/packages/at_chops) package
-and is allowed to evolve.
+so an atClient implementer can interoperate with the reference SDK. It
+does **not** specify the encryption protocol normatively. In the
+reference SDK the scheme lives in the `at_client` package's crypto
+providers, built on primitives from
+[`at_chops`](https://pub.dev/packages/at_chops), and it is allowed to
+evolve: post-quantum cryptography is in active development (see
+[Appendix C.1](#c1-post-quantum-cryptography-and-crypto-agility)).
 
 ### 14.1 Two layers
 
-Atsign Protocol e2ee uses two layers:
+The reference SDK's `legacy` crypto provider encrypts a value shared
+with another atSign in two layers:
 
-1. **Symmetric layer.** Each atSign holds one symmetric **shared key**
-   per recipient. Values shared from `@alice` to `@bob` are encrypted
-   with `alice`'s sharedKey-for-bob (AES). The metadata fields
-   `encKeyName`, `encAlgo`, `ivNonce`, and `encoding` describe this
-   encryption.
+1. **Symmetric layer.** Each atSign holds one AES-256 **shared key**
+   per recipient. A value `@alice` shares with `@bob` is encrypted with
+   `@alice`'s shared key for `@bob`. The `ivNonce` metadata field
+   carries the IV it was encrypted with.
 2. **Asymmetric layer.** The shared key is itself encrypted with the
-   recipient's encryption public key (RSA), serialised into the
-   `sharedKeyEnc` metadata field, and pinned to the public key that
-   wrapped it via `pubKeyHash` (and `hashingAlgo`) and `skeEncKeyName`
-   / `skeEncAlgo`.
+   recipient's encryption public key, `public:publickey@<recipient>`
+   (RSA), and carried in the `sharedKeyEnc` metadata field. Two fields
+   record which public key wrapped it: `pubKeyHash`, its SHA-512 hash
+   (with `hashingAlgo:sha512`), and `pubKeyCS`, its MD5 hex digest (see
+   [§14.3](#143-public-key-rotation)).
 
-Inline shared-key delivery (`sharedKeyEnc` carried in the metadata of
-the value itself) is the supported pattern. Alternative delivery via a
-separately-stored `<atSign>:shared_key.<namespace>@<owner>` atKey is
-accepted for backward compatibility but not recommended.
+The SDK does not set `encKeyName`, `encAlgo`, `skeEncKeyName` or
+`skeEncAlgo`, and does not read them when it decrypts. A value an
+atSign keeps for itself has only the symmetric layer: the SDK encrypts
+it with the atSign's self-encryption key.
+
+The SDK puts `sharedKeyEnc` in the metadata of every value it encrypts
+for another atSign, and a reader uses it when present. When the SDK
+finds no copy of its shared key for a recipient, locally or on the
+atServer, it creates one and writes two records of it. In these key
+names, `<recipient>` and `<owner>` are atSigns without their `@`:
+
+- `@<recipient>:shared_key@<owner>`, encrypted with the recipient's
+  `publickey`;
+- `shared_key.<recipient>@<owner>`, the owner's own copy, encrypted
+  with the owner's `publickey`.
+
+A reader given a value without `sharedKeyEnc` falls back to
+`@<recipient>:shared_key@<owner>`: its cached copy if it has one, else
+a `lookup` of `shared_key@<owner>`.
+
+Since at_client 3.13.0, the SDK names the provider that encrypted a
+value in the `providerId` of the value's `appMetadata` tag. It decrypts
+a value with no `appMetadata`, or with `providerId` `legacy`, by the
+scheme above. Other providers may encrypt differently.
 
 ### 14.2 Public-data signatures
 
@@ -1642,12 +1670,33 @@ authenticated-encryption mode in `encAlgo` to detect tampering.
 
 ### 14.3 Public-key rotation
 
-If the recipient rotates their encryption keypair, every shared key
-encrypted to the old public key becomes unrecoverable. `pubKeyHash`
-lets the recipient detect this on read: if the hash doesn't match
-their current public key, the recipient asks the sender to re-share.
-There is no in-protocol re-key flow; the sender re-issues the
-update with a fresh `sharedKeyEnc`.
+If a recipient's encryption keypair changes, values shared with it
+before the change carry a `sharedKeyEnc` wrapped with the old public
+key, which only the old private key opens. Each side has a signal for
+this.
+
+The recipient's atClient sees it on read. The reference SDK compares a
+received value's `pubKeyHash` and `pubKeyCS`, each when present, with
+hashes of its own current `publickey`, and fails the read with
+`AtPublicKeyChangeException` when either differs.
+
+The sender's atServer sees it when it fetches the recipient's
+`publickey`, as it does each time it opens an outbound connection to
+the recipient's atServer. When the fetched key differs from its cached
+copy, `cached:public:publickey@<recipient>`, the atServer:
+
+- stores an `AtSignPKChangedEvent` naming the recipient, at
+  `<epochMicros>.events.__atserver@<sender>`;
+- sends its own atSign a `self` notification of that key, which
+  expires after five minutes;
+- renames `shared_key.<recipient>@<sender>`, if it holds one, to
+  `shared_key.<recipient>.until.<epochMillis>@<sender>`.
+
+The reference SDK creates a new shared key whenever it finds no
+`shared_key.<recipient>@<sender>`, locally or on the atServer (see
+[§14.1](#141-two-layers)). The atServer re-encrypts nothing: to share
+a value again, the sender's atClient re-issues its `update` with a
+fresh `sharedKeyEnc`.
 
 ### 14.4 Why server-side filtering is impossible
 
@@ -2367,9 +2416,10 @@ the SDK; not a wire-protocol change.
 ### C.11 Expired-key lookup returns null
 
 [at_server #2568](https://github.com/atsign-foundation/at_server/issues/2568).
-Today, looking up a key whose `eAt` has passed returns `data:null`;
-the proposed correction is `error:AT0015-Key not found`. A small
-change but observable on the wire (see
+Today, an atServer answering `llookup`, or an unauthenticated or `pol`
+`lookup`, of a key whose `eAt` has passed returns `data:null`; the
+proposed correction is `AT0015`. A small change but observable on the
+wire (see
 [§D.4](#d4-expired-keys-return-null-instead-of-an-at0015-error)).
 
 ---
@@ -2433,10 +2483,21 @@ unauthenticated). A handful do not:
 
 ### D.4 Expired keys return null instead of an AT0015 error
 
-A `lookup` against an expired key returns `data:null` rather than
-`error:AT0015-Key not found`. This conflicts with the documented
-behaviour of `KeyNotFoundException` and surprises clients that switch
-on the error path. Tracked in
+`llookup`, and a `lookup` on a connection that is unauthenticated or
+`pol`-authenticated, answer `data:null` for a key the atServer holds
+whose `eAt` has passed, or whose `aAt` has not yet come. A key it does
+not hold is answered `AT0015` (see [§17](#17-errors)). Two other paths
+differ:
+
+- A `lookup` or `plookup` of another atSign's key is answered by the
+  caller's own atServer, with `AT0015` for an expired key: it skips an
+  expired cached copy, and turns the owner's `data:null` into
+  `AT0015`.
+- An authenticated `lookup` of a key the atServer's own atSign owns
+  checks neither `eAt` nor `aAt`. It returns the stored value until
+  the atServer's expiry sweep removes the key.
+
+Tracked in
 [at_server #2568](https://github.com/atsign-foundation/at_server/issues/2568);
 the proposed fix is to emit `AT0015` consistently. Until then,
 clients reading possibly-expired keys must handle `data:null` as a
@@ -2493,20 +2554,21 @@ Every other write verb (`update`, `update:meta`, `delete`, `notify`,
 
 ### D.9 Newline escaping is value-class-specific
 
-`~NL~` is the on-wire escape for a literal `\n` inside a value, but
-it is applied **only to plaintext public values** by the atServer.
+The atServer does no newline escaping, and `~NL~` is a convention of
+the reference SDK (see [§4.4](#44-newline-escapes-in-values)). What
+keeps a `\n` out of a value written by the reference SDK's
+`AtClient.put` depends on the class of value:
 
-- Encrypted values (`isEncrypted:true`) carry ciphertext that has
-  been base64-encoded; base64 contains no newlines, so the escape is
-  irrelevant.
-- Binary values (`isBinary:true`) are likewise base64-encoded.
-- Self / shared plaintext values are atypical (clients almost always
-  encrypt) and the escape behaviour for them is implementation-
-  specific; do not rely on either path.
+- An encrypted value (`isEncrypted:true`) is base64 ciphertext, which
+  contains no `\n`.
+- An unencrypted binary value (`isBinary:true`) is Base2e15 text (see
+  [§4.5](#45-binary-values)), which contains no `\n` either.
+- The SDK base64-encodes any other unencrypted value that contains a
+  `\n`, public or not, and sets `encoding:base64`. A reader decodes it
+  by `encoding`.
 
-Because `\n` is the framing terminator, a client must never write a
-plaintext value containing an unescaped `\n`, the server will treat
-the `\n` as end-of-command.
+Whatever the class, a `\n` in a command ends it: the atServer takes
+the `\n` as the terminator (see [§4.1](#41-line-terminator)).
 
 ### D.10 atDirectory historically emits `\r\n@`
 
