@@ -10,14 +10,15 @@ Today's mechanism is described in at_client_sdk's post-quantum design,
 [section 9.8.3][design-chain], and in its decision ledger, rulings
 [22.2][ruling-22-2], [24.2][ruling-24-2], [144.2][ruling-144-2] and
 [152][ruling-152]. This record summarises the change to it. The ledger will
-carry the ruling, and these rulings will be amended where it differs from them.
+carry the ruling, and these rulings will be amended where the new ruling
+differs from them.
 
 ## Context & Problem Statement
 
 Each enrollment of an atSign publishes the keys it signs with at
 `public:_apsk.<enrollmentId>.a.__e@<atSign>`, as a list of entries each naming
-a `kid`, an `alg` and the public key (an enrollment holding only its RSA key
-publishes that key bare instead). A link vouches for those keys. It's
+a `kid`, an `alg` and the public key (an enrollment whose one key is an RSA
+key publishes that key bare instead). A link vouches for those keys. It's
 either a chain link, signed by another enrollment of the same atSign (today,
 the one that approved it), or a root link, signed by the atSign's signing root
 at `public:pq_signing_root@<atSign>`. Walking from an enrollment's link to its
@@ -84,8 +85,8 @@ today. They need fixing before something does.
 
 * ### Option 4 - Links in a record of their own
 
-  A record only the atServer writes, beside `_apsk`, so nothing an enrollment
-  writes to its own `_apsk` could touch its links. Set aside in favour of
+  A record only the atServer writes, beside `_apsk`, so no other write of
+  `_apsk` could touch its links. Set aside in favour of
   keeping links on `_apsk`: one read per hop, and no new reserved key name,
   were judged worth one carry-over rule in each atServer implementation.
 
@@ -95,10 +96,10 @@ today. They need fixing before something does.
   enrollment's `_apsk`, or on its own.
 
 For option 5, the right to write links was weighed two ways. A superset of the
-target's grants on its own was rejected in favour of the approve gate, since
-the approve gate is the check `enroll:revoke` makes, so a caller that passes it
-gains nothing from writing links on the target's keys that it couldn't already
-do.
+target's grants on its own was rejected in favour of the approve gate, which
+`enroll:approve` and `enroll:revoke` both apply, so writing a link takes the
+same authority over the target as approving or revoking it. A stored link is
+still only a claim, which the walk checks.
 
 ## Proposal Summary
 
@@ -113,11 +114,14 @@ conveys and stamps them goes.
 
 A link names one key: `{v: 2, enrollmentId, kid, alg, pub}`. An enrollment's
 links live in one map in its `_apsk` record's `appMetadata`, keyed by `kid`,
-with one link per key. A bare RSA `_apsk` takes no links. That key is the
-enrollment's authentication key, which is dropped rather than retired once the
-enrollment mints a signing key, so it never signs a link either. Such an
-enrollment reads as unsigned until it publishes the list form, and is linked
-from then on.
+with one link per key. A bare `_apsk` counts as one `rsa2048` entry, whose
+`kid` the atServer and the walk both derive from the key the same way every
+other `kid` is derived. The exception is an `_apsk` that is the enrollment's
+authentication key, as on the legacy posture. That key is dropped rather than
+retired once the enrollment mints a signing key, so it takes no links and signs
+none, and the atServer tells it apart by comparing it with the `apkamPublicKey`
+the enrollment record holds. Such an enrollment reads as unsigned until it
+publishes a signing key, which is linked like any other.
 
 Whether a link is a root link or a chain link follows from its signer. Every
 link names the `kid` of the key that signed it. If that `kid` is one of the
@@ -137,9 +141,9 @@ enroll:link:{"enrollmentId": "<target>",
 ```
 
 One call covers any number of the target's keys. The atServer accepts it from
-the target enrollment itself, or from a caller that passes the same check as
-`enroll:approve`: the caller holds `__manage` explicitly, and covers every
-namespace the target holds at the access the target holds it.
+the target enrollment itself, or from any caller `enroll:approve` would admit:
+a CRAM connection, or an enrollment that holds `__manage` explicitly and covers
+every namespace the target holds at the access the target holds it.
 
 The atServer checks the structure only, and doesn't verify signatures. It
 checks that:
@@ -149,8 +153,8 @@ checks that:
 * each link's payload names the target and that `kid`, `alg` and public key;
 * each link is at most 16 KiB encoded, and the whole call fits the atServer's
   existing 500 KiB limit on an enrollment record;
-* the link stored for each `kid` is the one the call names as `expect`, or
-  there's none when `expect` is null.
+* the link stored for each `kid` is the one the call names as `expect`,
+  compared as JSON, or there's none when `expect` is null.
 
 The call is all or nothing, under the atServer's lock on enrollment writes,
 and a refusal names the `kid` that failed. The compare-and-set on `expect` is
@@ -167,8 +171,8 @@ Those writes and `enroll:link` are serialised with each other.
 * An approver calls `enroll:link` straight after `enroll:approve`, writing root
   links when it holds the signing root's private key, and chain links signed
   with its own linked keys when it doesn't. An approver with neither, such as
-  an older enrollment holding only its RSA key, can't, and a root holder's
-  sweep anchors the new enrollment instead.
+  an enrollment on the legacy posture holding only its authentication key,
+  can't, and a root holder's sweep anchors the new enrollment instead.
 * An enrollment that adds a signing key links it itself, signing with one of
   its keys that already has a link, and only then signs content with it. The
   old key's link keeps vouching for what that key signed.
@@ -182,10 +186,12 @@ Those writes and `enroll:link` are serialised with each other.
 * An enrollment signs content with its linked keys while it has one, and
   otherwise as it does today.
 * A fully privileged enrollment whose atSign publishes no signing root mints
-  one when it starts, links its own keys, and then root-links any key on the
-  atSign that lacks a root link. Today a root is minted only at activation and
-  when an older keyfile is retrofitted, so without this an older atSign could
-  never be anchored.
+  one when it starts, and links its own keys. Today a root is minted only at
+  activation and when an older keyfile is retrofitted, so without this an
+  older atSign could never be anchored.
+* Each time an enrollment holding the root's private key starts, its sweep
+  root-links any key on the atSign without a root link that passes its check,
+  replacing a chain link, or a root link that fails its check.
 * The walk follows pairs of enrollment and `kid`, and reads a cycle as broken.
   A voucher doesn't vouch for an enrollment its own key already chains
   through.
