@@ -312,14 +312,25 @@ next. `monitor` streams notifications continuously, see
 
 ## 5. The atSign identity model
 
-An **atSign** is a unique identifier of the form `@<name>` where
-`<name>` matches `[^@:\s]+`. Comparison is case-preserving but
-case-insensitive on the wire, `@Alice` and `@alice` resolve to the
-same identity (atServers normalise to lowercase before keystore
-lookup).
+An **atSign** is a unique identifier of the form `@<name>`. In a
+verb's syntax, `<name>` matches `[^@:\s]+`.
 
-The maximum atSign length is **55 characters** including the leading
-`@`. Anything longer is invalid.
+An atSign has one canonical form: lowercase, with every `.` removed
+from the name, so `@Alice`, `@alice` and `@a.lice` are all the atSign
+`@alice`. The atServer puts each atSign named in `from:`, `update`,
+`delete`, `lookup`, `llookup`, `plookup` and `notify` into this form.
+It refuses one that is empty, holds a second `@`, or contains
+whitespace, an ASCII control character, one of the control pictures
+U+2400–U+241F, U+2421, U+2424 and U+2425, or any of
+``!*'`();:&=+$,/?#[]{}``.
+
+Inside an atKey ([§6](#6-the-atkey-model)), an owner or recipient
+atSign is narrower still. Each character after the `@` is an ASCII
+letter, a digit, `_` or `-`, or falls in U+00A9, U+00AE,
+U+2000–U+3300, U+FE00–U+FE0F or U+1F000–U+1FBFF.
+
+An atSign has at most **55 characters** after its `@`, so at most 56
+with it. An atKey whose owner or recipient is longer is invalid.
 
 ### 5.1 Lifecycle phases
 
@@ -353,22 +364,41 @@ A key in the atServer's keystore is an **atKey**, a structured string
 whose shape encodes its visibility and ownership. There are 5 key
 shapes plus 2 augmentations.
 
+The atServer stores an atKey in a folded form: trimmed, lowercased,
+and with any spaces removed. Two spellings that fold to the same
+string name one record, and `scan` returns keys in the folded form.
+
 ### 6.1 The 5 shapes
 
-| Shape   | Wire format                                | Visibility                                         |
-|---------|--------------------------------------------|----------------------------------------------------|
-| Public  | `public:<key>[.<namespace>]@<owner>`       | Anyone; `lookup` needs no auth                     |
-| Self    | `<key>[.<namespace>]@<owner>`              | Owner only                                         |
-| Shared  | `@<recipient>:<key>[.<namespace>]@<owner>` | Owner and `<recipient>` only                       |
-| Local   | `local:<key>[.<namespace>]@<owner>`        | Owner only; **never synced** to a remote atServer  |
-| Private | `privatekey:<key>[.<namespace>]@<owner>`   | Owner only; not enumerated by `scan` (system keys) |
+| Shape   | Wire format                                  | Visibility                                |
+|---------|----------------------------------------------|-------------------------------------------|
+| Public  | `public:<key>[.<namespace>]@<owner>`         | Anyone; `lookup` needs no auth            |
+| Self    | `<key>[.<namespace>]@<owner>`                | Owner only                                |
+| Shared  | `@<recipient>:<key>[.<namespace>]@<owner>`   | Owner and `<recipient>` only              |
+| Local   | `local:<key>[.<namespace>]@<owner>`          | Client only; `update` refuses one         |
+| Private | `private:<key>@<owner>`, `privatekey:<name>` | atServer internal; never listed or synced |
+
+A `local:` key lives only in a client's own keystore: `update`
+refuses one, and the atServer's commit log never records one. On an
+atServer, `private:` and `privatekey:` keys are records the atServer
+keeps for itself. A `privatekey:` name carries no `@<owner>`.
+[§6.5](#65-reserved-keys) lists the reserved ones.
 
 ### 6.2 Augmentations
 
-A **hidden** key is one whose `<key>` part starts with `_`. The atServer
-omits hidden keys from the `scan` verb's output unless the caller
-passes `:showhidden:true`. Public, self, and shared keys may all be
-hidden.
+A **hidden** key is a public or self key whose `<key>` part starts
+with `_`. Which hidden keys `scan` lists depends on the form:
+
+- `public:__<key>@<owner>` (two underscores) and a self key
+  `_<key>@<owner>` are listed only when the caller passes
+  `:showhidden:true`. The commit log records both, so both sync.
+- `public:_<key>@<owner>` (one underscore) is never listed, even with
+  `:showhidden:true`. The commit log never records one, so it never
+  syncs, and a write of one answers `data:-1`.
+
+An unauthenticated `scan` lists no hidden key. A shared key whose
+`<key>` part starts with `_`, such as `@bob:_handshake.wavi@alice`, is
+not hidden: `scan` lists it like any other shared key.
 
 A **cached** key is a copy of a remote-owned shared or public key,
 stored on the recipient's atServer for offline or fast access. Wire
@@ -384,50 +414,131 @@ domain (e.g. `phone.wavi`, `email.myapp`). APKAM enrollments grant
 permissions per namespace, so the namespace is part of the
 authorisation surface, not a free-form annotation.
 
-The namespace can be omitted when the atKey represents an
-infrastructural item (atSign-wide encryption keys, e.g.
-`public:publickey@alice`).
+The atServer accepts an atKey without a namespace. Reserved keys
+([§6.5](#65-reserved-keys)), such as `public:publickey@alice`, have
+none. An enrollment's namespace grants match only keys that carry a
+namespace, so an enrollment reaches a key without one only through a
+`*` grant. Reserved keys have rules of their own, and an enrollment
+needs no `*` grant to read a cached copy of another atSign's
+`publickey` or `signing_publickey`.
 
 ### 6.4 Key length
 
-The maximum on-wire length of an atKey is **255 characters**
-inclusive of all segments and separators. Compute against this hard
-cap, not a typical size, atSigns alone may consume up to 55
-characters of the budget.
+An atKey is at most **248 characters**, counted over the whole key as
+the atServer stores it: any `public:` or `@<recipient>:` prefix, the
+name and namespace, and the `@<owner>` suffix. A cached copy
+([§6.2](#62-augmentations)), which the atServer writes itself, may be
+255 characters, so that a 248-character key still fits with its
+`cached:` prefix. Length is counted in UTF-16 code units. The default
+Hive keystore also applies the limit to the key's UTF-7 encoding when
+it creates a record, so a key with non-ASCII characters reaches the
+limit sooner.
+
+Compute against this hard cap, not a typical size. An atSign alone may
+take up to 56 characters of the budget, or 111 UTF-16 code units when
+its characters are emoji, and a shared key names two.
 
 ### 6.5 Reserved keys
 
-Every atServer carries a set of system keys created during onboarding.
-These are required for the protocol to function and have stable names:
+An atServer may hold records under these reserved names:
 
-| Reserved key                        | Purpose                                                                 |
-|-------------------------------------|-------------------------------------------------------------------------|
-| `public:publickey@<atSign>`         | Encryption public key. Used by other atSigns to encrypt to this owner.  |
-| `public:signing_publickey@<atSign>` | PKAM/pol signing public key. Used to verify pol challenges.             |
-| `privatekey:at_pkam_publickey`      | PKAM authentication public key (single-key model; legacy).              |
-| `privatekey:at_pkam_privatekey`     | PKAM authentication private key (in the on-disk `.atKeys` file).        |
-| `privatekey:privatekey`             | Encryption private key (`.atKeys`).                                     |
-| `privatekey:self_encryption_key`    | Self-encryption symmetric key (`.atKeys`).                              |
-| `privatekey:at_secret`              | CRAM secret. Rotated to the keystore at onboarding; not used after.     |
-| `<atSign>:shared_key@<atSign>`      | Symmetric key wrapping shared-with values. Not actually used; reserved. |
-| `private:blocklist@<atSign>`        | List of atSigns blocked by `config:block:add`.                          |
+| Reserved key                                                 | Purpose                                                                               |
+|--------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| `public:publickey@<atSign>`                                  | Encryption public key. Used by other atSigns to encrypt to this owner.                |
+| `public:signing_publickey@<atSign>`                          | The atServer's own RSA signing public key, for checking its `pol` proofs.             |
+| `@<atSign>:signing_privatekey@<atSign>`                      | Private half of that keypair. The atServer signs its `pol` proofs with it.            |
+| `privatekey:signing_keypair_generated`                       | Marks that the atServer has generated its signing keypair.                            |
+| `privatekey:at_secret`                                       | CRAM secret. Onboarding deletes it.                                                   |
+| `privatekey:at_secret_deleted`                               | Kept once the CRAM secret is deleted, so that it is not planted again.                |
+| `privatekey:at_pkam_publickey`                               | Legacy PKAM public key. See below.                                                    |
+| `@<recipient>:shared_key@<atSign>`                           | AES key for data shared with `<recipient>`, encrypted to the recipient's `publickey`. |
+| `shared_key.<recipient>@<atSign>`                            | The owner's copy of that AES key, encrypted to the owner's `publickey`.               |
+| `private:blocklist@<atSign>`                                 | List of atSigns blocked by `config:block:add`.                                        |
+| `privatekey:commitLogCompactionStats`                        | Statistics from the last compaction of the commit log.                                |
+| `privatekey:accessLogCompactionStats`                        | Statistics from the last compaction of the access log.                                |
+| `privatekey:notificationCompactionStats`                     | Statistics from the last compaction of the notification store.                        |
+| `privatekey:at_telemetry_signing_privatekey`                 | Experimental. The atServer's telemetry signing key. See below.                        |
+| `public:_at_telemetry_signing_publickey.__atserver@<atSign>` | Experimental. Public record of the telemetry signing key.                             |
 
-APKAM-issued keys live under the `__pkams` and `__manage` reserved
-namespaces.
+The atServer generates its RSA signing keypair the first time it
+starts, and records `privatekey:signing_keypair_generated` so that it
+does so once. Another atServer checks this atServer's `pol` proof
+against `public:signing_publickey@<atSign>`
+([§15.2](#152-the-pol-handshake)). PKAM does not use this keypair.
+
+The atServer plants `privatekey:at_secret` at startup from the CRAM
+secret it is started with, and stops once
+`privatekey:at_secret_deleted` exists. Onboarding deletes the secret
+with `delete:privatekey:at_secret` after it first authenticates with
+PKAM, and the atServer then keeps `privatekey:at_secret_deleted`.
+
+Since atServer 3.16.4 no record is kept under
+`privatekey:at_pkam_publickey`. At startup the atServer moves one it
+finds into the enrollment named `primary`, or deletes it. A CRAM
+`update` of this name installs the key as `primary` and answers
+`data:-1`.
+
+With its default encryption, the reference SDK writes
+`shared_key.<recipient>@<atSign>` and
+`@<recipient>:shared_key@<atSign>` when the owner first shares data
+with `<recipient>`. The recipient's copy carries `ttr:3888000`.
+
+Since atServer 3.17.0, an atServer started with a telemetry endpoint
+creates an Ed25519 key for signing its telemetry, and publishes a
+record of the public half at
+`public:_at_telemetry_signing_publickey.__atserver@<atSign>`. Only the
+atServer writes these two records. Both names are experimental.
+
+These three names are reserved for the atSign's private keys in a
+client's own keystore. The atServer creates no record under them.
+
+| Reserved name                    | Purpose                 |
+|----------------------------------|-------------------------|
+| `privatekey:at_pkam_privatekey`  | PKAM private key.       |
+| `privatekey:privatekey`          | Encryption private key. |
+| `privatekey:self_encryption_key` | Self-encryption key.    |
+
+`configkey`, and any name that starts with `_` and carries no
+`@<atSign>`, are reserved as well.
+
+Two namespaces are reserved:
+
+- `__manage` holds each enrollment record, at
+  `<enrollmentId>.new.enrollments.__manage@<atSign>`, and the
+  encrypted copies of the atSign's encryption private key and
+  self-encryption key that `enroll:approve` supplies for it, at
+  `<enrollmentId>.default_enc_private_key.__manage@<atSign>` and
+  `<enrollmentId>.default_self_enc_key.__manage@<atSign>`.
+- `__atserver` holds records the atServer writes for its clients, such
+  as `<micros>.events.__atserver@<atSign>` when another atSign's
+  `publickey` changes. Every approved enrollment may read it.
+
+Each approved enrollment also holds `rw` on a namespace of its own,
+`<enrollmentId>.a.__e`. When the enrollment is revoked, its data
+moves to `<enrollmentId>.r.__e`, and an un-revoke moves it back. When
+the enrollment record is removed, by `enroll:delete` or once it has
+expired, its data moves to `<enrollmentId>.d.__e`.
+
+The `__pkams` namespace is legacy. At startup the atServer deletes any
+`public:<app>.<device>.pkam.__pkams.__public_keys@<atSign>` record left
+for an enrollment.
 
 ### 6.6 atKey examples
 
-| Wire form                       | Shape   | Hidden? | Cached? |
-|---------------------------------|---------|---------|---------|
-| `public:phone.wavi@alice`       | Public  | No      | No      |
-| `public:_diagnostics@alice`     | Public  | Yes     | No      |
-| `phone.wavi@alice`              | Self    | No      | No      |
-| `@bob:phone.wavi@alice`         | Shared  | No      | No      |
-| `@bob:_handshake.wavi@alice`    | Shared  | Yes     | No      |
-| `cached:public:publickey@alice` | Public  | No      | Yes     |
-| `cached:@bob:phone.wavi@alice`  | Shared  | No      | Yes     |
-| `local:cache.myapp@alice`       | Local   | No      | No      |
-| `privatekey:at_pkam_publickey`  | Private | —       | —       |
+| Wire form                              | Shape   | Hidden? | Cached? |
+|----------------------------------------|---------|---------|---------|
+| `public:phone.wavi@alice`              | Public  | No      | No      |
+| `public:_diagnostics@alice`            | Public  | Yes     | No      |
+| `public:__location@alice`              | Public  | Yes     | No      |
+| `phone.wavi@alice`                     | Self    | No      | No      |
+| `_settings.wavi@alice`                 | Self    | Yes     | No      |
+| `@bob:phone.wavi@alice`                | Shared  | No      | No      |
+| `@bob:_handshake.wavi@alice`           | Shared  | No      | No      |
+| `cached:public:publickey@alice`        | Public  | No      | Yes     |
+| `cached:@bob:phone.wavi@alice`         | Shared  | No      | Yes     |
+| `local:cache.myapp@alice`              | Local   | No      | No      |
+| `private:blocklist@alice`              | Private | —       | —       |
+| `privatekey:signing_keypair_generated` | Private | —       | —       |
 
 ---
 
@@ -925,6 +1036,12 @@ Source:
 - `:force`, required to delete an `immutable:true` key.
 - `:cached`, delete a cached copy on this server (does not affect the
   origin).
+
+`delete` refuses to remove this atServer's own `publickey`,
+`signing_publickey` and `signing_privatekey`, whatever `public:` or
+`@<recipient>:` scope the command gives them, `at_pkam_publickey`, and
+any key listed under `hive.protectedKeys` in the atServer's
+configuration. A `:cached` delete is not refused.
 
 Response: `data:<commitId>` (yes, even when the key didn't exist;
 `delete` is idempotent and always commits).
