@@ -1,6 +1,6 @@
 # Atsign Protocol Specification
 
-<!-- pyml disable-num-lines 3000 md013-->
+<!-- pyml disable-num-lines 5000 md013-->
 
 This document specifies the **Atsign Protocol** at the level required to
 implement either side of the wire, an atClient or an atServer, in any
@@ -558,32 +558,32 @@ as `:ttl:60`. It does not relax their order (§7.2).
 Source of truth: `at_commons/lib/src/verb/syntax.dart`'s
 `metadataFragment`.
 
-| Wire tag          | Type     | Description                                                                                                                     |
-|-------------------|----------|---------------------------------------------------------------------------------------------------------------------------------|
-| `ttl`             | int (ms) | Time-to-live, in ms from the write that sets it (see below). `0` = no expiry.                                                   |
-| `ttb`             | int (ms) | Time-to-birth. Key is invisible to lookups for `ttb` ms after the write that sets it.                                           |
-| `ttr`             | int (s)  | Time-to-refresh, in seconds, for another atServer's cached copy. `-1` = cache indefinitely; positive = refresh interval.        |
-| `ccd`             | bool     | Cascade-delete. If `true`, deleting the original key deletes its cached copies.                                                 |
-| `cAt`             | ISO 8601 | `createdAt` — UTC timestamp of creation. Regex: `\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z` (fractional seconds optional). |
-| `uAt`             | ISO 8601 | `updatedAt` — UTC timestamp of most recent update.                                                                              |
-| `eAt`             | ISO 8601 | `expiresAt`. Derived from `ttl`; since atServer 3.16.3 an asserted value is stored instead (see below).                         |
-| `aAt`             | ISO 8601 | `availableAt`. Derived from `ttb`; since atServer 3.16.3 an asserted value is stored instead (see below).                       |
-| `dataSignature`   | string   | Signature over a public value, signed by the owner's signing private key. Verifies authenticity.                                |
-| `sharedKeyStatus` | enum     | Shared-key status (`localUpdated`, `remoteUpdated`, `sharedWithNotified`, etc.). The atServer neither stores nor returns it.    |
-| `isBinary`        | bool     | `true` if the value is binary (base64-encoded on the wire).                                                                     |
-| `isEncrypted`     | bool     | `true` if the value is ciphertext.                                                                                              |
-| `sharedKeyEnc`    | string   | The shared symmetric key, RSA-encrypted to the recipient's encryption public key. Inline in metadata.                           |
-| `pubKeyHash`      | string   | Hash of the recipient public key that encrypted `sharedKeyEnc`, to detect key rotation. Stored only with `hashingAlgo`.         |
-| `pubKeyCS`        | string   | MD5 hex digest of the recipient public key that encrypted `sharedKeyEnc`. Older than `pubKeyHash`; see Appendix B.4.            |
-| `hashingAlgo`     | enum     | Algorithm for `pubKeyHash`. The reference SDK writes `sha512`; the atServer stores any value.                                   |
-| `encoding`        | string   | Encoding of the value if not raw UTF-8 (e.g. `base64`).                                                                         |
-| `encKeyName`      | string   | Name of the symmetric key used to encrypt the value (resolves to a key name in the owner's keystore).                           |
-| `encAlgo`         | string   | Symmetric algorithm used to encrypt the value (e.g. `AES/SIC/PKCS7Padding`).                                                    |
-| `ivNonce`         | string   | Base64 IV / nonce used in symmetric encryption of the value.                                                                    |
-| `skeEncKeyName`   | string   | Name of the public key that wrapped `sharedKeyEnc`.                                                                             |
-| `skeEncAlgo`      | string   | Algorithm used to wrap `sharedKeyEnc` (default `RSA`).                                                                          |
-| `immutable`       | bool     | If `true`, the key cannot be updated; deletion requires `:force:`.                                                              |
-| `appMetadata`     | string   | Base64 of a UTF-8 JSON object whose non-empty string `providerId` names the crypto provider for the value (see below).          |
+| Wire tag          | Type     | Description                                                                                                                               |
+|-------------------|----------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| `ttl`             | int (ms) | Time-to-live, in ms from the write that sets it (see below). `0` = no expiry.                                                             |
+| `ttb`             | int (ms) | Time-to-birth. For `ttb` ms after the write that sets it, `llookup`, `scan`, and an unauthenticated or `pol` `lookup` do not see the key. |
+| `ttr`             | int (s)  | Time-to-refresh, in seconds, for another atServer's cached copy. `-1` = cache indefinitely; positive = refresh interval.                  |
+| `ccd`             | bool     | Cascade-delete. If `true`, deleting the original key deletes its cached copies.                                                           |
+| `cAt`             | ISO 8601 | `createdAt` — UTC timestamp of creation. Regex: `\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z` (fractional seconds optional).           |
+| `uAt`             | ISO 8601 | `updatedAt` — UTC timestamp of most recent update.                                                                                        |
+| `eAt`             | ISO 8601 | `expiresAt`. Derived from `ttl`; since atServer 3.16.3 an asserted value is stored instead (see below).                                   |
+| `aAt`             | ISO 8601 | `availableAt`. Derived from `ttb`; since atServer 3.16.3 an asserted value is stored instead (see below).                                 |
+| `dataSignature`   | string   | Signature over a public value, signed by the owner's signing private key. Verifies authenticity.                                          |
+| `sharedKeyStatus` | enum     | Shared-key status (`localUpdated`, `remoteUpdated`, `sharedWithNotified`, etc.). The atServer neither stores nor returns it.              |
+| `isBinary`        | bool     | `true` if the value is binary (base64-encoded on the wire).                                                                               |
+| `isEncrypted`     | bool     | `true` if the value is ciphertext.                                                                                                        |
+| `sharedKeyEnc`    | string   | The shared symmetric key, RSA-encrypted to the recipient's encryption public key. Inline in metadata.                                     |
+| `pubKeyHash`      | string   | Hash of the recipient public key that encrypted `sharedKeyEnc`, to detect key rotation. Stored only with `hashingAlgo`.                   |
+| `pubKeyCS`        | string   | MD5 hex digest of the recipient public key that encrypted `sharedKeyEnc`. Older than `pubKeyHash`; see Appendix B.4.                      |
+| `hashingAlgo`     | enum     | Algorithm for `pubKeyHash`. The reference SDK writes `sha512`; the atServer stores any value.                                             |
+| `encoding`        | string   | Encoding of the value if not raw UTF-8 (e.g. `base64`).                                                                                   |
+| `encKeyName`      | string   | Name of the symmetric key used to encrypt the value (resolves to a key name in the owner's keystore).                                     |
+| `encAlgo`         | string   | Symmetric algorithm used to encrypt the value (e.g. `AES/SIC/PKCS7Padding`).                                                              |
+| `ivNonce`         | string   | Base64 IV / nonce used in symmetric encryption of the value.                                                                              |
+| `skeEncKeyName`   | string   | Name of the public key that wrapped `sharedKeyEnc`.                                                                                       |
+| `skeEncAlgo`      | string   | Algorithm used to wrap `sharedKeyEnc` (default `RSA`).                                                                                    |
+| `immutable`       | bool     | If `true`, the key cannot be updated; deletion requires `:force:`.                                                                        |
+| `appMetadata`     | string   | Base64 of a UTF-8 JSON object whose non-empty string `providerId` names the crypto provider for the value (see below).                    |
 
 The grammar admits a sign on `ttl`, `ttb` and `ttr` (`(-?)\d+`), but
 the atServer refuses a negative `ttl` or `ttb`, and a `ttr` below
@@ -1040,7 +1040,7 @@ S: data:42\n@alice@
 Setting metadata at update time:
 
 ```text
-C: update:ttr:60000:ccd:true:isEncrypted:true:@bob:secret.myapp@alice <ciphertext>\n
+C: update:ttr:86400:ccd:true:isEncrypted:true:@bob:secret.myapp@alice <ciphertext>\n
 S: data:43\n@alice@
 ```
 
@@ -1285,7 +1285,7 @@ Source:
   over a `pol` connection, for the keys it shares with this atSign
   (see [§15](#15-the-inter-atserver-protocol)). It needs a connection
   authenticated as the atSign. Only `<regex>` is passed on, and the
-  response is the other atServer's. Naming this atServer's own atSign
+  response is that atServer's. Naming this atServer's own atSign
   is an ordinary scan.
 - `:page:<n>`, accepted by the grammar and ignored: the whole result
   comes back in one response.
@@ -1382,7 +1382,7 @@ single `forAtSign` segment normally goes.
 #### Syntax
 
 ```text
-notify:all:[<update|delete>:][messageType:<key|text>:][ttl:<ms>:][ttb:<ms>:][ttr:<ms>:][ccd:<bool>:]<recipient,recipient,…>:<atKey>[@<atSign>][:<value>]
+notify:all:[<update|delete>:][messageType:<key|text>:][ttl:<ms>:][ttb:<ms>:][ttr:<s>:][ccd:<bool>:]<recipient,recipient,…>:<atKey>[@<atSign>][:<value>]
 ```
 
 Response: a JSON map of `recipient → notificationId`:
@@ -1735,11 +1735,12 @@ The SDK does not set `encKeyName`, `encAlgo`, `skeEncKeyName` or
 atSign keeps for itself has only the symmetric layer: the SDK encrypts
 it with the atSign's self-encryption key.
 
-The SDK puts `sharedKeyEnc` in the metadata of every value it encrypts
-for another atSign, and a reader uses it when present. When the SDK
-finds no copy of its shared key for a recipient, locally or on the
-atServer, it creates one and writes two records of it. In these key
-names, `<recipient>` and `<owner>` are atSigns without their `@`:
+With the legacy provider, the SDK puts `sharedKeyEnc` in the metadata of
+every value it encrypts for another atSign, and a reader uses it when
+present. When the SDK finds no copy of its shared key for a recipient,
+locally or on the atServer, it creates one and writes two records of it.
+In these key names, `<recipient>` and `<owner>` are atSigns without
+their `@`:
 
 - `@<recipient>:shared_key@<owner>`, encrypted with the recipient's
   `publickey`;
@@ -2729,10 +2730,10 @@ checks both on read. The atServer stores both as given, keeping
 
 ### D.17 Session ID format
 
-Session IDs (`<sessionID>` in `from`/`pol`) are produced server-side
-and have a leading `_` followed by a UUID, e.g.
-`_4af24c03-d732-48f8-a9a2-570e8fb6a01c`. The leading underscore
-matters: it makes the per-session keystore entries (
-`public:<sessionID><atSign>`)
-"hidden" by atKey-shape rules and so they don't appear in `scan`
-output without `:showhidden:true`.
+Session IDs (`<sessionID>` in `from`/`pol`) are produced server-side and
+have a leading `_` followed by a UUID, e.g.
+`_4af24c03-d732-48f8-a9a2-570e8fb6a01c`. `from` stores its challenge
+under `public:<sessionID><fromAtSign>`, or
+`private:<sessionID><fromAtSign>` when an atSign connects to its own
+atServer, and `scan` lists neither: it never lists a `public:_` key (see
+[§6.2](#62-augmentations)).
