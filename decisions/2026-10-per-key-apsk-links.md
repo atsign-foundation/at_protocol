@@ -113,10 +113,11 @@ conveys and stamps them goes.
 
 A link names one key: `{v: 2, enrollmentId, kid, alg, pub}`. An enrollment's
 links live in one map in its `_apsk` record's `appMetadata`, keyed by `kid`,
-with one link per key. A bare RSA `_apsk` counts as one `rsa2048` entry, whose
-`kid` the atServer and the walk both compute from the key with the same
-derivation every other `kid` uses (the first 8 bytes of the SHA-256 of the
-key's raw bytes, in hex), so an older enrollment can be linked like any other.
+with one link per key. A bare RSA `_apsk` takes no links. That key is the
+enrollment's authentication key, which is dropped rather than retired once the
+enrollment mints a signing key, so it never signs a link either. Such an
+enrollment reads as unsigned until it publishes the list form, and is linked
+from then on.
 
 Whether a link is a root link or a chain link follows from its signer. Every
 link names the `kid` of the key that signed it. If that `kid` is one of the
@@ -163,7 +164,9 @@ Those writes and `enroll:link` are serialised with each other.
 
 ### Client behaviour
 
-* An approver calls `enroll:link` straight after `enroll:approve`.
+* An approver calls `enroll:link` straight after `enroll:approve`. An approver
+  with no linked key of its own, such as an older enrollment holding only its
+  RSA key, can't, and a root holder's sweep anchors the new enrollment instead.
 * An enrollment that adds a signing key links it itself, signing with one of
   its keys that already has a link, and only then signs content with it. The
   old key's link keeps vouching for what that key signed.
