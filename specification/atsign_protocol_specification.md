@@ -321,7 +321,7 @@ shapes plus 2 augmentations.
 
 | Shape   | Wire format                                | Visibility                                         |
 |---------|--------------------------------------------|----------------------------------------------------|
-| Public  | `public:<key>[.<namespace>]@<owner>`       | Any atSign (no auth needed via `plookup`)          |
+| Public  | `public:<key>[.<namespace>]@<owner>`       | Anyone; `lookup` needs no auth                     |
 | Self    | `<key>[.<namespace>]@<owner>`              | Owner only                                         |
 | Shared  | `@<recipient>:<key>[.<namespace>]@<owner>` | Owner and `<recipient>` only                       |
 | Local   | `local:<key>[.<namespace>]@<owner>`        | Owner only; **never synced** to a remote atServer  |
@@ -544,8 +544,11 @@ Response: the server generates a UUIDv4 challenge and a session
 ID and stores the challenge under
 `<keyPrefix><sessionId><fromAtSign>` (with TTL 60 s), where
 `keyPrefix` is `private:` if the connecting atSign matches the
-server's own atSign (self-connect) and `public:` otherwise (this
-matters for `pol`, which retrieves the challenge via `plookup`).
+server's own atSign (self-connect) and `public:` otherwise. This
+matters for `pol`: the verifier reads the challenge back under this
+name, and the prover stores its signed copy under the same name in its
+own keystore, where the verifier fetches it with an unauthenticated
+`lookup` (see [§15.2](#152-the-pol-handshake)).
 
 The response payload is:
 
@@ -797,9 +800,11 @@ non-committed) and `data:<JSON record>` on `get`.
 
 ## 10. CRUD verbs
 
-All CRUD verbs require an authenticated connection (owner or APKAM-
-authenticated). The unauthenticated case for `lookup` is handled by
-the dedicated `plookup` verb.
+`lookup` and `scan` run on any connection and answer from what that
+connection may see; see [§10.4](#104-lookup) for `lookup`. A `scan` of
+the commit log, or of another atSign's keys, needs a connection
+authenticated as the atSign. The other CRUD verbs, `plookup` among them,
+need a connection authenticated as the atSign (owner or APKAM).
 
 ### 10.1 `update`
 
@@ -897,9 +902,30 @@ to the recipient, see [§11](#11-notification-verbs).
 
 ### 10.4 `lookup`
 
-Read a value from another atSign's atServer (cross-atSign read,
-authenticated). Internally proxied via the requestor's local atServer
-(see [§15](#15-the-inter-atserver-protocol)).
+Read a value. What `lookup` answers depends on the connection it
+arrives on:
+
+- On a connection authenticated as the atSign (owner or APKAM), a key
+  owned by this atServer's atSign is read from its own keystore. A key
+  owned by another atSign is fetched from that atSign's atServer over a
+  `pol`-authenticated connection (see
+  [§15.3](#153-cross-atsign-lookup)), and may be answered from a cached
+  copy, per the key's `ttr`, unless `bypassCache:true` is set.
+- On a connection where another atServer has proved itself as `@x` with
+  `pol`, `lookup:<atKey>@<this atSign>` returns the record this atSign
+  shares with `@x`, `@x:<atKey>@<this atSign>`.
+- On a connection that has not authenticated,
+  `lookup:<atKey>@<this atSign>` returns the public record
+  `public:<atKey>@<this atSign>`.
+
+Since atServer 3.17.1, on a connection not authenticated as the atSign
+(a `pol` connection, or one that has not authenticated at all), a
+`lookup:` may name only this atServer's atSign as the key's owner. A
+lookup naming another owner is refused with `AT0009`, and the connection
+is closed. Before 3.17.1, a lookup naming another owner was answered as
+the bullets above describe, from the `public:` record or the record
+shared with `@x` under that name, so it could read only what that
+connection may see; the change is that it is now refused.
 
 #### Syntax
 
@@ -943,9 +969,11 @@ If the remote atServer is unreachable: `error:AT0007-atServer not found.`
 
 ### 10.5 `plookup`
 
-Public lookup, read a public key from any atSign without
-authentication. The server may answer from its own cache (per the
-key's `ttr`) unless `:bypassCache:true:` is set.
+Read another atSign's public record through this atServer, on a
+connection authenticated as the atSign. The atServer fetches
+`public:<atKey>@<atSign>` from the owner's atServer with an
+unauthenticated `lookup:`, and may answer from its own cached copy, per
+the record's `ttr`, unless `bypassCache:true` is set.
 
 #### Syntax
 
@@ -1450,9 +1478,9 @@ connection to the target atServer (resolved via the atDirectory),
 authenticates via the `pol` handshake, and runs the appropriate verb
 on behalf of the requesting client.
 
-The complete set of verbs an atServer ever sends to another atServer
-on this proxied channel is: `from`, `pol`, `lookup`, `plookup`, `scan`,
-and `notify`. Each atServer is the sole authority for its own atSign's data.
+The verbs an atServer sends to another atServer on this proxied channel
+include `from`, `pol`, `lookup`, `scan` and `notify`. Each atServer is
+the sole authority for its own atSign's data.
 
 This chapter specifies that proxying. The single most important verb
 here is `pol`, the proof-of-life handshake between two atServers.
@@ -1477,7 +1505,8 @@ Source: `at_secondary_server/lib/src/connection/outbound/outbound_client.dart`.
    rotation early.
 5. **Handshake.** If the planned operation requires authentication, A
    runs the `pol` handshake, see [§15.2](#152-the-pol-handshake).
-   `lookup` requires it; `plookup` does not.
+   `lookup` requires it. Serving a `plookup` does not: A fetches the
+   public record with an unauthenticated `lookup:`.
 6. **Run verbs.** A sends the verb (e.g. `lookup:phone.wavi@alice`),
    reads the response, strips the trailing prompt, returns the
    `data:…` payload to the original caller.
@@ -1516,7 +1545,7 @@ B's pol handler:
   - Opens its own outbound to A (no handshake required — public lookup):
       B → A:  lookup:<sessionId>@A
       A → B:  data:<signedChallenge>
-      B → A:  plookup:signing_publickey@A
+      B → A:  lookup:signing_publickey@A
       A → B:  data:<A's RSA signing public key>
   - Reads its own stored secret: get(public:<sessionId>@A) = challenge
   - Verifies: RSA_SHA256_verify(A_signing_pub, challenge, signedChallenge)
@@ -1535,10 +1564,12 @@ A:  reads handshake result; if it begins with "@A@", marks the
 ```
 
 After `pol` succeeds, A's connection to B is authenticated **as @A**.
-B treats subsequent verbs on this connection as coming from `@A`, for
-example, a `lookup:phone.wavi@A` returns only the keys `@A` is allowed
-to read on B's atServer (`@bob:phone.wavi@A`-shaped, where `@bob` is
-B's atSign).
+B treats subsequent verbs on this connection as coming from `@A`. For
+example, where `@bob` is B's atSign, a `lookup:phone.wavi@bob` returns
+the record `@bob` shares with `@A`, `@A:phone.wavi@bob`. Since atServer
+3.17.1, a lookup on this connection naming an owner other than `@bob` is
+refused with `AT0009`, and the connection is closed (see
+[§10.4](#104-lookup)).
 
 #### Failure modes
 
@@ -1563,7 +1594,10 @@ atServer:
    outbound connection.
 4. @alice's atServer evaluates the lookup with the inbound connection
    marked `polAuthenticated as @bob`, the result is whatever @alice
-   has shared **with @bob** (typically `@bob:phone.wavi@alice`).
+   has shared **with @bob** (typically `@bob:phone.wavi@alice`). Since
+   atServer 3.17.1, it answers a lookup on that connection only for a
+   key @alice owns; one naming another owner is refused with `AT0009`,
+   and the connection is closed.
 5. @alice's atServer responds `data:<value>\n@bob@` (the
    pol-authenticated prompt).
 6. @bob's atServer strips the prompt, returns `data:<value>` to
@@ -1718,9 +1752,9 @@ C(bob): lookup:phone.wavi@alice\n
 #
 #   aliceServer:
 #     opens unauthenticated outbound to bobServer
-#     bobServer → aliceServer (in pol):
+#     aliceServer → bobServer (in pol):
 #         lookup:<sessionId>@bob → data:<signedChallenge>
-#         plookup:signing_publickey@bob → data:<@bob's signing pub key>
+#         lookup:signing_publickey@bob → data:<@bob's signing pub key>
 #     verifies signature; succeeds.
 #
 #   aliceServer → bobServer:  @bob@   (PolResponseHandler strips `pol:`)
@@ -1849,9 +1883,11 @@ should map to an equivalent.
 
 `AT0401` is emitted on **authentication** failure (the credential is
 wrong). `AT0009` is emitted on **authorisation** failure (the
-authenticated principal lacks permission for the requested key,
-notably APKAM scopes prohibiting the namespace). Implementations must
-distinguish between them; clients may retry on `AT0401` but not on
+authenticated principal lacks permission for the requested key, notably
+APKAM scopes prohibiting the namespace). Since atServer 3.17.1, `AT0009`
+also refuses a `lookup` that names another owner on a connection not
+authenticated as the atSign (see [§10.4](#104-lookup)). Implementations
+must distinguish between them; clients may retry on `AT0401` but not on
 `AT0009`.
 
 ---
@@ -1910,8 +1946,8 @@ Terse reference for ctrl-F. Authoritative regex source:
 | `update`        | yes    | Insert/overwrite an atKey.                                            | §10.1   |
 | `update:meta`   | yes    | Update only metadata.                                                 | §10.2   |
 | `delete`        | yes    | Remove an atKey.                                                      | §10.3   |
-| `lookup`        | yes    | Cross-atSign read.                                                    | §10.4   |
-| `plookup`       | —      | Public lookup.                                                        | §10.5   |
+| `lookup`        | varies | Read a value; the answer depends on the connection (see §10.4).       | §10.4   |
+| `plookup`       | yes    | Another atSign's public record, through this atServer.                | §10.5   |
 | `llookup`       | yes    | Local-server-only lookup.                                             | §10.6   |
 | `scan`          | varies | Enumerate atKeys (regex/filter).                                      | §10.7   |
 | `notify`        | yes    | Emit a notification.                                                  | §11.1   |
