@@ -164,9 +164,11 @@ Those writes and `enroll:link` are serialised with each other.
 
 ### Client behaviour
 
-* An approver calls `enroll:link` straight after `enroll:approve`. An approver
-  with no linked key of its own, such as an older enrollment holding only its
-  RSA key, can't, and a root holder's sweep anchors the new enrollment instead.
+* An approver calls `enroll:link` straight after `enroll:approve`, writing root
+  links when it holds the signing root's private key, and chain links signed
+  with its own linked keys when it doesn't. An approver with neither, such as
+  an older enrollment holding only its RSA key, can't, and a root holder's
+  sweep anchors the new enrollment instead.
 * An enrollment that adds a signing key links it itself, signing with one of
   its keys that already has a link, and only then signs content with it. The
   old key's link keeps vouching for what that key signed.
