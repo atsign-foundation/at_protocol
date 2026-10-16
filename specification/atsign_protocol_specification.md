@@ -56,8 +56,11 @@ The Atsign Protocol is a text-based, line-oriented, request/response
 protocol over TLS. Three roles participate.
 
 An **atClient** is software acting on behalf of an atSign owner. It
-talks to exactly one atServer at a time, either the owner's atServer
-or a remote-owner's atServer for cross-atSign reads and writes.
+authenticates only to its own atSign's atServer, which carries its
+cross-atSign reads and notifications to other atServers (see
+[§15](#15-the-inter-atserver-protocol)). It may also open an
+unauthenticated connection to another atServer to `lookup` that
+atSign's public records.
 
 An **atServer** is the personal server for one atSign. It stores that
 atSign's keys (encrypted blobs at rest), serves them on request,
@@ -70,9 +73,9 @@ An **atDirectory** is a lookup service that maps an atSign to the
 The protocol is built around a small set of **verbs**, single-line
 commands a client sends to a server. Each verb has a regex-defined
 syntax. Servers respond with a single line of `data:…` or `error:…`,
-followed by a prompt that frames the next request. Two verbs (`monitor`
-and the legacy `stream`) keep the connection open for streamed
-responses; everything else is single-shot.
+followed by a prompt that frames the next request. `monitor` keeps the
+connection open for streamed notifications; everything else is
+single-shot.
 
 End-to-end encryption is **entirely an atClient concern**. atServers
 store opaque ciphertext and opaque metadata fields, and never see
@@ -148,20 +151,34 @@ A hard-coded `root.atsign.org:64` is not Atsign-Protocol-compliant.
 
 ### 3.1 atDirectory
 
-| Property     | Value                                                      |
-|--------------|------------------------------------------------------------|
-| Transport    | TCP                                                        |
-| TLS          | One-way (atDirectory presents a server certificate; client does not) |
-| Default port | `64`                                                       |
-| Default host | `root.atsign.org` (configurable)                           |
+| Property     | Value                                                                                                                                                                                                             |
+|--------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Transport    | TCP                                                                                                                                                                                                               |
+| TLS          | One-way (atDirectory presents a server certificate; client does not)                                                                                                                                              |
+| Default port | `64`                                                                                                                                                                                                              |
+| Default host | `root.atsign.org` (configurable)                                                                                                                                                                                  |
+| HTTPS        | Also on port `443`: `GET /<atSign>` returns `host:port`, `GET /<atSign>/<path>` redirects to `https://<host:port>/<path>`, an unknown atSign gets `404`, any other method `401`; the atSign is looked up as given |
 
 ### 3.2 atServer
 
-The atServer transport is TCP with one-way TLS by default. Some
-deployments require client certificates (mTLS) for
-atServer-to-atServer connections; the outbound connection factory
-chooses based on configuration. mTLS is not used between atClients
-and atServers in the default configuration.
+The atServer transport is TCP with TLS. Connections between atServers
+use mutual TLS by default: the connecting atServer presents a client
+certificate, and a `from:` naming another atSign is checked against
+it. The atServer looks that atSign up in the atDirectory, and a
+certificate that does not match the host it gives, or no certificate,
+gets `AT0401`. A `from:` naming the atServer's own atSign is not
+checked against a certificate. Setting at_secondary_server's
+`clientCertificateRequired` to `false` (it is `true` by default) turns
+the check off, and the atServer then presents no client certificate on
+its own outbound connections.
+
+The atServer's port also negotiates ALPN. A connection that selects
+`atProtocol/1.0`, or no protocol, speaks the Atsign Protocol. One that
+selects `http/1.1` reaches an HTTP server, which answers a `GET` for
+one of the atSign's public records and upgrades `/ws` to a WebSocket
+carrying the Atsign Protocol. Since atServer 3.17.0, a command that
+starts like an HTTP request, on a connection that did not select
+`http/1.1`, is answered `AT0003` and the connection is closed.
 
 The port is per-atSign and is discovered via the atDirectory. The
 atDirectory response is the canonical source for the host and port to
@@ -172,26 +189,37 @@ connect to.
 1. Client opens TCP connection.
 2. TLS handshake; server certificate is validated against the trusted
    roots (and optionally a pinned `cacert.pem`).
-3. **No pre-banner.** The server does not send a greeting line; it
-   waits for the client's first verb.
+3. **Banner.** On accept, the atServer writes a bare `@`, with no
+   newline, then waits for the client's first verb; clients discard it.
+   An atServer at its connection limit writes
+   `error:AT0012-Inbound connection limit exceeded\n` instead, with no
+   prompt, and closes the connection.
 4. Client sends verb, terminated by `\n`.
 5. Server responds with `data:…\n@…@` or `error:…\n@…@`. The trailing
    `@…@` (or bare `@` before authentication) is the **prompt**, see
    [§4](#4-framing).
-6. Steps 4–5 repeat. Either side may close the connection at any time;
-   the client may signal a graceful close with `@exit\n` (atDirectory
-   only) or by closing the socket.
+6. Steps 4–5 repeat. Either side may close the connection at any time.
+   On the atDirectory a client may close with `@exit\n`. An atServer
+   answers `@exit` with `AT0003`, so a client ends an atServer
+   connection by closing the socket.
 
 ### 3.4 Idle and timeout behaviour
 
 - atClient default outbound idle timeout: **600 000 ms** (10 minutes).
   Source: `at_lookup/lib/src/connection/outbound_connection_impl.dart`.
 - atClient default per-response wait: **90 000 ms**, with a
-  **10 000 ms** transient-wait between data packets. Source:
+  **10 000 ms** wait between data packets in at_lookup 3.6.1, and
+  **30 000 ms** in at_lookup 3.7.0. Source:
   `at_lookup/lib/src/connection/outbound_message_listener.dart`.
-- atServer default inbound and outbound idle limits are configurable
-  per deployment (see `inbound_idle_time_millis`,
-  `outbound_idle_time_millis`).
+- atServer idle limits, in at_secondary_server's `connection`
+  configuration, with their defaults: `inbound_idle_time_millis`
+  (600 000) for an inbound connection that has not authenticated, and
+  `authenticated_inbound_idle_time_millis` (600 000) for one that has
+  authenticated or proved itself with `pol`; `outbound_idle_time_millis`
+  (599 000) and `authenticated_outbound_idle_time_millis` (599 000) for
+  its own outbound connections, before and after `pol`. The allowed inbound idle time can
+  shrink towards a minimum as the number of inbound connections nears
+  `inbound_max_limit` (200).
 
 When the server-side idle timeout fires, the server closes the
 connection without warning. Long-lived `monitor` connections must be
@@ -205,8 +233,8 @@ disable idle-close for that connection class.
 ### 4.1 Line terminator
 
 All client-to-server and server-to-server commands end with a single
-**LF** (`\n`, ASCII 10). CR (`\r`) is not part of the protocol; some
-older atDirectory implementations emit `\r\n@`, and clients tolerate
+**LF** (`\n`, ASCII 10). CR (`\r`) is not part of the protocol, but
+the atDirectory ends every reply with `\r\n@`, so clients tolerate
 both.
 
 ### 4.2 Response delimiter (the "prompt")
@@ -220,10 +248,12 @@ client request. The prompt is one of:
 | Authenticated as the server's own atSign | `@<atSign>@`    |
 | `pol`-authenticated as another atSign    | `<fromAtSign>@` |
 
-The prompt is appended to the response line preceded by `\n`. Clients
-detect "response complete" by scanning for the byte sequence `\n@`.
-Source: `at_lookup/lib/src/connection/outbound_message_listener.dart`
-treats `\n` followed by `@` as the frame boundary.
+On a `pol` connection, some error responses end with the bare `@`
+rather than `<fromAtSign>@`; clients should accept either.
+
+A response ends with `\n`, and the server then writes the prompt with
+no newline of its own, so the next response follows the prompt on the
+same line. A client takes a response as complete at its `\n`.
 
 ```text
 data:42\n@alice@
@@ -241,36 +271,42 @@ UTF-8. atKeys, values, and metadata are all UTF-8 strings on the wire.
 
 ### 4.4 Newline escapes in values
 
-Because `\n` is the framing terminator, an atServer rewrites embedded
-newlines in **public** data values: `\n` becomes the literal
-4-character sequence `~NL~` on the wire. Clients writing values that
-contain newlines apply the same escape; clients reading public values
-reverse it. The escape is not applied to encrypted (binary)
-ciphertext, that is base64-encoded and so contains no `\n` to begin
-with.
+Because `\n` is the framing terminator, a value cannot carry one on
+the wire. The atServer stores and returns values as sent. `~NL~` is a
+convention of the reference SDK: it writes the literal four-character
+sequence `~NL~` in place of `\n` in the update commands it syncs, and
+turns `~NL~` back into `\n` in `lookup`, `llookup` and `plookup`
+results. An encrypted value is base64 ciphertext, so contains no `\n`
+to begin with.
 
 ### 4.5 Binary values
 
-Binary values cross the wire base64-encoded. The metadata flag
-`isBinary:true` declares that the value, once decoded, is binary.
+Values cross the wire as text. The reference SDK turns a binary value
+into Base2e15 text (`AtClient.putBinary`) before any encryption, and
+sets `isBinary:true`, which declares that the value, once decoded, is
+binary.
 `isEncrypted:true` declares it is ciphertext. The two are independent
 and both can be true. See [§7](#7-the-metadata-fragment).
 
 ### 4.6 Maximum value size
 
-Bounded by the atServer's `bufferLimit` configuration parameter.
-Implementations should expose the limit via the `stats` verb. Clients
-that exceed the limit receive `error:AT0005-Buffer limit exceeded` and
+at_secondary_server holds at most 10 240 000 bytes per connection that
+it has not yet dispatched, the terminating `\n` included. A single
+command, verb, atKey and value together, must fit, and commands
+pipelined behind one still being handled count towards the same limit.
+The limit is fixed: it is not configurable, and `stats` does not report
+it. Going over it is answered with `AT0005` (see [§17](#17-errors)), and
 the connection is closed.
 
 ### 4.7 Pipelining
 
-The protocol is request-response with a single in-flight verb per
-connection. A client must not send a second verb before reading the
-first verb's complete response (terminated by the prompt). The
-exception is `monitor`, which streams notifications continuously and
-optionally accepts request-response interleaving when `:multiplexed:`
-is set, see [§11.7](#117-monitor).
+The protocol is request-response. Since atServer 3.16.6, an atServer
+handles the commands a connection sends in the order they arrive and
+answers each in turn, so a client may send a command before reading
+the previous response. A client that may meet an older atServer must
+wait for each response, terminated by the prompt, before sending the
+next. `monitor` streams notifications continuously, see
+[§11.7](#117-monitor).
 
 ---
 
@@ -464,22 +500,24 @@ prompt.
 
 ### 8.2 Lookup
 
-Send the atSign followed by `\n`. Either form is accepted:
+Send the atSign followed by `\n`, without its leading `@` (the
+reference SDK strips it). The atDirectory lowercases the line before it
+looks it up:
 
 ```text
-@alice\n
 alice\n
 ```
 
 ### 8.3 Response
 
 When the atSign is found, the atDirectory replies with
-`<host>:<port>\n@`, where `host` is a hostname or IP and `port` is the
-atServer's TLS port for that atSign. When the atSign is not found, the
-reply is `null\n@`.
+`<host>:<port>\r\n@`, where `host` is a hostname or IP and `port` is
+the atServer's TLS port for that atSign. When the atSign is not found,
+the reply is `null\r\n@`. Clients should also accept `\n@`.
 
-Some atDirectory implementations emit `\r\n@` instead of `\n@`;
-implementations should accept both.
+On one connection, the second lookup of an atSign the atDirectory does
+not know is answered after a 3-second delay, and the third, after the
+same delay, closes the connection without a reply.
 
 ### 8.4 Disconnect
 
@@ -491,8 +529,8 @@ flush and close the socket. No response is expected.
 ```text
 C: <TLS handshake>
 S: @
-C: @alice\n
-S: alice.atsign.com:6589\n@
+C: alice\n
+S: alice.atsign.com:6589\r\n@
 C: @exit\n
 C: <socket close>
 ```
@@ -1190,7 +1228,7 @@ Source:
 |---------------------|-----------------------------------------------------------------------------------------------------|
 | `strict`            | Emit **only** notifications matching the regex; suppress server-control notifications (e.g. stats). |
 | `selfNotifications` | Include notifications the connecting atSign emitted itself.                                         |
-| `multiplexed`       | Allow request-response interleaving on the same connection.                                         |
+| `multiplexed`       | Accepted, and has no effect.                                                                        |
 | `<epochMillis>`     | Replay notifications received at or after this timestamp.                                           |
 | `<regex>`           | Filter notifications by atKey regex.                                                                |
 
@@ -1205,10 +1243,9 @@ remains open until either side closes it. Server-control
 notifications use the same `notification: …` prefix unless `:strict`
 is set.
 
-If `:multiplexed` is set, the server processes a subsequent verb
-arriving on the same connection (e.g. `lookup`) when no notification
-delivery is mid-flight, and emits the response with the standard
-prompt; notifications resume after the response.
+`:multiplexed` is accepted and has no effect. A monitor connection
+takes further commands like any other (see [§4.7](#47-pipelining)),
+and a notification may arrive between a command and its response.
 
 ---
 
@@ -1494,9 +1531,10 @@ Source: `at_secondary_server/lib/src/connection/outbound/outbound_client.dart`.
    for the target atSign, pooled per-target so repeat traffic to the
    same B reuses one connection.
 2. **Resolve.** A queries its atDirectory for B's host:port.
-3. **Connect.** A opens a TLS connection to B. Most A→B connections
-   are one-way TLS (B presents a cert). For deployments configured
-   with `clientCertificateRequired`, A presents a client cert (mTLS).
+3. **Connect.** A opens a TLS connection to B. By default this is
+   mutual TLS: A presents a client certificate, which B checks against
+   the host the atDirectory gives for A's atSign (see
+   [§3.2](#32-atserver)).
 4. **Public-key warm-up.** Before any handshake, A runs an
    unauthenticated `lookup:all:publickey<B-atSign>` against B and
    caches the result (cached as
