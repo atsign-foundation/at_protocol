@@ -545,10 +545,13 @@ for an enrollment.
 ## 7. The metadata fragment
 
 A **metadata fragment** is a sequence of `:tag:value` segments embedded
-in the `update`, `update:meta`, and `notify` verbs. Every metadata
-field a key can carry has a corresponding wire tag. Unrecognised tags
+in the `update`, `update:meta`, and `notify` verbs. The atServer also
+keeps metadata that has no tag, which it sets itself: `createdBy`,
+`updatedBy`, `status`, `version` and `refreshAt`. Unrecognised tags
 must be rejected by an atServer (servers tighten the surface; clients
-should not send tags they don't understand).
+should not send tags they don't understand). The atServer matches tag
+names, and the values `true` and `false`, in any case: `:TTL:60` reads
+as `:ttl:60`. It does not relax their order (§7.2).
 
 ### 7.1 Catalogue
 
@@ -557,22 +560,22 @@ Source of truth: `at_commons/lib/src/verb/syntax.dart`'s
 
 | Wire tag          | Type     | Description                                                                                                                     |
 |-------------------|----------|---------------------------------------------------------------------------------------------------------------------------------|
-| `ttl`             | int (ms) | Time-to-live. Key auto-deletes `ttl` ms after creation. `0` or omitted = never expires.                                         |
-| `ttb`             | int (ms) | Time-to-birth. Key is invisible to lookups for `ttb` ms after creation.                                                         |
-| `ttr`             | int (ms) | Time-to-refresh for cached copies. `-1` = cache forever; positive = re-fetch interval.                                          |
+| `ttl`             | int (ms) | Time-to-live, in ms from the write that sets it (see below). `0` = no expiry.                                                   |
+| `ttb`             | int (ms) | Time-to-birth. Key is invisible to lookups for `ttb` ms after the write that sets it.                                           |
+| `ttr`             | int (s)  | Time-to-refresh, in seconds, for another atServer's cached copy. `-1` = cache indefinitely; positive = refresh interval.        |
 | `ccd`             | bool     | Cascade-delete. If `true`, deleting the original key deletes its cached copies.                                                 |
 | `cAt`             | ISO 8601 | `createdAt` — UTC timestamp of creation. Regex: `\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z` (fractional seconds optional). |
 | `uAt`             | ISO 8601 | `updatedAt` — UTC timestamp of most recent update.                                                                              |
-| `eAt`             | ISO 8601 | `expiresAt` — derived from `cAt + ttl`. Normally server-emitted; clients can also set explicitly (e.g. on sync replay).         |
-| `aAt`             | ISO 8601 | `availableAt` — derived from `cAt + ttb`. Same write semantics as `eAt`.                                                        |
+| `eAt`             | ISO 8601 | `expiresAt`. Derived from `ttl`; since atServer 3.16.3 an asserted value is stored instead (see below).                         |
+| `aAt`             | ISO 8601 | `availableAt`. Derived from `ttb`; since atServer 3.16.3 an asserted value is stored instead (see below).                       |
 | `dataSignature`   | string   | Signature over a public value, signed by the owner's signing private key. Verifies authenticity.                                |
-| `sharedKeyStatus` | enum     | Lifecycle status of a shared key: `localUpdated`, `remoteUpdated`, `sharedWithNotified`, etc.                                   |
+| `sharedKeyStatus` | enum     | Shared-key status (`localUpdated`, `remoteUpdated`, `sharedWithNotified`, etc.). The atServer neither stores nor returns it.    |
 | `isBinary`        | bool     | `true` if the value is binary (base64-encoded on the wire).                                                                     |
 | `isEncrypted`     | bool     | `true` if the value is ciphertext.                                                                                              |
 | `sharedKeyEnc`    | string   | The shared symmetric key, RSA-encrypted to the recipient's encryption public key. Inline in metadata.                           |
-| `pubKeyHash`      | string   | Hash of the recipient public key that encrypted `sharedKeyEnc`. Lets the recipient detect key rotation.                         |
-| `pubKeyCS`        | string   | **Deprecated.** Predecessor to `pubKeyHash`. New code must emit `pubKeyHash` + `hashingAlgo`.                                   |
-| `hashingAlgo`     | enum     | Algorithm for `pubKeyHash`: `sha256` or `sha512`.                                                                               |
+| `pubKeyHash`      | string   | Hash of the recipient public key that encrypted `sharedKeyEnc`, to detect key rotation. Stored only with `hashingAlgo`.         |
+| `pubKeyCS`        | string   | MD5 hex digest of the recipient public key that encrypted `sharedKeyEnc`. Older than `pubKeyHash`; see Appendix B.4.            |
+| `hashingAlgo`     | enum     | Algorithm for `pubKeyHash`. The reference SDK writes `sha512`; the atServer stores any value.                                   |
 | `encoding`        | string   | Encoding of the value if not raw UTF-8 (e.g. `base64`).                                                                         |
 | `encKeyName`      | string   | Name of the symmetric key used to encrypt the value (resolves to a key name in the owner's keystore).                           |
 | `encAlgo`         | string   | Symmetric algorithm used to encrypt the value (e.g. `AES/SIC/PKCS7Padding`).                                                    |
@@ -580,11 +583,51 @@ Source of truth: `at_commons/lib/src/verb/syntax.dart`'s
 | `skeEncKeyName`   | string   | Name of the public key that wrapped `sharedKeyEnc`.                                                                             |
 | `skeEncAlgo`      | string   | Algorithm used to wrap `sharedKeyEnc` (default `RSA`).                                                                          |
 | `immutable`       | bool     | If `true`, the key cannot be updated; deletion requires `:force:`.                                                              |
+| `appMetadata`     | string   | Base64 of a UTF-8 JSON object whose non-empty string `providerId` names the crypto provider for the value (see below).          |
 
-Negative integer values for `ttl`/`ttb` are accepted by the regex (the
-syntax allows `(-?)\d+`) but server-side semantics are documented at
-the constants level, typically only `ttr:-1` ("cache forever") is a
-useful negative.
+The grammar admits a sign on `ttl`, `ttb` and `ttr` (`(-?)\d+`), but
+the atServer refuses a negative `ttl` or `ttb`, and a `ttr` below
+`-1`, with `AT0003`.
+
+`ttl` and `ttb` count from the write that sets them, and a write that
+sets both expires `ttb` + `ttl` ms after it. `ttl:0` clears an expiry.
+Since atServer 3.16.3, an `update` or `update:meta` that sets neither
+`ttl` nor `eAt` keeps the stored `expiresAt`, one that sets neither
+`ttb` nor `aAt` keeps the stored `availableAt`, and a `ttl` sent
+without `ttb` counts from the write alone, whatever `ttb` the record
+holds.
+
+An update notification with no `ttr`, or `ttr:0`, does not cache the
+value at the recipient's atServer.
+
+The grammar takes `cAt`, `uAt`, `eAt` and `aAt` since at_commons
+5.10.0 (atServer 3.13.0). Since atServer 3.16.3, the atServer stores
+an asserted value, truncated to milliseconds, in place of the one it
+would set or derive. An `update` or `update:meta` that asserts `eAt`
+with no `ttl`, or `ttl:0`, also stores the `ttl` that `eAt` implies;
+`aAt` and `ttb` work the same way.
+
+On `update` and `update:meta`, a string tag that the command omits
+keeps its stored value, and one sent as the literal `null` clears it:
+`dataSignature`, `sharedKeyEnc`, `pubKeyCS`, `encoding`, `encKeyName`,
+`encAlgo`, `ivNonce`, `skeEncKeyName` and `skeEncAlgo`. A `null` does
+not clear `pubKeyHash` or `appMetadata`.
+
+`encKeyName`, `encAlgo`, `skeEncKeyName` and `skeEncAlgo` are
+optional, and at_commons defines what an absent one means: for
+`encKeyName`, the inline `sharedKeyEnc`, else the default shared key;
+for `encAlgo`, `AES/SIC/PKCS7Padding` for a value; for
+`skeEncKeyName`, the recipient's `public:publickey`; and for
+`skeEncAlgo`, `RSA`. When the reference SDK encrypts with its `legacy`
+crypto provider, it sets `ivNonce` and none of these four.
+
+`appMetadata`, since at_commons 5.11.0 (atServer 3.14.0), may carry
+provider-owned fields beside `providerId`. The reference SDK sets it
+on each value it encrypts, with `providerId` `legacy` unless the app
+configures another provider. The atServer refuses, with `AT0003`, a
+value that does not decode to such an object. Otherwise it stores,
+returns and forwards it without acting on it. An `update` or
+`update:meta` that omits it, or sends `null`, keeps the stored value.
 
 ### 7.2 Tag ordering
 
@@ -593,8 +636,9 @@ producing wire commands SHOULD emit tags in regex-declared order:
 `ttl, ttb, ttr, ccd, cAt, uAt, eAt, aAt, dataSignature,
 sharedKeyStatus, isBinary, isEncrypted, sharedKeyEnc, pubKeyCS,
 pubKeyHash, hashingAlgo, encoding, encKeyName, encAlgo, ivNonce,
-skeEncKeyName, skeEncAlgo, immutable`. Servers parse via the canonical
-regex which enforces this order; deviating produces a syntax error.
+skeEncKeyName, skeEncAlgo, immutable, appMetadata`. Servers parse via
+the canonical regex which enforces this order; deviating produces a
+syntax error.
 
 ---
 
@@ -2153,10 +2197,15 @@ a regular shared atKey + `notify:update`.
 
 ### B.4 `pubKeyCS`
 
-Predecessor metadata field to `pubKeyHash`. A truncated checksum
-rather than a full hash; lacks an `algo` companion field. Servers
-accept it on read; new metadata writes must use `pubKeyHash` +
-`hashingAlgo`.
+The MD5 checksum, as a hex digest, of the recipient's encryption
+public key (`public:publickey@<recipient>`) that encrypted
+`sharedKeyEnc`. It is older than `pubKeyHash`, which names its
+algorithm in `hashingAlgo`, but at_commons does not mark it
+deprecated. When the reference SDK shares a value with its `legacy`
+crypto provider, it sets both: `pubKeyCS`, and `pubKeyHash` as
+SHA-512 with `hashingAlgo:sha512`. On read it refuses to decrypt when
+either no longer matches its own public key. The atServer stores
+`pubKeyCS` as given.
 
 ### B.5 `stream`
 
@@ -2472,7 +2521,9 @@ is a sequence of `(:tag:value)?` groups in a fixed order. A request
 that emits `:isEncrypted:true:ttr:-1:` (out of order) does **not**
 match the regex and produces `error:AT0003-Invalid Syntax`. Clients
 must emit metadata tags in the canonical order (the order they
-appear in the regex; reproduced in §7.2).
+appear in the regex; reproduced in §7.2). The atServer matches the
+regex ignoring case, so `:TTL:60` reads as `:ttl:60`, but order still
+matters.
 
 ### D.12 `clientConfig` JSON is unenforced free-form
 
@@ -2492,11 +2543,12 @@ entry regardless. Other CRUD verbs error on a missing target; only
 
 ### D.14 Negative metadata integers are mostly meaningless
 
-The metadata regex permits `(-?)\d+` for `ttl`, `ttb`, `ttr`. Only
-`ttr:-1` ("cache forever") is a useful negative; `ttl:-1` and
-`ttb:-1` are accepted by the regex and produce undefined / silently
-useless behaviour. Clients should emit `0` (or omit the tag entirely)
-for "no TTL".
+The metadata regex permits `(-?)\d+` for `ttl`, `ttb`, `ttr`, but the
+atServer refuses a negative `ttl` or `ttb`, and a `ttr` below `-1`,
+with `AT0003`. `ttr:-1` ("cache indefinitely") is the only negative it
+accepts. For no expiry, omit `ttl` when creating a record, or send
+`ttl:0` to clear an expiry; since atServer 3.16.3, a later write that
+omits both `ttl` and `eAt` keeps the stored expiry.
 
 ### D.15 `info` auth requirement is per-deployment
 
@@ -2508,10 +2560,11 @@ first and fall back if rejected.
 
 ### D.16 Two metadata tags for the same concept: `pubKeyCS` and `pubKeyHash`
 
-`pubKeyCS` (a checksum) was the predecessor of `pubKeyHash` (a hash
-plus `hashingAlgo` companion field). Servers accept both on read.
-New writes must emit `pubKeyHash` + `hashingAlgo`. A record may
-carry one or the other, never both meaningfully, see Appendix B.4.
+`pubKeyCS` (an MD5 checksum) is older than `pubKeyHash` (a hash plus a
+`hashingAlgo` companion field), but both are in use: the reference SDK
+sets both on a value it shares with its `legacy` crypto provider, and
+checks both on read. The atServer stores both as given, keeping
+`pubKeyHash` only when `hashingAlgo` comes with it. See Appendix B.4.
 
 ### D.17 Session ID format
 
