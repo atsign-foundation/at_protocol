@@ -151,8 +151,9 @@ checks that:
 * the target is approved;
 * each `kid` is advertised in the target's current `_apsk`;
 * each link's payload names the target and that `kid`, `alg` and public key;
-* each link is at most 16 KiB encoded, and the whole call fits the atServer's
-  existing 500 KiB limit on an enrollment record;
+* each link is at most 16 KiB encoded, and both the whole call and the
+  target's `_apsk` record, its value with every link it would then hold, fit
+  the atServer's existing 500 KiB limit on an enrollment record;
 * the link stored for each `kid` is the one the call names as `expect`,
   compared as JSON, or there's none when `expect` is null.
 
