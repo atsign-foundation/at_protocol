@@ -1357,7 +1357,7 @@ Source: see `at_commons/lib/src/verb/syntax.dart` `notify`.
 | Tag               | Description                                                                                       |
 |-------------------|---------------------------------------------------------------------------------------------------|
 | `id`              | Caller-supplied notification ID. Server generates one if omitted.                                 |
-| `update           | delete`                                                                                           | Operation. Defaults to `update`.                                                                      |
+| `update\|delete`  | Operation. Defaults to `update`.                                                                  |
 | `messageType:key` | Notification refers to an atKey change. (`text` exists; **deprecated** — see Appendix B.)         |
 | `priority`        | Delivery priority hint.                                                                           |
 | `strategy:all`    | Deliver every notification (default).                                                             |
