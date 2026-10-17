@@ -1399,7 +1399,7 @@ Source: see `at_commons/lib/src/verb/syntax.dart` `notify`.
 |-------------------|---------------------------------------------------------------------------------------------------|
 | `id`              | Caller-supplied notification ID. Server generates one if omitted.                                 |
 | `update\|delete`  | Operation. Defaults to `update`.                                                                  |
-| `messageType:key` | Notification refers to an atKey change. (`text` exists; **deprecated** — see Appendix B.)         |
+| `messageType:key` | Notification refers to an atKey change. `text` is retired since atServer 3.17.1 ([Appendix B.3](#b3-notify-messagetypetext)). |
 | `priority`        | Delivery priority hint.                                                                           |
 | `strategy:all`    | Deliver every notification (default).                                                             |
 | `strategy:latest` | Coalesce: deliver only the most recent `<latestN>` for the same atKey if recipient was offline.   |
@@ -2479,10 +2479,13 @@ without the `:limit:` and `:skipDeletesUntil:` knobs. New clients use
 
 ### B.3 `notify` `messageType:text`
 
-`notify:…:messageType:text:…` is a freeform-text notification (not
-tied to an atKey change). Marked deprecated in `at_commons`. New code
-uses `messageType:key` exclusively; freeform messaging is now done via
-a regular shared atKey + `notify:update`.
+`notify:…:messageType:text:…` is a freeform-text notification, not
+tied to an atKey change. Since atServer 3.17.1, text notifications are
+retired. A client's `notify` or `notify:all` with `messageType:text` is
+refused with AT0003 (`messageType:text is no longer supported`), one
+from another atServer is answered `data:success` and dropped, and
+`info` lists `notify.text` as `Retired`. Freeform messaging uses a
+shared atKey and `notify:update`.
 
 ### B.4 `pubKeyCS`
 
