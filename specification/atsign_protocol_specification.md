@@ -334,27 +334,46 @@ with it. An atKey whose owner or recipient is longer is invalid.
 
 ### 5.1 Lifecycle phases
 
-The full lifecycle of an atSign from registration to active use breaks
-into 3 phases. The `at_auth` package documents this in detail; the
-phases are summarised here because each produces credentials that
-appear on the wire.
+An atSign goes through 3 phases from registration to everyday use.
+Each produces credentials that later exchanges on the wire use.
 
-1. **Register.** The atSign is created on the atDirectory's registrar.
-   Output: a one-time **CRAM secret** delivered to the registered email
-   address. No cryptographic keys exist yet.
-2. **Onboard.** The atClient CRAM-authenticates exactly once, generates
-   the atSign's master keypairs (PKAM signing, encryption,
-   self-encryption), publishes the public halves to the atServer, and
-   stores the private halves locally (`.atKeys` file or device
-   keychain). After onboarding, the CRAM secret is no longer accepted.
-3. **Authenticate (per app).** Subsequent apps authenticate via
-   **APKAM enrollment**, they request a scoped key set bound to a
-   namespace permission map (e.g. `{'todos': 'rw'}`); the master-keys
-   holder approves; the atServer issues new scoped credentials.
-   APKAM-issued keys are revocable.
+1. **Register.** The atSign gets an atDirectory entry and an
+   atServer, for example through a registrar. The atServer is started
+   with the atSign's **CRAM secret**, and the atSign's encryption keys
+   do not exist yet. An app activates the atSign once its atDirectory
+   entry resolves and its atServer answers; the reference SDK waits
+   for both. The activating app needs the CRAM secret.
+   at_onboarding_cli, for example, has the registrar send a
+   verification code to the owner's email or phone, and exchanges
+   that code with the registrar for the secret.
+2. **Onboard.** The activating app authenticates with `cram`. It
+   generates the atSign's RSA encryption keypair and AES
+   self-encryption key, and an APKAM keypair of its own. On the CRAM
+   connection it sends `enroll:request` with its APKAM public key. The
+   atServer approves that enrollment at once and grants it `rw` on
+   `__manage` and on `*`. The app reconnects, authenticates with
+   `pkam` as that enrollment, stores its keys on the device (for
+   example in an `.atKeys` file), publishes
+   `public:publickey@<atSign>` and deletes `privatekey:at_secret`.
+   From then on `cram` fails. The app does not write
+   `public:signing_publickey@<atSign>`: the atServer generates that
+   keypair itself when it first starts ([§6.5](#65-reserved-keys)).
+3. **Enroll (per app).** Each further app enrolls with APKAM
+   ([§9.4](#94-apkam-enroll-otp-keys)). It generates its own APKAM
+   keypair and asks for a namespace permission map such as
+   `{"todos":"rw"}`, quoting a passcode from `otp:get`
+   ([§9.4.2](#942-the-otp-verb)). An approving app approves the
+   request and supplies the atSign's encryption private key and
+   self-encryption key, encrypted for the new app. The new app then
+   authenticates with `pkam` as its own enrollment. The namespace map
+   limits what that enrollment may read and write on the atServer,
+   and `enroll:revoke` withdraws it.
 
-CRAM is bootstrap-only. After Phase 2, all client authentication is
-PKAM (with or without APKAM scoping). See [§9](#9-authentication).
+CRAM serves only activation. After Phase 2 every client authenticates
+with `from` and `pkam` ([§9.3](#93-pkam-pkam)), and the reference SDK
+names its enrollment with `enrollmentId:`. The exchanges are shown in
+[§16.1](#161-cram-bootstrap-phase-2-onboarding) and
+[§16.2](#162-apkam-enrollment-end-to-end).
 
 ---
 
@@ -1975,10 +1994,14 @@ shows the full notify→deliver→monitor path end-to-end.
 
 ### 16.1 CRAM bootstrap (Phase 2 onboarding)
 
-The first time an atClient authenticates as a freshly-registered
-atSign, it has only the CRAM secret. It must (a) authenticate, (b)
-generate keypairs, (c) publish the public halves, (d) write the
-private halves to disk.
+An app activating a newly registered atSign holds only its CRAM
+secret. It authenticates with `cram`, enrolls itself, authenticates
+again with `pkam` as that enrollment, stores its keys, publishes the
+encryption public key and deletes the CRAM secret. This is the
+exchange the reference SDK's current release sends, with its default
+app and device names. The flows in this section leave out the optional
+`:clientConfig:{…}` that a client may add to `from`
+([§9.1](#91-the-from-verb)).
 
 ```text
 C: <TCP+TLS connect to alice's atServer>
@@ -1988,96 +2011,147 @@ S: data:_4af24c03-d732-48f8-a9a2-570e8fb6a01c@alice:d6cac849-9c29-42b0-b0c5-493d
 C: cram:<sha512_hex(cramSecret + "_4af24c03-d732-48f8-a9a2-570e8fb6a01c@alice:d6cac849-9c29-42b0-b0c5-493db62728b9")>\n
 S: data:success\n@alice@
 
-# Generate RSA-2048 PKAM keypair, RSA-2048 encryption keypair, AES-256
-# self-encryption key (all client-side, never on the wire as plaintext).
+# Client side, nothing on the wire: generate an RSA-2048 encryption
+# keypair, an AES-256 self-encryption key, an AES-256 APKAM symmetric
+# key and the app's RSA-2048 APKAM keypair.
 
-C: update:privatekey:at_pkam_publickey <PKAM public key>\n
-S: data:0\n@alice@
+C: enroll:request:{
+     "appName":"firstApp",
+     "deviceName":"firstDevice",
+     "apkamPublicKey":"<APKAM public key>"
+   }\n
+S: data:{"enrollmentId":"<uuid>","status":"approved"}\n@alice@
+# Over CRAM the atServer approves the request at once and grants it
+# rw on __manage and on * (§9.4.1).
 
-C: update:public:publickey@alice <encryption public key>\n
-S: data:1\n@alice@
+# === Close the connection. On a new one, authenticate as the
+#     enrollment. ===
+C: <TCP+TLS connect to alice's atServer>
+C: from:@alice\n
+S: data:_<sessionId>@alice:<challenge>\n@
+C: pkam:signingAlgo:rsa2048:hashingAlgo:sha256:enrollmentId:<uuid>:<signature>\n
+S: data:success\n@alice@
+# <signature> is made with the APKAM private key (§9.3).
 
-C: update:public:signing_publickey@alice <signing public key>\n
-S: data:2\n@alice@
+# Client side: store the keys and the enrollment id, for example in
+# an .atKeys file.
 
-# Write .atKeys file: PKAM private key + encryption private key +
-# self-encryption key, all encrypted-at-rest with the user's password.
+C: update:ttr:-1:isEncrypted:false:public:publickey@alice <encryption public key>\n
+S: data:<commitId>\n@alice@
+
+C: delete:privatekey:at_secret\n
+S: data:-1\n@alice@
 ```
 
-After bootstrap, the CRAM secret is no longer accepted. The same
-client now reconnects with `from` + `pkam` for any subsequent session.
+Once `privatekey:at_secret` is deleted, `cram` fails
+([§6.5](#65-reserved-keys)). The app authenticates every later
+session with `from` and `pkam`, as above.
+
+Onboarding does not write `public:signing_publickey@alice`. The
+atServer generates that keypair itself when it first starts
+([§6.5](#65-reserved-keys)).
+
+The reference SDK does not send
+`update:privatekey:at_pkam_publickey`. Since atServer 3.16.4, that
+`update` over a CRAM connection installs the key as the enrollment
+named `primary` and answers `data:-1`.
 
 ### 16.2 APKAM enrollment end-to-end
 
-Phase 3, a new app on a new device authenticates as `@alice` without
-ever holding the master keys.
+Phase 3: a new app on a new device enrolls for `@alice`. The approver
+here is the first app, whose enrollment holds `rw` on `__manage` and
+on `*` ([§16.1](#161-cram-bootstrap-phase-2-onboarding)). Its
+connections are authenticated with `from` and `pkam`.
 
 ```text
-# === New device: generate APKAM keypair, generate APKAM symmetric key,
-#                 RSA-encrypt the APKAM symmetric key to alice's
-#                 public:publickey@alice ===
+# === Approver: issue an OTP. ===
+C(approver): otp:get\n
+S:           data:A1B2C3\n@alice@
+# (The owner gives "A1B2C3" to the new app.)
 
-# === Existing master-keys session: get an OTP for the new device. ===
-C(master): otp:get\n
-S:        data:A1B2C3\n@alice@
-# (Owner reads "A1B2C3" to the new device.)
+# === Approver, on its own monitor connection: listen. ===
+C(approver): monitor:selfNotifications\n
+# (No response line. Notifications stream from here on.)
 
-# === New device: submit enrollment request. ===
-C(new): from:@alice\n
-S:      data:proof:<sessionId>@alice:<chal>\n@
-# (No prior PKAM keys; the new device authenticates the enroll:request
-# verb as unauthenticated — the OTP is the credential here.)
+# === New app: it holds no credential yet, so it does not
+#     authenticate. ===
+C(new): <TCP+TLS connect to alice's atServer>
+C(new): lookup:publickey@alice\n
+S:      data:<encryption public key>\n@
+# Unauthenticated, lookup reads public:publickey@alice.
+
+# Client side: generate an RSA-2048 APKAM keypair and an AES-256 APKAM
+# symmetric key, and encrypt the symmetric key with the encryption
+# public key (RSA).
+
 C(new): enroll:request:{
           "appName":"todos",
           "deviceName":"phone-1",
           "namespaces":{"todos":"rw"},
           "otp":"A1B2C3",
-          "apkamPublicKey":"<base64 RSA pub>",
-          "encryptedAPKAMSymmetricKey":"<RSA-to-alice's-encryption-pub>"
+          "encryptedAPKAMSymmetricKey":"<RSA ciphertext>",
+          "apkamPublicKey":"<APKAM public key>"
         }\n
 S:      data:{"enrollmentId":"<uuid>","status":"pending"}\n@
+# The OTP is what admits this unauthenticated request.
 
-# === Existing master-keys session: monitor for enrollment notifications. ===
-C(master): monitor\n
-S:         notification: {"id":"…","key":"<uuid>.new.enrollments.__manage@alice", …}
+# === New app, on a new connection: authenticate as the enrollment,
+#     retrying until the request is decided. ===
+C(new): <TCP+TLS connect to alice's atServer>
+C(new): from:@alice\n
+S:      data:_<sessionId>@alice:<challenge>\n@
+C(new): pkam:signingAlgo:rsa2048:hashingAlgo:sha256:enrollmentId:<uuid>:<signature>\n
+S:      error:AT0026:enrollment_id: <uuid> is pending\n@
+# <signature> is made with the new app's APKAM private key (§9.3).
 
-# === Existing master-keys session: fetch and approve. ===
-C(master): enroll:fetch:{"enrollmentId":"<uuid>"}\n
-S:         data:{ <full request including encryptedAPKAMSymmetricKey> }\n@alice@
+# === Approver's monitor connection: the request is announced. ===
+S(approver): notification: {"id":"<id>","from":"@alice","to":"@alice",
+               "key":"<uuid>.new.enrollments.__manage@alice",
+               "value":"{…}","operation":"update",…}\n
+# value carries appName, deviceName, namespace and the encrypted
+# APKAM symmetric key (§9.4.1).
 
-# Master decrypts encryptedAPKAMSymmetricKey using its
-# default encryption private key. Now both sides share the APKAM
-# symmetric key.
+# === Approver: fetch the request, or read it from the value. ===
+C(approver): enroll:fetch:{"enrollmentId":"<uuid>"}\n
+S:           data:{"appName":"todos","deviceName":"phone-1",
+               "namespace":{"todos":"rw"},
+               "encryptedAPKAMSymmetricKey":"<RSA ciphertext>",
+               "status":"pending",…}\n@alice@
 
-# Master encrypts its OWN default encryption private key + self-encryption
-# key with the APKAM symmetric key (AES, with random IVs).
+# Client side: decrypt the APKAM symmetric key with the encryption
+# private key (RSA). Encrypt the encryption private key and the
+# self-encryption key with it (AES-256, each with a random 16-byte IV).
 
-C(master): enroll:approve:{
+C(approver): enroll:approve:{
              "enrollmentId":"<uuid>",
              "encryptedDefaultEncryptionPrivateKey":"<AES ciphertext>",
              "encPrivateKeyIV":"<base64 IV>",
              "encryptedDefaultSelfEncryptionKey":"<AES ciphertext>",
              "selfEncKeyIV":"<base64 IV>"
            }\n
-S:         data:{"enrollmentId":"<uuid>","status":"approved","expiresAt":null}\n@alice@
+S:           data:{"status":"approved","enrollmentId":"<uuid>"}\n@alice@
 
-# === New device: PKAM-authenticate using the APKAM private key + enrollmentId. ===
+# === New app: the next attempt succeeds. ===
 C(new): from:@alice\n
-S:      data:proof:<sessionId>@alice:<chal>\n@
-C(new): pkam:enrollmentId:<uuid>:<base64 RSA-SHA256 signature of chal>\n
+S:      data:_<sessionId>@alice:<challenge>\n@
+C(new): pkam:signingAlgo:rsa2048:hashingAlgo:sha256:enrollmentId:<uuid>:<signature>\n
 S:      data:success\n@alice@
 
-# New device now retrieves its bootstrap material:
-C(new): keys:get:keyName:public:encryption_<uuid>.__public_keys.__pkams@alice\n
-S:      data:{ "enrollmentId":"<uuid>", "value":"<encryptedDefaultEncryptionPrivateKey>", "iv":"…" }\n@alice@
-# (And likewise for the self-encryption key.)
+# === New app: collect what the approval stored for it. ===
+C(new): keys:get:keyName:<uuid>.default_enc_private_key.__manage@alice\n
+S:      data:{"value":"<encryptedDefaultEncryptionPrivateKey>",
+          "iv":"<base64 IV>"}\n@alice@
+C(new): keys:get:keyName:<uuid>.default_self_enc_key.__manage@alice\n
+S:      data:{"value":"<encryptedDefaultSelfEncryptionKey>",
+          "iv":"<base64 IV>"}\n@alice@
 
-# New device decrypts those using its now-shared APKAM symmetric key,
-# writes them locally as its scoped .atKeys, and is fully provisioned.
+# Client side: decrypt both with the APKAM symmetric key, and store
+# the keys and the enrollment id, for example in an .atKeys file.
 ```
 
-The new device never sees the master signing private key. APKAM-issued
-keys are revocable via `enroll:revoke`.
+The new app generates its own APKAM keypair and never sends the
+private half. `enroll:revoke` withdraws its enrollment
+([§9.4.1](#941-the-enroll-verb)).
 
 ### 16.3 Cross-atSign read with pol handshake
 
