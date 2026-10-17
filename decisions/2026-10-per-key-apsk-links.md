@@ -149,7 +149,8 @@ The atServer checks the structure only, and doesn't verify signatures. It
 checks that:
 
 * the target is approved;
-* each `kid` is advertised in the target's current `_apsk`;
+* each `kid` is advertised in the target's current `_apsk`, its public key
+  spelt as clients write it, in padded standard base64;
 * each link's payload names the target and that `kid`, `alg` and public key;
 * each link is at most 16 KiB encoded, and both the whole call and the
   target's `_apsk` record, its value with every link it would then hold, fit
