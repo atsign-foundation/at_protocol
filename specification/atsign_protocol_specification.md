@@ -918,10 +918,10 @@ Source:
 | Operation  | Response payload                                                                                |
 |------------|-------------------------------------------------------------------------------------------------|
 | `request`  | `data:{"enrollmentId":"<uuid>","status":"pending"}`, or `"approved"` when approved at once      |
-| `approve`  | `data:{"enrollmentId":"<uuid>","status":"approved","expiresAt":<ISO-8601 UTC string, or null>}` |
-| `deny`     | `data:{"enrollmentId":"<uuid>","status":"denied"}`                                              |
-| `revoke`   | `data:{"enrollmentId":"<uuid>","status":"revoked"}` (`:force:` to revoke own enrollment)        |
-| `unrevoke` | `data:{"enrollmentId":"<uuid>","status":"approved"}`                                            |
+| `approve`  | `data:{"status":"approved","enrollmentId":"<uuid>"}`. Since atServer 3.17.1 it also carries `"expiresAt"`, an ISO-8601 UTC string or null |
+| `deny`     | `data:{"status":"denied","enrollmentId":"<uuid>"}`                                              |
+| `revoke`   | `data:{"status":"revoked","enrollmentId":"<uuid>"}`, with `"cascadedEnrollmentIds":[…]` when it also revoked the enrollments this one approved (`:force:` to revoke own enrollment) |
+| `unrevoke` | `data:{"status":"approved","enrollmentId":"<uuid>"}`                                            |
 | `delete`   | `data:{"enrollmentId":"<uuid>","status":"deleted"}`                                             |
 | `fetch`    | `data:{ <full enrollment record JSON> }`                                                        |
 | `list`     | `data:{"<enrollKey>":{<enrollment record JSON>}, …}`                                            |
