@@ -542,8 +542,8 @@ the enrollment record is removed, by `enroll:delete` or once it has
 expired, its data moves to `<enrollmentId>.d.__e`.
 
 Since atServer 3.16.1, approving an enrollment whose request carries
-`apsk` or `apskLegacy` also publishes that value at
-`public:_apsk.<enrollmentId>.a.__e@<atSign>`.
+`apsk` or `apskLegacy` also publishes its `apskLegacy`, or else its
+`apsk` as JSON, at `public:_apsk.<enrollmentId>.a.__e@<atSign>`.
 
 The `__pkams` namespace is legacy. At startup the atServer deletes any
 `public:<app>.<device>.pkam.__pkams.__public_keys@<atSign>` record left
@@ -1425,6 +1425,9 @@ single `forAtSign` segment normally goes.
 ```text
 notify:all:[<update|delete>:][messageType:<key|text>:][ttl:<ms>:][ttb:<ms>:][ttr:<s>:][ccd:<bool>:]<recipient,recipient,…>:<atKey>[@<atSign>][:<value>]
 ```
+
+The grammar still parses `messageType:text`; since atServer 3.17.1 the
+atServer refuses it ([Appendix B.3](#b3-notify-messagetypetext)).
 
 Response: a JSON map of `recipient → notificationId`:
 
@@ -2483,9 +2486,9 @@ without the `:limit:` and `:skipDeletesUntil:` knobs. New clients use
 tied to an atKey change. Since atServer 3.17.1, text notifications are
 retired. A client's `notify` or `notify:all` with `messageType:text` is
 refused with AT0003 (`messageType:text is no longer supported`), one
-from another atServer is answered `data:success` and dropped, and
-`info` lists `notify.text` as `Retired`. Freeform messaging uses a
-shared atKey and `notify:update`.
+arriving from a peer atServer over `pol` is answered `data:success`
+and dropped, and `info` lists `notify.text` as `Retired`. Freeform
+messaging uses a shared atKey and `notify:update`.
 
 ### B.4 `pubKeyCS`
 
