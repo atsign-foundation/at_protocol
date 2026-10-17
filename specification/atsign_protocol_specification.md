@@ -2009,13 +2009,25 @@ An app activating a newly registered atSign holds only its CRAM
 secret. It authenticates with `cram`, enrolls itself, authenticates
 again with `pkam` as that enrollment, stores its keys, publishes the
 encryption public key and deletes the CRAM secret. This is the
-exchange the reference SDK's current release sends, with its default
-app and device names. The flows in this section leave out the optional
-`:clientConfig:{…}` that a client may add to `from`
-([§9.1](#91-the-from-verb)).
+exchange the reference SDK sends with its default settings, which use
+RSA keys, and with its default app and device names. The reference
+SDK can also activate an atSign with post-quantum keys
+([Appendix C.1](#c1-post-quantum-cryptography-and-crypto-agility)),
+which changes the keys and the fields of `enroll:request`.
+
+The flows in this section leave out the optional `:clientConfig:{…}`
+that a client may add to `from` ([§9.1](#91-the-from-verb)). The
+reference SDK sends none on the connections it activates and enrolls
+over.
 
 ```text
 C: <TCP+TLS connect to alice's atServer>
+C: lookup:publickey@alice\n
+S: error:AT0015-<description>\n@
+# The reference SDK sends this lookup unauthenticated, and retries
+# until the atServer answers. AT0015 says that
+# public:publickey@alice does not exist yet.
+
 C: from:@alice\n
 S: data:_4af24c03-d732-48f8-a9a2-570e8fb6a01c@alice:d6cac849-9c29-42b0-b0c5-493db62728b9\n@
 
@@ -2029,11 +2041,15 @@ S: data:success\n@alice@
 C: enroll:request:{
      "appName":"firstApp",
      "deviceName":"firstDevice",
-     "apkamPublicKey":"<APKAM public key>"
+     "apkamPublicKey":"<APKAM public key>",
+     "signingAlgo":"rsa2048",
+     "apskLegacy":"<APKAM public key>"
    }\n
 S: data:{"enrollmentId":"<uuid>","status":"approved"}\n@alice@
 # Over CRAM the atServer approves the request at once and grants it
-# rw on __manage and on * (§9.4.1).
+# rw on __manage and on * (§9.4.1). signingAlgo names the algorithm
+# of the APKAM key. Since atServer 3.16.1, the atServer also
+# publishes the apskLegacy value as public:_apsk.<uuid>.a.__e@alice.
 
 # === Close the connection. On a new one, authenticate as the
 #     enrollment. ===
@@ -2056,7 +2072,12 @@ S: data:-1\n@alice@
 
 Once `privatekey:at_secret` is deleted, `cram` fails
 ([§6.5](#65-reserved-keys)). The app authenticates every later
-session with `from` and `pkam`, as above.
+session with `from` and `pkam`, as above. The reference SDK then opens
+a client on the new keys, which authenticates that way.
+
+Before this exchange, at_onboarding_cli sends the same
+`lookup:publickey@alice` on a connection of its own, and stops if the
+atServer answers with a key.
 
 Onboarding does not write `public:signing_publickey@alice`. The
 atServer generates that keypair itself when it first starts
@@ -2072,18 +2093,21 @@ named `primary` and answers `data:-1`.
 Phase 3: a new app on a new device enrolls for `@alice`. The approver
 here is the first app, whose enrollment holds `rw` on `__manage` and
 on `*` ([§16.1](#161-cram-bootstrap-phase-2-onboarding)). Its
-connections are authenticated with `from` and `pkam`.
+connections are authenticated with `from` and `pkam`. Both apps use
+the reference SDK's default settings.
 
 ```text
 # === Approver: issue an OTP. ===
-C(approver): otp:get\n
+C(approver): otp:get:ttl:300000\n
 S:           data:A1B2C3\n@alice@
-# (The owner gives "A1B2C3" to the new app.)
+# (The reference SDK asks for an OTP that lasts 5 minutes. The owner
+#  gives "A1B2C3" to the new app.)
 
 # === Approver, on its own monitor connection: listen. ===
-C(approver): monitor:selfNotifications\n
-# (Once it has seen a notification, the reference SDK adds
-#  :<epochMillis> of the last one.)
+C(approver): monitor:selfNotifications:<epochMillis>\n
+# (<epochMillis> is that of the last notification the approver
+#  received or, before it has received one, the moment its
+#  notification service started.)
 # (No response line. Notifications stream from here on.)
 
 # === New app: it holds no credential yet, so it does not
@@ -2103,7 +2127,9 @@ C(new): enroll:request:{
           "namespaces":{"todos":"rw"},
           "otp":"A1B2C3",
           "encryptedAPKAMSymmetricKey":"<RSA ciphertext>",
-          "apkamPublicKey":"<APKAM public key>"
+          "apkamPublicKey":"<APKAM public key>",
+          "signingAlgo":"rsa2048",
+          "apskLegacy":"<APKAM public key>"
         }\n
 S:      data:{"enrollmentId":"<uuid>","status":"pending"}\n@
 # The OTP is what admits this unauthenticated request.
@@ -2121,15 +2147,22 @@ S:      error:AT0026:enrollment_id: <uuid> is pending\n@
 S(approver): notification: {"id":"<id>","from":"@alice","to":"@alice",
                "key":"<uuid>.new.enrollments.__manage@alice",
                "value":"{…}","operation":"update",…}\n
-# value carries appName, deviceName, namespace and the encrypted
-# APKAM symmetric key (§9.4.1).
+# value carries appName, deviceName, namespace, the encrypted APKAM
+# symmetric key and, since atServer 3.17.1, apkamKeysExpiryInMillis
+# (§9.4.1).
 
-# === Approver: fetch the request, or read it from the value. ===
-C(approver): enroll:fetch:{"enrollmentId":"<uuid>"}\n
-S:           data:{"appName":"todos","deviceName":"phone-1",
-               "namespace":{"todos":"rw"},
-               "encryptedAPKAMSymmetricKey":"<RSA ciphertext>",
-               "status":"pending",…}\n@alice@
+# === Approver: read the request from the enrollment list. ===
+C(approver): enroll:list:{
+             "enrollmentStatusFilter":["pending","approved"]
+           }\n
+S:           data:{"<uuid>.new.enrollments.__manage@alice":{…,
+               "appName":"todos","deviceName":"phone-1",
+               "namespaces":{"todos":"rw"},…,
+               "encryptedAPKAMSymmetricKey":"<RSA ciphertext>",…,
+               "status":"pending",…},…}\n@alice@
+# The answer holds every pending or approved enrollment, the
+# approver's own among them. The reference SDK sends this request
+# twice before it approves.
 
 # Client side: decrypt the APKAM symmetric key with the encryption
 # private key (RSA). Encrypt the encryption private key and the
@@ -2142,7 +2175,14 @@ C(approver): enroll:approve:{
              "encryptedDefaultSelfEncryptionKey":"<AES ciphertext>",
              "selfEncKeyIV":"<base64 IV>"
            }\n
-S:           data:{"status":"approved","enrollmentId":"<uuid>"}\n@alice@
+S:           data:{"status":"approved","expiresAt":null,
+               "enrollmentId":"<uuid>"}\n@alice@
+# Since atServer 3.17.1 the answer carries expiresAt, null here
+# because neither the request nor the approver's enrollment expires.
+# Since atServer 3.16.1 the approval publishes the request's
+# apskLegacy value as public:_apsk.<uuid>.a.__e@alice.
+# The reference SDK then reads the list again, narrowed to
+# ["approved"] and then to ["approved","revoked"].
 
 # === New app: the next attempt succeeds. ===
 C(new): from:@alice\n
@@ -2165,6 +2205,11 @@ S:      data:{"value":"<encryptedDefaultSelfEncryptionKey>",
 The new app generates its own APKAM keypair and never sends the
 private half. `enroll:revoke` withdraws its enrollment
 ([§9.4.1](#941-the-enroll-verb)).
+
+at_onboarding_cli's `otp` command sends `otp:get` with no `:ttl:`
+unless it is given an expiry, so the atServer's default applies. Its
+`enroll` command adds `"apkamKeysExpiryInMillis":0` to the request
+when it is given no expiry.
 
 ### 16.3 Cross-atSign read with pol handshake
 
