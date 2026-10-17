@@ -325,12 +325,13 @@ U+2400–U+241F, U+2421, U+2424 and U+2425, or any of
 ``!*'`();:&=+$,/?#[]{}``.
 
 Inside an atKey ([§6](#6-the-atkey-model)), an owner or recipient
-atSign is narrower still. Each character after the `@` is an ASCII
-letter, a digit, `_` or `-`, or falls in U+00A9, U+00AE,
+atSign must also meet a second rule: each character after the `@` is
+an ASCII letter, a digit, `_` or `-`, or falls in U+00A9, U+00AE,
 U+2000–U+3300, U+FE00–U+FE0F or U+1F000–U+1FBFF.
 
-An atSign has at most **55 characters** after its `@`, so at most 56
-with it. An atKey whose owner or recipient is longer is invalid.
+Inside an atKey, an owner or recipient has at most **55 characters**
+after its `@`, so at most 56 with it. An atKey whose owner or recipient
+is longer is invalid.
 
 ### 5.1 Lifecycle phases
 
@@ -371,7 +372,8 @@ Each produces credentials that later exchanges on the wire use.
 
 CRAM serves only activation. After Phase 2 every client authenticates
 with `from` and `pkam` ([§9.3](#93-pkam-pkam)), and the reference SDK
-names its enrollment with `enrollmentId:`. The exchanges are shown in
+names its enrollment with `enrollmentId:` unless that is `primary`.
+The exchanges are shown in
 [§16.1](#161-cram-bootstrap-phase-2-onboarding) and
 [§16.2](#162-apkam-enrollment-end-to-end).
 
@@ -434,9 +436,9 @@ domain (e.g. `phone.wavi`, `email.myapp`). APKAM enrollments grant
 permissions per namespace, so the namespace is part of the
 authorisation surface, not a free-form annotation.
 
-The atServer accepts an atKey without a namespace. Reserved keys
-([§6.5](#65-reserved-keys)), such as `public:publickey@alice`, have
-none. An enrollment's namespace grants match only keys that carry a
+The atServer accepts an atKey without a namespace. Most reserved
+keys ([§6.5](#65-reserved-keys)), such as `public:publickey@alice`,
+have none. An enrollment's namespace grants match only keys that carry a
 namespace, so an enrollment reaches a key without one only through a
 `*` grant. Reserved keys have rules of their own, and an enrollment
 needs no `*` grant to read a cached copy of another atSign's
@@ -523,7 +525,7 @@ client's own keystore. The atServer creates no record under them.
 
 Two namespaces are reserved:
 
-- `__manage` holds each enrollment record, at
+- `__manage` holds, among others, each enrollment record, at
   `<enrollmentId>.new.enrollments.__manage@<atSign>`, and the
   encrypted copies of the atSign's encryption private key and
   self-encryption key that `enroll:approve` supplies for it, at
@@ -590,7 +592,7 @@ Source of truth: `at_commons/lib/src/verb/syntax.dart`'s
 | `aAt`             | ISO 8601 | `availableAt`. Derived from `ttb`; since atServer 3.16.3 an asserted value is stored instead (see below).                                 |
 | `dataSignature`   | string   | Signature over a public value, signed by the owner's signing private key. Verifies authenticity.                                          |
 | `sharedKeyStatus` | enum     | Shared-key status (`localUpdated`, `remoteUpdated`, `sharedWithNotified`, etc.). The atServer neither stores nor returns it.              |
-| `isBinary`        | bool     | `true` if the value is binary (base64-encoded on the wire).                                                                               |
+| `isBinary`        | bool     | `true` if the value is binary; the reference SDK carries it as Base2e15 text ([§4.5](#45-binary-values)).                                 |
 | `isEncrypted`     | bool     | `true` if the value is ciphertext.                                                                                                        |
 | `sharedKeyEnc`    | string   | The shared symmetric key, RSA-encrypted to the recipient's encryption public key. Inline in metadata.                                     |
 | `pubKeyHash`      | string   | Hash of the recipient public key that encrypted `sharedKeyEnc`, to detect key rotation. Stored only with `hashingAlgo`.                   |
@@ -620,8 +622,8 @@ holds.
 An update notification with no `ttr`, or `ttr:0`, does not cache the
 value at the recipient's atServer.
 
-The grammar takes `cAt`, `uAt`, `eAt` and `aAt` since at_commons
-5.10.0 (atServer 3.13.0). Since atServer 3.16.3, the atServer stores
+Since atServer 3.13.0 (at_commons 5.10.0), the grammar takes `cAt`,
+`uAt`, `eAt` and `aAt`. Since atServer 3.16.3, the atServer stores
 an asserted value, truncated to milliseconds, in place of the one it
 would set or derive. An `update` or `update:meta` that asserts `eAt`
 with no `ttl`, or `ttl:0`, also stores the `ttl` that `eAt` implies;
@@ -641,7 +643,7 @@ for `encAlgo`, `AES/SIC/PKCS7Padding` for a value; for
 `skeEncAlgo`, `RSA`. When the reference SDK encrypts with its `legacy`
 crypto provider, it sets `ivNonce` and none of these four.
 
-`appMetadata`, since at_commons 5.11.0 (atServer 3.14.0), may carry
+Since atServer 3.14.0 (at_commons 5.11.0), `appMetadata` may carry
 provider-owned fields beside `providerId`. The reference SDK sets it
 on each value it encrypts, with `providerId` `legacy` unless the app
 configures another provider. The atServer refuses, with `AT0003`, a
@@ -1043,7 +1045,8 @@ Source:
 
 Since atServer 3.16.3, `:nc` (no-commit) writes no commit-log entry
 for the change, removes any entry the key already has, and answers
-`data:-1`.
+`data:-1`. From atServer 3.13.0 to 3.16.2 the grammar takes `:nc`, and
+the write is committed as usual.
 
 Response: `data:<commitId>` where `commitId` is the integer
 commit-log sequence number assigned to the operation. The reference
@@ -1082,10 +1085,12 @@ wire tags' names (§7.1), except that the timestamps are `createdAt`,
 object, `{"hash":"…","hashingAlgo":"…"}`.
 
 The atServer refuses to `update` a `local:`, `cached:` or `private:`
-key, or a name that is not a valid atKey, unless the name contains a
-reserved key from the first table in [§6.5](#65-reserved-keys)
-anywhere within it; `@<recipient>:shared_key@<atSign>` counts only at
-the start of the name. So `update` stores
+key, or a name that is not a valid atKey, unless a reserved key from
+either table in [§6.5](#65-reserved-keys) appears within the name. A
+`privatekey:` name counts only at the end of the name,
+`@<recipient>:shared_key@<atSign>` only at its start, `configkey` and
+`_` names only as the whole name, and any other reserved key wherever
+it appears. So `update` stores
 `cached:public:publickey@<atSign>`,
 `cached:public:signing_publickey@<atSign>` and
 `private:blocklist@<atSign>`, and also names such as
@@ -1140,10 +1145,12 @@ Source:
 
 - `:dAt:<timestamp>`, the deletion time the caller asserts, an ISO
   8601 UTC timestamp as for `cAt` (§7.1). Since atServer 3.16.3, the
-  atServer stamps the DELETE commit entry with it.
+  atServer stamps the DELETE commit entry with it. From atServer 3.13.0
+  to 3.16.2 it is accepted and not used.
 - `:nc`, no commit. Since atServer 3.16.3, no entry is written, any
   entry the key already has is removed, and the response is
-  `data:-1`.
+  `data:-1`. From atServer 3.13.0 to 3.16.2 it is accepted, and the
+  delete is committed as usual.
 - `:force`, required to delete an `immutable:true` key.
 - `:priority:<low|medium|high>`, the priority of the auto-notification
   described below.
@@ -1301,7 +1308,9 @@ Source:
 
 - `:cl`, since atServer 3.16.3, list commit-log entries instead of
   keys (see Response below). It needs a connection authenticated as
-  the atSign, and naming another atSign with it is refused.
+  the atSign, and naming another atSign with it is refused. From
+  atServer 3.13.0 to 3.16.2 `:cl` is accepted, and the scan answers as
+  it would without it.
 - `:showhidden:true`, on an authenticated connection, also list the
   hidden keys: keys that start with `_` (such as `_x.wavi@alice`) and
   `public:__` keys. `public:_` keys with a single underscore,
@@ -1328,8 +1337,10 @@ listed. What else `scan` lists depends on the connection:
   prefix.
 - CRAM: every key that `:showhidden` does not leave out.
 - APKAM: the public keys, and the keys the enrollment may read (`r` or
-  `rw`) through their namespace. Other keys with no namespace are left
-  out unless the enrollment holds `*`. Non-public `__manage` keys, and
+  `rw`) through their namespace. Other keys with no `.` in their name
+  are left out unless the enrollment holds `*`, and
+  `shared_key.<recipient>@<atSign>` is listed for every approved
+  enrollment. Non-public `__manage` keys, and
   other enrollments' `<enrollmentId>.a|r|d.__e` keys, are always left
   out.
 
@@ -1566,8 +1577,8 @@ data:[{"atKey":"@bob:phone.wavi@alice","operation":"+","opTime":"2026-05-05T10:3
       {"atKey":"@bob:shared_key.wavi@alice","operation":"-","opTime":"2026-05-05T10:31:42.000Z","commitId":43}]
 ```
 
-Operations: `+` for upsert, `-` for delete, `*` for metadata-only
-update.
+Operations: `+` or `*` for a write, `#` for a metadata-only write,
+`-` for a delete.
 
 The legacy `sync:<from_commit_seq>` syntax (without `:from:`) is
 retained for backward compatibility and is documented in
@@ -2028,7 +2039,7 @@ S: data:{"enrollmentId":"<uuid>","status":"approved"}\n@alice@
 #     enrollment. ===
 C: <TCP+TLS connect to alice's atServer>
 C: from:@alice\n
-S: data:_<sessionId>@alice:<challenge>\n@
+S: data:<sessionId>@alice:<challenge>\n@
 C: pkam:signingAlgo:rsa2048:hashingAlgo:sha256:enrollmentId:<uuid>:<signature>\n
 S: data:success\n@alice@
 # <signature> is made with the APKAM private key (§9.3).
@@ -2071,6 +2082,8 @@ S:           data:A1B2C3\n@alice@
 
 # === Approver, on its own monitor connection: listen. ===
 C(approver): monitor:selfNotifications\n
+# (Once it has seen a notification, the reference SDK adds
+#  :<epochMillis> of the last one.)
 # (No response line. Notifications stream from here on.)
 
 # === New app: it holds no credential yet, so it does not
@@ -2099,7 +2112,7 @@ S:      data:{"enrollmentId":"<uuid>","status":"pending"}\n@
 #     retrying until the request is decided. ===
 C(new): <TCP+TLS connect to alice's atServer>
 C(new): from:@alice\n
-S:      data:_<sessionId>@alice:<challenge>\n@
+S:      data:<sessionId>@alice:<challenge>\n@
 C(new): pkam:signingAlgo:rsa2048:hashingAlgo:sha256:enrollmentId:<uuid>:<signature>\n
 S:      error:AT0026:enrollment_id: <uuid> is pending\n@
 # <signature> is made with the new app's APKAM private key (§9.3).
@@ -2133,7 +2146,7 @@ S:           data:{"status":"approved","enrollmentId":"<uuid>"}\n@alice@
 
 # === New app: the next attempt succeeds. ===
 C(new): from:@alice\n
-S:      data:_<sessionId>@alice:<challenge>\n@
+S:      data:<sessionId>@alice:<challenge>\n@
 C(new): pkam:signingAlgo:rsa2048:hashingAlgo:sha256:enrollmentId:<uuid>:<signature>\n
 S:      data:success\n@alice@
 
@@ -2327,8 +2340,8 @@ must distinguish between them; clients may retry on `AT0401` but not on
 - **atKey**, A key in an atServer's keystore. Five shapes (public,
   self, shared, local, private) plus augmentations (hidden, cached).
 - **atServer**, The personal server for one atSign.
-- **atSign**, An identifier of the form `@<name>`. Maximum length 55
-  characters.
+- **atSign**, An identifier of the form `@<name>`. At most 55
+  characters after the `@`.
 - **Commit log**, Append-only log of `update`/`delete` operations.
   Walked by `sync:from`.
 - **CRAM**, Challenge-Response Authentication Mechanism. The
@@ -2666,10 +2679,10 @@ whose `eAt` has passed, or whose `aAt` has not yet come. A key it does
 not hold is answered `AT0015` (see [§17](#17-errors)). Two other paths
 differ:
 
-- A `lookup` or `plookup` of another atSign's key is answered by the
-  caller's own atServer, with `AT0015` for an expired key: it skips an
-  expired cached copy, and turns the owner's `data:null` into
-  `AT0015`.
+- An authenticated `lookup`, or a `plookup`, of another atSign's key
+  is answered by the caller's own atServer, with `AT0015` for an
+  expired key: it skips an expired cached copy, and turns the owner's
+  `data:null` into `AT0015`.
 - An authenticated `lookup` of a key the atServer's own atSign owns
   checks neither `eAt` nor `aAt`. It returns the stored value until
   the atServer's expiry sweep removes the key.
@@ -2784,7 +2797,7 @@ entry regardless. The exceptions answer `data:-1` and write no entry:
 `update` and `update:meta` do not error on a missing key either: they
 create it. `llookup` of a missing key answers `AT0015`.
 
-### D.14 Negative metadata integers are mostly meaningless
+### D.14 Negative metadata integers are refused, except `ttr:-1`
 
 The metadata regex permits `(-?)\d+` for `ttl`, `ttb`, `ttr`, but the
 atServer refuses a negative `ttl` or `ttb`, and a `ttr` below `-1`,
