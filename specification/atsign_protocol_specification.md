@@ -541,6 +541,10 @@ moves to `<enrollmentId>.r.__e`, and an un-revoke moves it back. When
 the enrollment record is removed, by `enroll:delete` or once it has
 expired, its data moves to `<enrollmentId>.d.__e`.
 
+Since atServer 3.16.1, approving an enrollment whose request carries
+`apsk` or `apskLegacy` also publishes that value at
+`public:_apsk.<enrollmentId>.a.__e@<atSign>`.
+
 The `__pkams` namespace is legacy. At startup the atServer deletes any
 `public:<app>.<device>.pkam.__pkams.__public_keys@<atSign>` record left
 for an enrollment.
@@ -922,7 +926,7 @@ Source:
 | `request`  | `data:{"enrollmentId":"<uuid>","status":"pending"}`, or `"approved"` when approved at once      |
 | `approve`  | `data:{"status":"approved","enrollmentId":"<uuid>"}`. Since atServer 3.17.1 it also carries `"expiresAt"`, an ISO-8601 UTC string or null |
 | `deny`     | `data:{"status":"denied","enrollmentId":"<uuid>"}`                                              |
-| `revoke`   | `data:{"status":"revoked","enrollmentId":"<uuid>"}`, with `"cascadedEnrollmentIds":[…]` when it also revoked the enrollments this one approved (`:force:` to revoke own enrollment) |
+| `revoke`   | `data:{"status":"revoked","enrollmentId":"<uuid>"}`, with `"cascadedEnrollmentIds":[…]` when it also revoked the enrollments that descend from it, those it approved and those they approved (`:force:` to revoke own enrollment) |
 | `unrevoke` | `data:{"status":"approved","enrollmentId":"<uuid>"}`                                            |
 | `delete`   | `data:{"enrollmentId":"<uuid>","status":"deleted"}`                                             |
 | `fetch`    | `data:{ <full enrollment record JSON> }`                                                        |
@@ -2048,8 +2052,9 @@ C: enroll:request:{
 S: data:{"enrollmentId":"<uuid>","status":"approved"}\n@alice@
 # Over CRAM the atServer approves the request at once and grants it
 # rw on __manage and on * (§9.4.1). signingAlgo names the algorithm
-# of the APKAM key. Since atServer 3.16.1, the atServer also
-# publishes the apskLegacy value as public:_apsk.<uuid>.a.__e@alice.
+# of the APKAM key; since atServer 3.15.0 the atServer keeps it with
+# the enrollment. Since atServer 3.16.1, the atServer also publishes
+# the apskLegacy value as public:_apsk.<uuid>.a.__e@alice.
 
 # === Close the connection. On a new one, authenticate as the
 #     enrollment. ===
