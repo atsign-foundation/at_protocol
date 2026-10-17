@@ -1,7 +1,7 @@
 # Per-key links for an enrollment's signing keys
 
 * **Status:** Draft
-* **Last Updated:** 2026-10-16
+* **Last Updated:** 2026-10-17
 * **Objective:** Let an enrollment vouch for each of another enrollment's
 signing keys in one call to the atServer, so a signing chain can be mended at
 once, without waiting for the other enrollment to come online.
@@ -153,20 +153,22 @@ checks that:
   spelt as clients write it, in padded standard base64;
 * each link's payload names the target and that `kid`, `alg` and public key;
 * each link is at most 16 KiB encoded, and both the whole call and the
-  target's `_apsk` record, its value with every link it would then hold, fit
-  the atServer's existing 500 KiB limit on an enrollment record;
+  target's `_apsk` record, its value and `appMetadata` with every link it
+  would then hold, fit the atServer's existing 500 KiB limit on an enrollment
+  record;
 * the link stored for each `kid` is the one the call names as `expect`,
   compared as JSON, or there's none when `expect` is null.
 
 The call is all or nothing, under the atServer's lock on enrollment writes,
-and a refusal names the `kid` that failed. The compare-and-set on `expect` is
+and a refusal names what failed. The compare-and-set on `expect` is
 what keeps two vouchers, or a voucher and a sweep, from losing each other's
 writes, and it leaves the policy for replacing a link to the client.
 
 Every atServer implementation carries the stored link map over on any other
 write of `_apsk`, a put or an `enroll:update` republish alike, whatever that
 write sends, and drops links for keys the new value no longer advertises.
-Those writes and `enroll:link` are serialised with each other.
+Those writes, a client's delete of the record, and `enroll:link` are
+serialised with each other.
 
 ### Client behaviour
 
