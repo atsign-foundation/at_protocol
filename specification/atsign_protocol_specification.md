@@ -375,11 +375,12 @@ string name one record, and `scan` returns keys in the folded form.
 | Public  | `public:<key>[.<namespace>]@<owner>`         | Anyone; `lookup` needs no auth            |
 | Self    | `<key>[.<namespace>]@<owner>`                | Owner only                                |
 | Shared  | `@<recipient>:<key>[.<namespace>]@<owner>`   | Owner and `<recipient>` only              |
-| Local   | `local:<key>[.<namespace>]@<owner>`          | Client only; `update` refuses one         |
+| Local   | `local:<key>[.<namespace>]@<owner>`          | Client only; see [§10.1](#101-update)     |
 | Private | `private:<key>@<owner>`, `privatekey:<name>` | atServer internal; never listed or synced |
 
-A `local:` key lives only in a client's own keystore: `update`
-refuses one, and the atServer's commit log never records one. On an
+A `local:` key is kept in a client's own keystore. `update` refuses
+one unless its name contains a reserved key ([§10.1](#101-update)),
+and the atServer's commit log never records one. On an
 atServer, `private:` and `privatekey:` keys are records the atServer
 keeps for itself. A `privatekey:` name carries no `@<owner>`.
 [§6.5](#65-reserved-keys) lists the reserved ones.
@@ -1029,8 +1030,8 @@ Response: `data:<commitId>` where `commitId` is the integer
 commit-log sequence number assigned to the operation. The reference
 SDK's sync takes it as the atServer's acknowledgement of a pushed
 write. A write to a key the commit log never records, a `public:_`
-key (but not `public:__`), a `private:` key or a `privatekey:` key,
-also answers `data:-1`.
+key (but not `public:__`), or a `local:`, `private:` or `privatekey:`
+key, also answers `data:-1`.
 
 ```text
 C: update:@bob:phone.wavi@alice +1 555 0100\n
@@ -1061,11 +1062,17 @@ wire tags' names (§7.1), except that the timestamps are `createdAt`,
 `updatedAt`, `expiresAt` and `availableAt`, and `pubKeyHash` is an
 object, `{"hash":"…","hashingAlgo":"…"}`.
 
-The atServer refuses to `update` a `local:` key, a `cached:` key
-other than `cached:public:publickey@<atSign>` or
-`cached:public:signing_publickey@<atSign>`, a `private:` key other
-than `private:blocklist@<atSign>`, or a name that is not a valid
-atKey. Only the JSON form can name the first three. The atServer also
+The atServer refuses to `update` a `local:`, `cached:` or `private:`
+key, or a name that is not a valid atKey, unless the name contains a
+reserved key from the first table in [§6.5](#65-reserved-keys)
+anywhere within it; `@<recipient>:shared_key@<atSign>` counts only at
+the start of the name. So `update` stores
+`cached:public:publickey@<atSign>`,
+`cached:public:signing_publickey@<atSign>` and
+`private:blocklist@<atSign>`, and also names such as
+`cached:shared_key.bob@alice`, answered with a commit id, and
+`local:shared_key.bob@alice`, answered `data:-1`. Only the JSON form
+can name a `local:`, `cached:` or `private:` key. The atServer also
 refuses to overwrite a record that carries `immutable:true`. Since
 atServer 3.16.2, a record whose expiry has passed counts as absent, so
 an expired immutable record no longer blocks the write.
