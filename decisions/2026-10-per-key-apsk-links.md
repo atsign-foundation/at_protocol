@@ -121,7 +121,10 @@ authentication key, as on the legacy posture. That key is dropped rather than
 retired once the enrollment mints a signing key, so it takes no links and signs
 none, and the atServer tells it apart by comparing it with the `apkamPublicKey`
 the enrollment record holds. Such an enrollment reads as unsigned until it
-publishes a signing key, which is linked like any other.
+publishes a signing key, which is linked like any other. For the same reason
+an `enroll:update` can't make a signing key the authentication key: it's
+refused when the new `apkamPublicKey` is a key the `_apsk` will still list
+beside another, or one that carries a link.
 
 Whether a link is a root link or a chain link follows from its signer. Every
 link names the `kid` of the key that signed it. If that `kid` is one of the
