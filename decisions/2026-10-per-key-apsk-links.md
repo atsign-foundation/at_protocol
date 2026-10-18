@@ -225,7 +225,7 @@ serialised with each other.
   production code that does should ship after `enroll:link` is on every
   atServer, or else tolerate unsigned enrollments.
 
-[design-chain]: https://github.com/atsign-foundation/at_client_sdk/blob/trunk/docs/projects/pq/design.md#983-the-chain-and-why-a-link-is-bound-to-the-exact-string
+[design-chain]: https://github.com/atsign-foundation/at_client_sdk/blob/66bf122a3af81d47aaa0071fb47fe78b5ef74be7/docs/projects/pq/design.md#983-the-chain-and-why-a-link-is-bound-to-the-exact-string
 [ruling-22-2]: https://github.com/atsign-foundation/at_client_sdk/blob/trunk/docs/projects/pq/detail/decisions.md#222-the-signing-root-chain-follows-the-approval-graph
 [ruling-24-2]: https://github.com/atsign-foundation/at_client_sdk/blob/trunk/docs/projects/pq/detail/decisions.md#242-the-rulings
 [ruling-144-2]: https://github.com/atsign-foundation/at_client_sdk/blob/trunk/docs/projects/pq/detail/decisions.md#1442-a-republish-clears-the-links-a-root-holder-re-anchors
