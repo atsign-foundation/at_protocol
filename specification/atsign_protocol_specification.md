@@ -468,7 +468,7 @@ An atServer may hold records under these reserved names:
 |--------------------------------------------------------------|---------------------------------------------------------------------------------------|
 | `public:publickey@<atSign>`                                  | Encryption public key. Used by other atSigns to encrypt to this owner.                |
 | `public:signing_publickey@<atSign>`                          | The atServer's own RSA signing public key, for checking its `pol` proofs.             |
-| `@<atSign>:signing_privatekey@<atSign>`                      | Private half of that keypair. The atServer signs its `pol` proofs with it.            |
+| `@<atSign>:signing_privatekey@<atSign>`                      | Private half of that keypair. The atServer signs its `pol` proofs, and the `dataSignature` of a `notify:all` notification, with it. |
 | `privatekey:signing_keypair_generated`                       | Marks that the atServer has generated its signing keypair.                            |
 | `privatekey:at_secret`                                       | CRAM secret. Onboarding deletes it.                                                   |
 | `privatekey:at_secret_deleted`                               | Kept once the CRAM secret is deleted, so that it is not planted again.                |
@@ -594,7 +594,7 @@ Source of truth: `at_commons/lib/src/verb/syntax.dart`'s
 | `uAt`             | ISO 8601 | `updatedAt` — UTC timestamp of most recent update.                                                                                        |
 | `eAt`             | ISO 8601 | `expiresAt`. Derived from `ttl`; since atServer 3.16.3 an asserted value is stored instead (see below).                                   |
 | `aAt`             | ISO 8601 | `availableAt`. Derived from `ttb`; since atServer 3.16.3 an asserted value is stored instead (see below).                                 |
-| `dataSignature`   | string   | Signature over a public value, signed by the owner's signing private key. Verifies authenticity.                                          |
+| `dataSignature`   | string   | Signature over a public value (RSA, SHA-256, base64). See [§14.2](#142-public-data-signatures) for the key that makes it.                 |
 | `sharedKeyStatus` | enum     | Shared-key status (`localUpdated`, `remoteUpdated`, `sharedWithNotified`, etc.). The atServer neither stores nor returns it.              |
 | `isBinary`        | bool     | `true` if the value is binary; the reference SDK carries it as Base2e15 text ([§4.5](#45-binary-values)).                                 |
 | `isEncrypted`     | bool     | `true` if the value is ciphertext.                                                                                                        |
@@ -1802,11 +1802,20 @@ scheme above. Other providers may encrypt differently.
 
 ### 14.2 Public-data signatures
 
-Public values may be signed by the owner's signing private key; the
-signature appears in `dataSignature`. Recipients verify against the
-owner's `public:signing_publickey@<owner>`. This is the only signature
-on a value-side payload, encrypted (shared) values rely on the AES
-authenticated-encryption mode in `encAlgo` to detect tampering.
+When the reference SDK writes a public value, it signs the value's bytes
+with the owner's encryption private key (RSA, SHA-256) and puts the
+base64 signature in `dataSignature`. The matching public key is
+`public:publickey@<owner>`, not `public:signing_publickey@<owner>`,
+which is the atServer's own key for `pol`
+([§6.5](#65-reserved-keys)).
+
+In a `notify:all` notification the atServer sets `dataSignature`
+itself: a signature over the notification's key, made with its
+`signing_privatekey`.
+
+This is the legacy signing scheme. It will soon be widened to support
+post-quantum data-signing keys as well
+([Appendix C.1](#c1-post-quantum-cryptography-and-crypto-agility)).
 
 ### 14.3 Public-key rotation
 
