@@ -754,16 +754,24 @@ on the receiving side. App code rarely calls it directly.
 **Response**: `data:-1` on `put` (commit ID; APKAM keys are
 non-committed) and `data:<JSON record>` on `get`.
 
-#### 9.4.4 Linking an enrollment's signing keys (`enroll:link`)
+#### 9.4.4 Linking an enrollment's client data signing keys (`enroll:link`)
 
 > **Since atServer 3.17.1. Experimental.**
 
-Each enrollment publishes the keys it signs with at
-`public:_apsk.<enrollmentId>.a.__e@<atSign>`, as a list of entries each
-naming a `kid`, an `alg` and a public key, or as one bare RSA-2048 key. A
-**link** vouches for one of those keys. The atServer keeps an enrollment's
-links in one map, `apskLinks`, in that record's `appMetadata`, keyed by
-`kid`, and `enroll:link` is the only way to write one.
+An enrollment whose request advertised client data signing keys publishes
+them at `public:_apsk.<enrollmentId>.a.__e@<atSign>`, either as one bare
+RSA-2048 public key or in the list form:
+
+```json
+{"v":1,"keys":[{"kid":"<kid>","use":"sign","alg":"<alg>","pub":"<public key>","status":"<status>"}]}
+```
+
+`status` is present only on a key that is no longer active. A **link**
+vouches for one of those keys. The atServer keeps an enrollment's links in
+one map, `apskLinks`, in that record's `appMetadata`, keyed by `kid`, and
+`enroll:link` is the only way to write one. When the record carries no
+`appMetadata`, the atServer creates `{"providerId":"legacy","apskLinks":{…}}`,
+since a reader requires `providerId`.
 
 #### Request and response
 
@@ -771,19 +779,21 @@ links in one map, `apskLinks`, in that record's `appMetadata`, keyed by
 enroll:link:{"enrollmentId":"<uuid>","links":{"<kid>":{"link":<link>,"expect":<link or null>}}}
 ```
 
-| Field          | Description                                                                                                            |
-|----------------|------------------------------------------------------------------------------------------------------------------------|
-| `enrollmentId` | The enrollment whose keys are linked.                                                                                  |
-| `links`        | For each `kid`, the link to store, and as `expect` the link the writer read on that key, or `null` if it read none.    |
+| Field          | Description                                                                                                                                                                                       |
+|----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `enrollmentId` | Required. The enrollment whose keys are linked.                                                                                                                                                   |
+| `links`        | Required and not empty. For each `kid`, an object holding the link to store as `link`, and as `expect` the link the writer read on that key, or `null` if it read none. `expect` must be present. |
 
 **Response**: `data:{"enrollmentId":"<uuid>","linked":["<kid>", …]}`.
 
 #### Who may call it
 
 The enrollment itself, for its own keys; a connection that could approve
-it, that is an enrollment holding `__manage` and access to every namespace
-the target holds, at the target's access; or a CRAM connection, as for
-`enroll:approve`. Any other caller is refused and nothing is written.
+it, that is an approved enrollment holding `__manage` explicitly (a `*`
+grant does not count) and every namespace the target holds, at the
+target's access; or a CRAM connection, as for `enroll:approve`. A target
+holding no namespaces can be linked only by itself or over CRAM. Any other
+authenticated caller is refused with `AT0009` and nothing is written.
 
 #### What the atServer checks
 
@@ -792,49 +802,64 @@ refused, naming what failed, unless:
 
 - the target enrollment is approved;
 - each `kid` is one the target's `_apsk` lists, with its public key spelt in
-  padded standard base64, and is not the target's authentication key, the
-  `apkamPublicKey` its enrollment record holds;
-- each link's payload names the target enrollment and that key's `kid`,
-  `alg` and public key;
-- each link is at most 16 KiB encoded, and both the call and the `_apsk`
-  record with every link it would then hold are within the 500 KiB
-  enrollment-record limit;
+  padded standard base64, and that key is not the target's client
+  authentication signing key, the `apkamPublicKey` its enrollment record
+  holds, compared as key bytes;
+- each link is a JSON object whose `payload`, a JSON object or the base64url
+  encoding of one, names the target enrollment and that key's `kid`, `alg`
+  and public key as `enrollmentId`, `kid`, `alg` and `pub`;
+- each link is at most 16 KiB as JSON, the call's parameters are within
+  500 KiB (512,000 bytes) as JSON, and so is the `_apsk` record's value and
+  `appMetadata` with every link the record would then hold;
 - each `expect` equals, compared as JSON, the link stored on that key, or
-  is `null` when none is stored. Two writers of one key's link cannot lose
-  each other's write: the second is refused and reads the record again.
+  is `null` when none is stored.
 
-A bare `_apsk` value is one `rsa2048` key, whose `kid` is the first 8
-bytes, hex-encoded, of the SHA-256 of the decoded key, as every other `kid`
-is derived. The atServer never checks a link's signature: a stored link is
-a claim, and whoever reads it verifies it.
+A stale `expect` is refused with `AT0032`, so a writer can tell a lost race
+from a bad request, read the record again and decide afresh; any other
+structural refusal is `AT0022`. Two writers of one key's link therefore
+cannot lose each other's write.
+
+In the list form, the atServer reads each entry that carries a string
+`kid`, `alg` and `pub`, takes its `kid` as written, ignores `use` and
+`status`, so a retired key can take a link, and keeps the first entry when
+a `kid` repeats. A bare `_apsk` value is one `rsa2048` key, whose `kid` the
+atServer derives: the first 8 bytes of the SHA-256 of the decoded key, as
+lowercase hex, which is how clients derive every `kid`. The atServer
+compares `kid`s exactly.
 
 #### Links
 
-A link's payload is
-`{"v":2,"enrollmentId":"<uuid>","kid":"<kid>","alg":"<alg>","pub":"<public key>"}`.
-It takes one of two forms:
+The atServer checks no more of a link than the above: it never checks a
+signature, and a stored link is a claim that whoever reads it verifies. A
+reader expects the payload
+`{"v":2,"enrollmentId":"<uuid>","kid":"<kid>","alg":"<alg>","pub":"<public key>"}`
+in one of two forms:
 
 - a **root link**, signed by a key of `public:pq_signing_root@<atSign>`:
-  `{"v":2,"alg":"mldsa65","kid":"<root kid>","payload":{…},"signature":"<base64>"}`,
-  the signature made over `at-root-link:` followed by the payload's compact
-  JSON;
-- a **chain link**, signed by a key that another enrollment's `_apsk` lists:
-  an RFC 7515 JWS in the general JSON serialization, `typ`
-  `at-chain-link+jws`, carrying the payload base64url-encoded and exactly
-  one signature.
+  `{"v":2,"alg":"mldsa65","kid":"<root kid>","payload":{…},"signature":"<base64>"}`.
+  The signature is over `at-root-link:` followed by the payload's members,
+  in the order they are stored, as JSON with no whitespace, so the atServer
+  stores a link exactly as it was sent;
+- a **chain link**, signed by a client data signing key that an enrollment's
+  `_apsk` lists, whether another enrollment's or the target's own when it
+  links a key it has added: an RFC 7515 JWS in the general JSON
+  serialization, carrying the payload base64url-encoded and exactly one
+  signature, whose protected header gives `typ` `at-chain-link+jws`, the
+  signing key's `kid` as `kid` and its enrollment as `enid`.
 
 #### Other writes of the record
 
 Every other write of an approved enrollment's `_apsk` record, an
-`enroll:update` that republishes it or an `update` of the record, keeps the
-links for the keys the new value still lists, whatever the write sent, and
-removes those for keys it no longer lists. `enroll:link`, these writes and
-a `delete` of the record run one at a time for each atSign, so each lands
-wholly before or after another.
+`enroll:update` that republishes it, the publish at `enroll:approve`, or an
+`update` or `update:meta` of the record, keeps the links for the keys the
+new value still lists, whatever the write sent, and removes those for keys
+it no longer lists. `enroll:link`, these writes and a `delete` of the record
+run one at a time for each atSign, so each lands wholly before or after
+another.
 
 An `enroll:update` is refused, naming the key, when it would leave the
-enrollment's authentication key listed in its `_apsk` beside another key,
-or carrying a link.
+enrollment's client authentication signing key listed in its `_apsk` beside
+another key, or carrying a link.
 
 ---
 
