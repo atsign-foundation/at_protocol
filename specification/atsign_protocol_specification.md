@@ -758,9 +758,11 @@ non-committed) and `data:<JSON record>` on `get`.
 
 > **Since atServer 3.17.1. Experimental.**
 
-An enrollment whose request advertised client data signing keys publishes
-them at `public:_apsk.<enrollmentId>.a.__e@<atSign>`, either as one bare
-RSA-2048 public key or in the list form:
+An enrollment publishes the keys it signs with at
+`public:_apsk.<enrollmentId>.a.__e@<atSign>`, from its request or a later
+`enroll:update`: its client data signing keys, or, while it holds none, its
+client authentication signing key, which takes no link. The value is one bare
+RSA-2048 public key, or the list form:
 
 ```json
 {"v":1,"keys":[{"kid":"<kid>","use":"sign","alg":"<alg>","pub":"<public key>","status":"<status>"}]}
@@ -793,7 +795,8 @@ it, that is an approved enrollment holding `__manage` explicitly (a `*`
 grant does not count) and every namespace the target holds, at the
 target's access; or a CRAM connection, as for `enroll:approve`. A target
 holding no namespaces can be linked only by itself or over CRAM. Any other
-authenticated caller is refused with `AT0009` and nothing is written.
+authenticated caller making a well-formed call on an enrollment that exists
+is refused with `AT0009`, and nothing is written.
 
 #### What the atServer checks
 
@@ -815,9 +818,11 @@ refused, naming what failed, unless:
   is `null` when none is stored.
 
 A stale `expect` is refused with `AT0032`, so a writer can tell a lost race
-from a bad request, read the record again and decide afresh; any other
-structural refusal is `AT0022`. Two writers of one key's link therefore
-cannot lose each other's write.
+from a bad request, read the record again and decide afresh. The request's
+required fields and every other check above are refused with `AT0022`,
+except the target's own state: a target that does not exist or is not
+approved is refused with an error naming it. Two writers of one key's link
+therefore cannot lose each other's write.
 
 In the list form, the atServer reads each entry that carries a string
 `kid`, `alg` and `pub`, takes its `kid` as written, ignores `use` and
@@ -839,13 +844,13 @@ in one of two forms:
   `{"v":2,"alg":"mldsa65","kid":"<root kid>","payload":{…},"signature":"<base64>"}`.
   The signature is over `at-root-link:` followed by the payload's members,
   in the order they are stored, as JSON with no whitespace, so the atServer
-  stores a link exactly as it was sent;
+  stores a link's JSON value with its members in the order they were sent;
 - a **chain link**, signed by a client data signing key that an enrollment's
   `_apsk` lists, whether another enrollment's or the target's own when it
   links a key it has added: an RFC 7515 JWS in the general JSON
   serialization, carrying the payload base64url-encoded and exactly one
   signature, whose protected header gives `typ` `at-chain-link+jws`, the
-  signing key's `kid` as `kid` and its enrollment as `enid`.
+  key's `kid` as `kid` and its enrollment as `enid`.
 
 #### Other writes of the record
 
