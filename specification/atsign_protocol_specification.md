@@ -493,7 +493,7 @@ Another atServer checks this atServer's `pol` proof against
 ([§14.2](#142-public-data-signatures)). PKAM does not use this
 keypair.
 
-This spec names each key that signs:
+This specification names the keys that sign as follows:
 
 - The **client authentication signing key** signs `pkam:`
   ([§9.3](#93-pkam-pkam)). It is the atSign's PKAM key or, under
@@ -503,11 +503,14 @@ This spec names each key that signs:
   `public:_apsk.<enrollmentId>.a.__e@<atSign>` (below). Unless the app
   has a separate data signing key, the reference SDK advertises the
   enrollment's APKAM key there, so the two client keys are one
-  keypair. `apsk` lets them differ, and forthcoming releases require
-  them to differ.
+  keypair. The request's `apsk` or `apskLegacy` names the key to
+  advertise, so the two can differ. The reference SDK already
+  requires a separate data signing key when the APKAM key is not
+  RSA-2048, and forthcoming releases require the two keys to differ.
 - The **legacy data signing key** is the client encryption key, the
-  private half of `public:publickey@<atSign>`. The reference SDK signs
-  public values with it ([§14.2](#142-public-data-signatures)).
+  private half of `public:publickey@<atSign>`. The reference SDK's
+  `AtClient.put` signs public values with it
+  ([§14.2](#142-public-data-signatures)).
 - The **server authentication signing key** is the atServer's own
   `signing_privatekey`, above.
 
@@ -791,9 +794,10 @@ ID and stores the challenge under
 `keyPrefix` is `private:` if the connecting atSign matches the
 server's own atSign (self-connect) and `public:` otherwise. This
 matters for `pol`: the verifier reads the challenge back under this
-name, and the prover stores its signed copy under the same name in its
-own keystore, where the verifier fetches it with an unauthenticated
-`lookup` (see [§15.2](#152-the-pol-handshake)).
+name, and the prover stores its copy, signed with its server
+authentication signing key, under the same name in its own keystore,
+where the verifier fetches it with an unauthenticated `lookup` (see
+[§15.2](#152-the-pol-handshake)).
 
 The response payload is:
 
@@ -1834,20 +1838,21 @@ When the reference SDK's `AtClient.put` writes a public value, it
 signs the value with the legacy data signing key, the client
 encryption key ([§6.5](#65-reserved-keys)), using RSA with SHA-256,
 and puts the base64 signature in `dataSignature`. It signs the UTF-8
-bytes of the value it was given: for a binary value, its Base2e15 text
+bytes of the value's text: for a binary value, its Base2e15 text
 ([§4.5](#45-binary-values)), and before any `encoding:base64`
 ([Appendix D.9](#d9-newline-escaping-is-value-class-specific)). The
 matching public key is `public:publickey@<owner>`, not
-`public:signing_publickey@<owner>`.
+`public:signing_publickey@<owner>`. Signing public values with the
+legacy data signing key is the legacy scheme. It will be widened to
+sign with client data signing keys, post-quantum ones included
+([Appendix C.1](#c1-post-quantum-cryptography-and-crypto-agility)).
 
 In a `notify:all` notification the atServer sets `dataSignature`
 itself: a signature over `<atKey>@<atSign>`, the notified key without
-its recipient, made with its server authentication signing key. Every
-recipient's notification carries the same signature.
-
-This is the legacy scheme. It will be widened to sign with client
-data signing keys, post-quantum ones included
-([Appendix C.1](#c1-post-quantum-cryptography-and-crypto-agility)).
+its recipient, made with its server authentication signing key. The
+atServer stores the same signature on each recipient's notification.
+The `notify` it sends on to a recipient's atServer does not carry
+it.
 
 ### 14.3 Public-key rotation
 
@@ -2100,7 +2105,8 @@ S: data:{"enrollmentId":"<uuid>","status":"approved"}\n@alice@
 # of the APKAM key; since atServer 3.15.0 the atServer keeps it with
 # the enrollment. Since atServer 3.16.1, the atServer also publishes
 # the apskLegacy value as public:_apsk.<uuid>.a.__e@alice: the
-# enrollment's client data signing key, here its APKAM public key.
+# public half of the enrollment's client data signing key, here its
+# APKAM public key.
 
 # === Close the connection. On a new one, authenticate as the
 #     enrollment. ===
@@ -2132,8 +2138,8 @@ Before this exchange, at_onboarding_cli sends the same
 atServer answers with a key.
 
 Onboarding does not write `public:signing_publickey@alice`. The
-atServer generates that keypair itself when it first starts
-([§6.5](#65-reserved-keys)).
+atServer generates that keypair, its server authentication signing
+key, itself when it first starts ([§6.5](#65-reserved-keys)).
 
 The reference SDK does not send
 `update:privatekey:at_pkam_publickey`. Since atServer 3.16.4, that
@@ -2290,7 +2296,8 @@ C(bob): lookup:phone.wavi@alice\n
 #     opens unauthenticated outbound to bobServer
 #     aliceServer → bobServer (in pol):
 #         lookup:<sessionId>@bob → data:<signedChallenge>
-#         lookup:signing_publickey@bob → data:<its public half>
+#         lookup:signing_publickey@bob →
+#             data:<@bob's server authentication signing public key>
 #     verifies signature; succeeds.
 #
 #   aliceServer → bobServer:  @bob@   (PolResponseHandler strips `pol:`)
@@ -2447,7 +2454,7 @@ must distinguish between them; clients may retry on `AT0401` but not on
 - **Enrollment**, An APKAM record granting an app a namespace-scoped
   keypair. Has lifecycle states `pending`, `approved`, `denied`,
   `revoked`, `expired`.
-- **Master AtKeys**, The atSign's root keypairs, produced at
+- **Master AtKeys**, The atSign's root keys, produced at
   onboarding: the PKAM key (a client authentication signing key), the
   encryption key (also the legacy data signing key) and the
   self-encryption key.
