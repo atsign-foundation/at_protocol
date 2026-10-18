@@ -756,7 +756,7 @@ non-committed) and `data:<JSON record>` on `get`.
 
 #### 9.4.4 Linking an enrollment's client data signing keys (`enroll:link`)
 
-> **Since atServer 3.17.1. Experimental.**
+> **Since atServer 3.17.1.**
 
 An enrollment publishes the keys it signs with at
 `public:_apsk.<enrollmentId>.a.__e@<atSign>`, from its request or a later
