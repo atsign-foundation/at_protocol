@@ -358,7 +358,8 @@ Each produces credentials that later exchanges on the wire use.
    `public:publickey@<atSign>` and deletes `privatekey:at_secret`.
    From then on `cram` fails. The app does not write
    `public:signing_publickey@<atSign>`: the atServer generates that
-   keypair itself when it first starts ([§6.5](#65-reserved-keys)).
+   keypair, its server authentication signing key, itself when it
+   first starts ([§6.5](#65-reserved-keys)).
 3. **Enroll (per app).** Each further app enrolls with APKAM
    ([§9.4](#94-apkam-enroll-otp-keys)). It generates its own APKAM
    keypair and asks for a namespace permission map such as
@@ -467,9 +468,9 @@ An atServer may hold records under these reserved names:
 | Reserved key                                                 | Purpose                                                                               |
 |--------------------------------------------------------------|---------------------------------------------------------------------------------------|
 | `public:publickey@<atSign>`                                  | Encryption public key. Used by other atSigns to encrypt to this owner.                |
-| `public:signing_publickey@<atSign>`                          | The atServer's own RSA signing public key, for checking its `pol` proofs.             |
+| `public:signing_publickey@<atSign>`                          | Public half of the atServer's server authentication signing key (RSA), for checking its `pol` proofs and `notify:all` signatures. |
 | `@<atSign>:signing_privatekey@<atSign>`                      | Private half of that keypair. The atServer signs its `pol` proofs, and the `dataSignature` of a `notify:all` notification, with it. |
-| `privatekey:signing_keypair_generated`                       | Marks that the atServer has generated its signing keypair.                            |
+| `privatekey:signing_keypair_generated`                       | Marks that the atServer has generated its server authentication signing keypair.      |
 | `privatekey:at_secret`                                       | CRAM secret. Onboarding deletes it.                                                   |
 | `privatekey:at_secret_deleted`                               | Kept once the CRAM secret is deleted, so that it is not planted again.                |
 | `privatekey:at_pkam_publickey`                               | Legacy PKAM public key. See below.                                                    |
@@ -482,11 +483,35 @@ An atServer may hold records under these reserved names:
 | `privatekey:at_telemetry_signing_privatekey`                 | Experimental. The atServer's telemetry signing key. See below.                        |
 | `public:_at_telemetry_signing_publickey.__atserver@<atSign>` | Experimental. Public record of the telemetry signing key.                             |
 
-The atServer generates its RSA signing keypair the first time it
-starts, and records `privatekey:signing_keypair_generated` so that it
-does so once. Another atServer checks this atServer's `pol` proof
-against `public:signing_publickey@<atSign>`
-([§15.2](#152-the-pol-handshake)). PKAM does not use this keypair.
+The atServer generates its RSA signing keypair, its server
+authentication signing key, the first time it starts, and records
+`privatekey:signing_keypair_generated` so that it does so once.
+Another atServer checks this atServer's `pol` proof against
+`public:signing_publickey@<atSign>`
+([§15.2](#152-the-pol-handshake)), and the atServer also signs
+`notify:all`'s `dataSignature` with it
+([§14.2](#142-public-data-signatures)). PKAM does not use this
+keypair.
+
+This spec names each key that signs:
+
+- The **client authentication signing key** signs `pkam:`
+  ([§9.3](#93-pkam-pkam)). It is the atSign's PKAM key or, under
+  APKAM, the enrollment's own APKAM key.
+- The **client data signing key** is an enrollment's key for signing
+  data. Its public half is published at
+  `public:_apsk.<enrollmentId>.a.__e@<atSign>` (below). Unless the app
+  has a separate data signing key, the reference SDK advertises the
+  enrollment's APKAM key there, so the two client keys are one
+  keypair. `apsk` lets them differ, and forthcoming releases require
+  them to differ.
+- The **legacy data signing key** is the client encryption key, the
+  private half of `public:publickey@<atSign>`. The reference SDK signs
+  public values with it ([§14.2](#142-public-data-signatures)).
+- The **server authentication signing key** is the atServer's own
+  `signing_privatekey`, above.
+
+The atServer's telemetry key, below, is none of these.
 
 The atServer plants `privatekey:at_secret` at startup from the CRAM
 secret it is started with, and stops once
@@ -543,7 +568,8 @@ expired, its data moves to `<enrollmentId>.d.__e`.
 
 Since atServer 3.16.1, approving an enrollment whose request carries
 `apsk` or `apskLegacy` also publishes its `apskLegacy`, or else its
-`apsk` as JSON, at `public:_apsk.<enrollmentId>.a.__e@<atSign>`.
+`apsk` as JSON, at `public:_apsk.<enrollmentId>.a.__e@<atSign>`: the
+public half of the enrollment's client data signing key.
 
 The `__pkams` namespace is legacy. At startup the atServer deletes any
 `public:<app>.<device>.pkam.__pkams.__public_keys@<atSign>` record left
@@ -594,7 +620,7 @@ Source of truth: `at_commons/lib/src/verb/syntax.dart`'s
 | `uAt`             | ISO 8601 | `updatedAt` — UTC timestamp of most recent update.                                                                                        |
 | `eAt`             | ISO 8601 | `expiresAt`. Derived from `ttl`; since atServer 3.16.3 an asserted value is stored instead (see below).                                   |
 | `aAt`             | ISO 8601 | `availableAt`. Derived from `ttb`; since atServer 3.16.3 an asserted value is stored instead (see below).                                 |
-| `dataSignature`   | string   | Signature over a public value (RSA, SHA-256, base64). See [§14.2](#142-public-data-signatures) for the key that makes it.                 |
+| `dataSignature`   | string   | Signature over a public value or, in a `notify:all` notification, over the notified key (RSA, SHA-256, base64). See [§14.2](#142-public-data-signatures) for the keys that make them. |
 | `sharedKeyStatus` | enum     | Shared-key status (`localUpdated`, `remoteUpdated`, `sharedWithNotified`, etc.). The atServer neither stores nor returns it.              |
 | `isBinary`        | bool     | `true` if the value is binary; the reference SDK carries it as Base2e15 text ([§4.5](#45-binary-values)).                                 |
 | `isEncrypted`     | bool     | `true` if the value is ciphertext.                                                                                                        |
@@ -830,8 +856,10 @@ After success the connection is **authenticated as owner**.
 ### 9.3 PKAM (`pkam`)
 
 Plain PKAM is the underlying signature-based authentication that APKAM
-extends. A client running plain PKAM holds the master signing private
-key directly.
+extends. A client running plain PKAM signs with the atSign's PKAM
+private key; under APKAM, each enrollment signs with its own APKAM
+private key. Either is a client authentication signing key
+([§6.5](#65-reserved-keys)).
 
 #### Syntax
 
@@ -847,8 +875,8 @@ Source:
 
 Signature computation: the client signs the `from` challenge
 (everything the `from` response payload contained, less any leading
-`data:`) with the owner's signing private key, base64-encodes the
-result, and sends it as `<signature>`.
+`data:`) with its client authentication signing key, base64-encodes
+the result, and sends it as `<signature>`.
 
 Defaults: `signingAlgo:rsa2048`, `hashingAlgo:sha256`. The `enrollmentId`
 is omitted for plain PKAM; an APKAM-issued credential includes the
@@ -1802,19 +1830,23 @@ scheme above. Other providers may encrypt differently.
 
 ### 14.2 Public-data signatures
 
-When the reference SDK writes a public value, it signs the value's bytes
-with the owner's encryption private key (RSA, SHA-256) and puts the
-base64 signature in `dataSignature`. The matching public key is
-`public:publickey@<owner>`, not `public:signing_publickey@<owner>`,
-which is the atServer's own key for `pol`
-([§6.5](#65-reserved-keys)).
+When the reference SDK's `AtClient.put` writes a public value, it
+signs the value with the legacy data signing key, the client
+encryption key ([§6.5](#65-reserved-keys)), using RSA with SHA-256,
+and puts the base64 signature in `dataSignature`. It signs the UTF-8
+bytes of the value it was given: for a binary value, its Base2e15 text
+([§4.5](#45-binary-values)), and before any `encoding:base64`
+([Appendix D.9](#d9-newline-escaping-is-value-class-specific)). The
+matching public key is `public:publickey@<owner>`, not
+`public:signing_publickey@<owner>`.
 
 In a `notify:all` notification the atServer sets `dataSignature`
-itself: a signature over the notification's key, made with its
-`signing_privatekey`.
+itself: a signature over `<atKey>@<atSign>`, the notified key without
+its recipient, made with its server authentication signing key. Every
+recipient's notification carries the same signature.
 
-This is the legacy signing scheme. It will soon be widened to support
-post-quantum data-signing keys as well
+This is the legacy scheme. It will be widened to sign with client
+data signing keys, post-quantum ones included
 ([Appendix C.1](#c1-post-quantum-cryptography-and-crypto-agility)).
 
 ### 14.3 Public-key rotation
@@ -1918,8 +1950,9 @@ challenge mechanism as PKAM but inverted: instead of A signing a
 challenge from B and sending the signature inline, A *publishes* its
 signed challenge as a public atKey on its own atServer (under a
 session-scoped name) and tells B to come and look it up. This means
-the secret signing key never leaves A; B verifies by fetching A's
-public signing key from A and verifying the signature.
+A's server authentication signing key never leaves A; B verifies the
+signature with its public half, `public:signing_publickey@A`, which it
+fetches from A.
 
 **Step-by-step.** Source:
 `at_secondary_server/lib/src/verb/handler/pol_verb_handler.dart` and
@@ -1932,7 +1965,7 @@ A → B:  from:@A
 B → A:  data:proof:<sessionId>@A:<challenge-uuid>\n@
 
 A:  parses cookieParams from response → (sessionId, challenge)
-A:  signedChallenge = base64( sign_RSA_SHA256(challenge, A_signing_priv) )
+A:  signedChallenge = base64( sign_RSA_SHA256(challenge, A_server_auth_priv) )
 A:  store in own keystore: public:<sessionId>@A = signedChallenge   (TTL ~60s)
 
 A → B:  pol\n
@@ -1943,9 +1976,9 @@ B's pol handler:
       B → A:  lookup:<sessionId>@A
       A → B:  data:<signedChallenge>
       B → A:  lookup:signing_publickey@A
-      A → B:  data:<A's RSA signing public key>
+      A → B:  data:<A's server authentication signing public key>
   - Reads its own stored secret: get(public:<sessionId>@A) = challenge
-  - Verifies: RSA_SHA256_verify(A_signing_pub, challenge, signedChallenge)
+  - Verifies: RSA_SHA256_verify(A_server_auth_pub, challenge, signedChallenge)
   - On success: marks the inbound connection as polAuthenticated,
                 deletes the stored secret, responds:
 
@@ -2066,7 +2099,8 @@ S: data:{"enrollmentId":"<uuid>","status":"approved"}\n@alice@
 # rw on __manage and on * (§9.4.1). signingAlgo names the algorithm
 # of the APKAM key; since atServer 3.15.0 the atServer keeps it with
 # the enrollment. Since atServer 3.16.1, the atServer also publishes
-# the apskLegacy value as public:_apsk.<uuid>.a.__e@alice.
+# the apskLegacy value as public:_apsk.<uuid>.a.__e@alice: the
+# enrollment's client data signing key, here its APKAM public key.
 
 # === Close the connection. On a new one, authenticate as the
 #     enrollment. ===
@@ -2075,7 +2109,8 @@ C: from:@alice\n
 S: data:<sessionId>@alice:<challenge>\n@
 C: pkam:signingAlgo:rsa2048:hashingAlgo:sha256:enrollmentId:<uuid>:<signature>\n
 S: data:success\n@alice@
-# <signature> is made with the APKAM private key (§9.3).
+# <signature> is made with the APKAM private key, the enrollment's
+# client authentication signing key (§9.3).
 
 # Client side: store the keys and the enrollment id, for example in
 # an .atKeys file.
@@ -2158,7 +2193,8 @@ C(new): from:@alice\n
 S:      data:<sessionId>@alice:<challenge>\n@
 C(new): pkam:signingAlgo:rsa2048:hashingAlgo:sha256:enrollmentId:<uuid>:<signature>\n
 S:      error:AT0026:enrollment_id: <uuid> is pending\n@
-# <signature> is made with the new app's APKAM private key (§9.3).
+# <signature> is made with the new app's APKAM private key, its
+# client authentication signing key (§9.3).
 
 # === Approver's monitor connection: the request is announced. ===
 S(approver): notification: {"id":"<id>","from":"@alice","to":"@alice",
@@ -2244,7 +2280,7 @@ C(bob): lookup:phone.wavi@alice\n
 #   bobServer → aliceServer:  from:@bob
 #   aliceServer → bobServer:  data:proof:<sessionId>@bob:<chal>\n@
 #
-#   bobServer signs <chal> with @bob's signing private key.
+#   bobServer signs <chal> with its server authentication signing key.
 #   bobServer stores public:<sessionId>@bob = signedChallenge in its
 #   own keystore.
 #
@@ -2254,7 +2290,7 @@ C(bob): lookup:phone.wavi@alice\n
 #     opens unauthenticated outbound to bobServer
 #     aliceServer → bobServer (in pol):
 #         lookup:<sessionId>@bob → data:<signedChallenge>
-#         lookup:signing_publickey@bob → data:<@bob's signing pub key>
+#         lookup:signing_publickey@bob → data:<its public half>
 #     verifies signature; succeeds.
 #
 #   aliceServer → bobServer:  @bob@   (PolResponseHandler strips `pol:`)
@@ -2411,8 +2447,10 @@ must distinguish between them; clients may retry on `AT0401` but not on
 - **Enrollment**, An APKAM record granting an app a namespace-scoped
   keypair. Has lifecycle states `pending`, `approved`, `denied`,
   `revoked`, `expired`.
-- **Master AtKeys**, The atSign's root keypairs (PKAM signing,
-  encryption, self-encryption), produced at onboarding.
+- **Master AtKeys**, The atSign's root keypairs, produced at
+  onboarding: the PKAM key (a client authentication signing key), the
+  encryption key (also the legacy data signing key) and the
+  self-encryption key.
 - **OTP**, Six-character alphanumeric one-time password. Used to bind
   an APKAM enrollment to an out-of-band human approval.
 - **PKAM**, Public-Key Authentication Mechanism. Sign-the-challenge
@@ -2425,6 +2463,9 @@ must distinguish between them; clients may retry on `AT0401` but not on
   request on a connection.
 - **`sharedKeyEnc`**, Inline-in-metadata, RSA-encrypted shared
   symmetric key.
+- **Signing keys**, The client authentication, client data, legacy
+  data and server authentication signing keys. See
+  [§6.5](#65-reserved-keys).
 - **Verb**, A single-line command in the protocol.
 
 ---
