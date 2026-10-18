@@ -754,6 +754,88 @@ on the receiving side. App code rarely calls it directly.
 **Response**: `data:-1` on `put` (commit ID; APKAM keys are
 non-committed) and `data:<JSON record>` on `get`.
 
+#### 9.4.4 Linking an enrollment's signing keys (`enroll:link`)
+
+> **Since atServer 3.17.1. Experimental.**
+
+Each enrollment publishes the keys it signs with at
+`public:_apsk.<enrollmentId>.a.__e@<atSign>`, as a list of entries each
+naming a `kid`, an `alg` and a public key, or as one bare RSA-2048 key. A
+**link** vouches for one of those keys. The atServer keeps an enrollment's
+links in one map, `apskLinks`, in that record's `appMetadata`, keyed by
+`kid`, and `enroll:link` is the only way to write one.
+
+#### Request and response
+
+```text
+enroll:link:{"enrollmentId":"<uuid>","links":{"<kid>":{"link":<link>,"expect":<link or null>}}}
+```
+
+| Field          | Description                                                                                                            |
+|----------------|------------------------------------------------------------------------------------------------------------------------|
+| `enrollmentId` | The enrollment whose keys are linked.                                                                                  |
+| `links`        | For each `kid`, the link to store, and as `expect` the link the writer read on that key, or `null` if it read none.    |
+
+**Response**: `data:{"enrollmentId":"<uuid>","linked":["<kid>", …]}`.
+
+#### Who may call it
+
+The enrollment itself, for its own keys; a connection that could approve
+it, that is an enrollment holding `__manage` and access to every namespace
+the target holds, at the target's access; or a CRAM connection, as for
+`enroll:approve`. Any other caller is refused and nothing is written.
+
+#### What the atServer checks
+
+The atServer writes every link in a call or none of them. A call is
+refused, naming what failed, unless:
+
+- the target enrollment is approved;
+- each `kid` is one the target's `_apsk` lists, with its public key spelt in
+  padded standard base64, and is not the target's authentication key, the
+  `apkamPublicKey` its enrollment record holds;
+- each link's payload names the target enrollment and that key's `kid`,
+  `alg` and public key;
+- each link is at most 16 KiB encoded, and both the call and the `_apsk`
+  record with every link it would then hold are within the 500 KiB
+  enrollment-record limit;
+- each `expect` equals, compared as JSON, the link stored on that key, or
+  is `null` when none is stored. Two writers of one key's link cannot lose
+  each other's write: the second is refused and reads the record again.
+
+A bare `_apsk` value is one `rsa2048` key, whose `kid` is the first 8
+bytes, hex-encoded, of the SHA-256 of the decoded key, as every other `kid`
+is derived. The atServer never checks a link's signature: a stored link is
+a claim, and whoever reads it verifies it.
+
+#### Links
+
+A link's payload is
+`{"v":2,"enrollmentId":"<uuid>","kid":"<kid>","alg":"<alg>","pub":"<public key>"}`.
+It takes one of two forms:
+
+- a **root link**, signed by a key of `public:pq_signing_root@<atSign>`:
+  `{"v":2,"alg":"mldsa65","kid":"<root kid>","payload":{…},"signature":"<base64>"}`,
+  the signature made over `at-root-link:` followed by the payload's compact
+  JSON;
+- a **chain link**, signed by a key that another enrollment's `_apsk` lists:
+  an RFC 7515 JWS in the general JSON serialization, `typ`
+  `at-chain-link+jws`, carrying the payload base64url-encoded and exactly
+  one signature.
+
+#### Other writes of the record
+
+Every other write of an approved enrollment's `_apsk` record, an
+`enroll:update` that republishes it or an `update` of the record, keeps the
+links for the keys the new value still lists, whatever the write sent, and
+removes those for keys it no longer lists. `enroll:link`, these writes and
+a `delete` of the record run one at a time for each atSign, so each lands
+wholly before or after another.
+
+An `enroll:update` is refused, naming the key, when it would leave the
+enrollment's authentication key listed in its `_apsk` beside another key,
+or carrying a link.
+
 ---
 
 ## 10. CRUD verbs
