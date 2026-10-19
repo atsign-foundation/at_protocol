@@ -929,27 +929,28 @@ enroll:<operation>[:force][:<enrollParams-json>]
 Source:
 
 ```text
-^enroll:(?<operation>(?:(request|approve|deny|revoke|list|fetch|unrevoke|delete)))(:(?<force>force))?(?::)?((?<enrollParams>.+)|(<=list:)<enrollParams>.?)?$
+^enroll:(?<operation>(?:(request|approve|deny|revoke|listns|infons|list|fetch|unrevoke|delete|update|link)))(:(?<force>force))?(:(?<listNamespace>[^:{\n]+))?(?::)?((?<enrollParams>.+)|(<=list:)<enrollParams>.?)?$
 ```
 
 `<enrollParams>` is the JSON serialisation of the `EnrollParams` shape
 (`at_commons/lib/src/verb/enroll_params.dart`):
 
-| Field                                  | Used by                                   | Description                                                                                    |
-|----------------------------------------|-------------------------------------------|------------------------------------------------------------------------------------------------|
-| `enrollmentId`                         | approve/deny/revoke/fetch/delete/unrevoke | UUID of the enrollment.                                                                        |
-| `appName`                              | request                                   | Application name, e.g. `"todos"`.                                                              |
-| `deviceName`                           | request                                   | Unique device identifier.                                                                      |
-| `namespaces`                           | request                                   | Map of `namespace → permission` (`r`, `w`, `rw`, `rwx`).                                       |
-| `otp`                                  | request                                   | One-time password from `otp:get`.                                                              |
-| `apkamPublicKey`                       | request                                   | New device's APKAM public key (PEM or base64).                                                 |
-| `encryptedAPKAMSymmetricKey`           | request                                   | New device's APKAM symmetric key, RSA-encrypted to the default encryption public key.          |
-| `encryptedDefaultEncryptionPrivateKey` | approve                                   | Owner's encryption private key, AES-encrypted with the APKAM symmetric key.                    |
-| `encPrivateKeyIV`                      | approve                                   | IV (base64) for the line above.                                                                |
-| `encryptedDefaultSelfEncryptionKey`    | approve                                   | Owner's self-encryption key, AES-encrypted with the APKAM symmetric key.                       |
-| `selfEncKeyIV`                         | approve                                   | IV (base64) for the line above.                                                                |
-| `enrollmentStatusFilter`               | list                                      | Optional list of statuses to filter on: `pending`, `approved`, `denied`, `revoked`, `expired`. |
-| `apkamKeysExpiryInMillis`              | request                                   | Lifetime the request asks for, in milliseconds from approval; absent or 0 for none.            |
+| Field                                  | Used by                                        | Description                                                                                                                                                                                             |
+|----------------------------------------|------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `enrollmentId`                         | approve/deny/revoke/fetch/delete/unrevoke/link | UUID of the enrollment.                                                                                                                                                                                 |
+| `appName`                              | request                                        | Application name, e.g. `"todos"`.                                                                                                                                                                       |
+| `deviceName`                           | request                                        | Unique device identifier.                                                                                                                                                                               |
+| `namespaces`                           | request                                        | Map of `namespace → permission` (`r`, `w`, `rw`, `rwx`).                                                                                                                                                |
+| `otp`                                  | request                                        | One-time password from `otp:get`.                                                                                                                                                                       |
+| `apkamPublicKey`                       | request                                        | New device's APKAM public key (PEM or base64).                                                                                                                                                          |
+| `encryptedAPKAMSymmetricKey`           | request                                        | New device's APKAM symmetric key, RSA-encrypted to the default encryption public key.                                                                                                                   |
+| `encryptedDefaultEncryptionPrivateKey` | approve                                        | Owner's encryption private key, AES-encrypted with the APKAM symmetric key.                                                                                                                             |
+| `encPrivateKeyIV`                      | approve                                        | IV (base64) for the line above.                                                                                                                                                                         |
+| `encryptedDefaultSelfEncryptionKey`    | approve                                        | Owner's self-encryption key, AES-encrypted with the APKAM symmetric key.                                                                                                                                |
+| `selfEncKeyIV`                         | approve                                        | IV (base64) for the line above.                                                                                                                                                                         |
+| `enrollmentStatusFilter`               | list                                           | Optional list of statuses to filter on: `pending`, `approved`, `denied`, `revoked`, `expired`.                                                                                                          |
+| `apkamKeysExpiryInMillis`              | request                                        | Lifetime the request asks for, in milliseconds from approval; absent or 0 for none.                                                                                                                     |
+| `links`                                | link                                           | For each `kid`, an object holding the `link` to store and, as `expect`, the link the writer read on that key, or `null`. See [§9.4.4](#944-linking-an-enrollments-client-data-signing-keys-enrolllink). |
 
 #### Operations and responses
 
@@ -1049,7 +1050,7 @@ non-committed) and `data:<JSON record>` on `get`.
 
 #### 9.4.4 Linking an enrollment's client data signing keys (`enroll:link`)
 
-> **Since atServer 3.17.1.**
+> **Since atServer 3.18.0.**
 
 An enrollment publishes the keys it signs with at
 `public:_apsk.<enrollmentId>.a.__e@<atSign>`, from its request or a later
@@ -2600,7 +2601,7 @@ Terse reference for ctrl-F. Authoritative regex source:
 | `cram`          | —      | Bootstrap-only authentication.                                        | §9.2    |
 | `pkam`          | —      | Sign-the-challenge authentication.                                    | §9.3    |
 | `pol`           | —      | Inter-atServer proof-of-life. Server-emitted only.                    | §15.2   |
-| `enroll`        | varies | APKAM enrollment lifecycle.                                           | §9.4.1  |
+| `enroll`        | varies | APKAM enrollment lifecycle; `enroll:link` in §9.4.4.                  | §9.4.1  |
 | `otp`           | owner  | Get/put OTP for APKAM.                                                | §9.4.2  |
 | `keys`          | yes    | APKAM-issued key storage. **Being deprecated** — see §9.4.3 and §B.7. | §9.4.3  |
 | `update`        | yes    | Insert/overwrite an atKey.                                            | §10.1   |
