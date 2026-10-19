@@ -1,10 +1,10 @@
-# Per-key links for an enrollment's signing keys
+# Per-key links for an enrollment's client data signing keys
 
 * **Status:** Approved
 * **Last Updated:** 2026-10-19
 * **Objective:** Let an enrollment vouch for each of another enrollment's
-signing keys in one call to the atServer, so a signing chain can be mended at
-once, without waiting for the other enrollment to come online.
+client data signing keys in one call to the atServer, so a signing chain can
+be mended at once, without waiting for the other enrollment to come online.
 
 Today's mechanism is described in at_client_sdk's post-quantum design,
 [section 9.8.3][design-chain], and in its decision ledger, rulings
@@ -27,8 +27,8 @@ the atSign, by the chain of approvals that admitted it.
 
 Two things about today's links get in the way.
 
-A link signs the whole `_apsk` value. When an enrollment adds a signing key or
-retires one, the value changes, and the link stops vouching for the keys that
+A link signs the whole `_apsk` value. When an enrollment adds a client data signing
+key or retires one, the value changes, and the link stops vouching for the keys that
 didn't change. Worse, an enrollment republishes its `_apsk` through
 `enroll:update`, which leaves the old link on the record, so the walk then
 reads it as broken (ruling 144.2 records this, seen in a test against a local
@@ -118,14 +118,15 @@ with one link per key. A bare `_apsk` counts as one `rsa2048` entry, whose
 `kid` the atServer and the walk both derive from the key the same way every
 other `kid` is derived. The exception is an `_apsk` that is the enrollment's
 authentication key, as on the legacy posture. That key is dropped rather than
-retired once the enrollment mints a signing key, so it takes no links and signs
-none, and the atServer tells it apart by comparing it with the `apkamPublicKey`
-the enrollment record holds. Such an enrollment reads as unsigned until it
-publishes a signing key, which is linked like any other. For the same reason
-an `enroll:update` can't make a signing key the authentication key: it's
-refused when it would leave the `apkamPublicKey` as a key the `_apsk` lists
-beside another, or one that carries a link, whether it installs that key,
-republishes the `_apsk`, or both.
+retired once the enrollment mints a client data signing key, so it takes no
+links and signs none, and the atServer tells it apart by comparing it with the
+`apkamPublicKey` the enrollment record holds. Such an enrollment reads as
+unsigned until it publishes a client data signing key, which is linked like
+any other. For the same reason an `enroll:update` can't make a client data
+signing key the authentication key: it's refused when it would leave the
+`apkamPublicKey` as a key the `_apsk` lists beside another, or one that
+carries a link, whether it installs that key, republishes the `_apsk`, or
+both.
 
 Whether a link is a root link or a chain link follows from its signer. Every
 link names the `kid` of the key that signed it. If that `kid` is one of the
@@ -181,9 +182,9 @@ serialised with each other.
   with its own linked keys when it doesn't. An approver with neither, such as
   an enrollment on the legacy posture holding only its authentication key,
   can't, and a root holder's sweep anchors the new enrollment instead.
-* An enrollment that adds a signing key links it itself, signing with one of
-  its keys that already has a link, and only then signs content with it. The
-  old key's link keeps vouching for what that key signed.
+* An enrollment that adds a client data signing key links it itself, signing
+  with one of its keys that already has a link, and only then signs content
+  with it. The old key's link keeps vouching for what that key signed.
 * A voucher signs a chain link only with one of its keys that already has a
   link, and a root link is signed only with the root key. So by induction
   every link traces to the root when it's written, and a linked key is an
@@ -226,7 +227,7 @@ serialised with each other.
   atServer, or else tolerate unsigned enrollments.
 
 [design-chain]: https://github.com/atsign-foundation/at_client_sdk/blob/66bf122a3af81d47aaa0071fb47fe78b5ef74be7/docs/projects/pq/design.md#983-the-chain-and-why-a-link-is-bound-to-the-exact-string
-[ruling-22-2]: https://github.com/atsign-foundation/at_client_sdk/blob/trunk/docs/projects/pq/detail/decisions.md#222-the-signing-root-chain-follows-the-approval-graph
-[ruling-24-2]: https://github.com/atsign-foundation/at_client_sdk/blob/trunk/docs/projects/pq/detail/decisions.md#242-the-rulings
-[ruling-144-2]: https://github.com/atsign-foundation/at_client_sdk/blob/trunk/docs/projects/pq/detail/decisions.md#1442-a-republish-clears-the-links-a-root-holder-re-anchors
-[ruling-152]: https://github.com/atsign-foundation/at_client_sdk/blob/trunk/docs/projects/pq/detail/decisions.md#152-a-conveyed-link-is-stamped-as-it-arrives-and-its-envelope-kept-until-it-is-2026-10-08
+[ruling-22-2]: https://github.com/atsign-foundation/at_client_sdk/blob/4389184216c679881c430ecf089b8984925ec5b0/docs/projects/pq/detail/decisions.md#222-the-signing-root-chain-follows-the-approval-graph
+[ruling-24-2]: https://github.com/atsign-foundation/at_client_sdk/blob/4389184216c679881c430ecf089b8984925ec5b0/docs/projects/pq/detail/decisions.md#242-the-rulings
+[ruling-144-2]: https://github.com/atsign-foundation/at_client_sdk/blob/4389184216c679881c430ecf089b8984925ec5b0/docs/projects/pq/detail/decisions.md#1442-a-republish-clears-the-links-a-root-holder-re-anchors
+[ruling-152]: https://github.com/atsign-foundation/at_client_sdk/blob/4389184216c679881c430ecf089b8984925ec5b0/docs/projects/pq/detail/decisions.md#152-a-conveyed-link-is-stamped-as-it-arrives-and-its-envelope-kept-until-it-is-2026-10-08

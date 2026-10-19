@@ -681,9 +681,12 @@ provider-owned fields beside `providerId`. The reference SDK sets it
 on each value it encrypts, with `providerId` `legacy` unless the app
 configures another provider. The atServer refuses, with `AT0003`, a
 value that does not decode to such an object. Otherwise it stores,
-returns and forwards it without acting on it, except for the `apskLinks` it
-keeps on an enrollment's `_apsk` record ([§9.4.4](#944-linking-an-enrollments-client-data-signing-keys-enrolllink)). An `update` or
-`update:meta` that omits it, or sends `null`, keeps the stored value.
+returns and forwards it without acting on it, except that since atServer
+3.18.0 it writes and keeps the `apskLinks` on an enrollment's `_apsk`
+record
+([§9.4.4](#944-linking-an-enrollments-client-data-signing-keys-enrolllink)).
+An `update` or `update:meta` that omits it, or sends `null`, keeps the
+stored value.
 
 ### 7.2 Tag ordering
 
@@ -965,7 +968,7 @@ Source:
 | `delete`   | `data:{"enrollmentId":"<uuid>","status":"deleted"}`                                             |
 | `fetch`    | `data:{ <full enrollment record JSON> }`                                                        |
 | `list`     | `data:{"<enrollKey>":{<enrollment record JSON>}, …}`                                            |
-| `link`     | `data:{"enrollmentId":"<uuid>","linked":["<kid>", …]}`; see [§9.4.4](#944-linking-an-enrollments-client-data-signing-keys-enrolllink) |
+| `link`     | Since atServer 3.18.0: `data:{"enrollmentId":"<uuid>","linked":["<kid>", …]}`; see [§9.4.4](#944-linking-an-enrollments-client-data-signing-keys-enrolllink) |
 
 Since atServer 3.17.1, a request is refused with `AT0022` unless its
 `apkamKeysExpiryInMillis`, when given, is a whole number from 0 to
@@ -1056,21 +1059,24 @@ non-committed) and `data:<JSON record>` on `get`.
 
 An enrollment publishes its client data signing keys at
 `public:_apsk.<enrollmentId>.a.__e@<atSign>`, from its request or a later
-`enroll:update`. Where the key published there is also the enrollment's
-client authentication signing key, its APKAM key, as
-[§6.5](#65-reserved-keys) describes, that key takes no link. The value is one
-bare RSA-2048 public key, or the list form:
+`enroll:update`. Where, as [§6.5](#65-reserved-keys) describes, a key
+published there is also the enrollment's client authentication signing key,
+its APKAM key, that key takes no link. The value is one bare RSA-2048 public
+key, or the list form:
 
 ```json
 {"v":1,"keys":[{"kid":"<kid>","use":"sign","alg":"<alg>","pub":"<public key>","status":"<status>"}]}
 ```
 
-`status` is present only on a key that is no longer active. A **link**
+`status` is `active` or `retired`, and an entry without one is active. A
+**link**
 vouches for one of those keys. The atServer keeps an enrollment's links in
 one map, `apskLinks`, in that record's `appMetadata`, keyed by `kid`, and
 `enroll:link` is the only way to write one. When the record carries no
 `appMetadata`, the atServer creates `{"providerId":"legacy","apskLinks":{…}}`,
-since a reader requires `providerId`.
+since a reader requires `providerId`. A reader finds the links in the
+record's metadata: `lookup:all` and `plookup:all` return `appMetadata` as a
+JSON object, where an `update` carries it as base64.
 
 #### Request and response
 
@@ -1086,7 +1092,7 @@ enroll:link:{"enrollmentId":"<uuid>","links":{"<kid>":{"link":<link>,"expect":<l
 **Response**: `data:{"enrollmentId":"<uuid>","linked":["<kid>", …]}`.
 
 An atServer before 3.18.0 refuses `enroll:link` with `AT0003`, as a command
-its grammar does not know.
+its grammar does not know, and keeps an authenticated connection open.
 
 #### Who may call it
 
@@ -1122,7 +1128,9 @@ from a bad request, read the record again and decide afresh. The request's
 required fields and every other check above are refused with `AT0022`,
 except the target's own state: a target that does not exist or is not
 approved is refused with an error naming it. Two writers of one key's link
-therefore cannot lose each other's write.
+therefore cannot lose each other's write. `enroll:link` never removes a
+link: a key's link goes when a write of the record stops listing that key,
+or when the record is deleted.
 
 In the list form, the atServer reads each entry that carries a string
 `kid`, `alg` and `pub`, takes its `kid` as written, ignores `use` and
