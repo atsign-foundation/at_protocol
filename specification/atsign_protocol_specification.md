@@ -1,6 +1,6 @@
 # Atsign Protocol Specification
 
-<!-- pyml disable-num-lines 3000 md013-->
+<!-- pyml disable-num-lines 5000 md013-->
 
 This document specifies the **Atsign Protocol** at the level required to
 implement either side of the wire, an atClient or an atServer, in any
@@ -56,8 +56,11 @@ The Atsign Protocol is a text-based, line-oriented, request/response
 protocol over TLS. Three roles participate.
 
 An **atClient** is software acting on behalf of an atSign owner. It
-talks to exactly one atServer at a time, either the owner's atServer
-or a remote-owner's atServer for cross-atSign reads and writes.
+authenticates only to its own atSign's atServer, which carries its
+cross-atSign reads and notifications to other atServers (see
+[§15](#15-the-inter-atserver-protocol)). It may also open an
+unauthenticated connection to another atServer to `lookup` that
+atSign's public records.
 
 An **atServer** is the personal server for one atSign. It stores that
 atSign's keys (encrypted blobs at rest), serves them on request,
@@ -70,9 +73,9 @@ An **atDirectory** is a lookup service that maps an atSign to the
 The protocol is built around a small set of **verbs**, single-line
 commands a client sends to a server. Each verb has a regex-defined
 syntax. Servers respond with a single line of `data:…` or `error:…`,
-followed by a prompt that frames the next request. Two verbs (`monitor`
-and the legacy `stream`) keep the connection open for streamed
-responses; everything else is single-shot.
+followed by a prompt that frames the next request. `monitor` keeps the
+connection open for streamed notifications; everything else is
+single-shot.
 
 End-to-end encryption is **entirely an atClient concern**. atServers
 store opaque ciphertext and opaque metadata fields, and never see
@@ -148,20 +151,34 @@ A hard-coded `root.atsign.org:64` is not Atsign-Protocol-compliant.
 
 ### 3.1 atDirectory
 
-| Property     | Value                                                      |
-|--------------|------------------------------------------------------------|
-| Transport    | TCP                                                        |
-| TLS          | One-way (atDirectory presents a server certificate; client does not) |
-| Default port | `64`                                                       |
-| Default host | `root.atsign.org` (configurable)                           |
+| Property     | Value                                                                                                                                                                                                             |
+|--------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Transport    | TCP                                                                                                                                                                                                               |
+| TLS          | One-way (atDirectory presents a server certificate; client does not)                                                                                                                                              |
+| Default port | `64`                                                                                                                                                                                                              |
+| Default host | `root.atsign.org` (configurable)                                                                                                                                                                                  |
+| HTTPS        | Also on port `443`: `GET /<atSign>` returns `host:port`, `GET /<atSign>/<path>` redirects to `https://<host:port>/<path>`, an unknown atSign gets `404`, any other method `401`; the atSign is looked up as given |
 
 ### 3.2 atServer
 
-The atServer transport is TCP with one-way TLS by default. Some
-deployments require client certificates (mTLS) for
-atServer-to-atServer connections; the outbound connection factory
-chooses based on configuration. mTLS is not used between atClients
-and atServers in the default configuration.
+The atServer transport is TCP with TLS. Connections between atServers
+use mutual TLS by default: the connecting atServer presents a client
+certificate, and a `from:` naming another atSign is checked against
+it. The atServer looks that atSign up in the atDirectory, and a
+certificate that does not match the host it gives, or no certificate,
+gets `AT0401`. A `from:` naming the atServer's own atSign is not
+checked against a certificate. Setting at_secondary_server's
+`clientCertificateRequired` to `false` (it is `true` by default) turns
+the check off, and the atServer then presents no client certificate on
+its own outbound connections.
+
+The atServer's port also negotiates ALPN. A connection that selects
+`atProtocol/1.0`, or no protocol, speaks the Atsign Protocol. One that
+selects `http/1.1` reaches an HTTP server, which answers a `GET` for
+one of the atSign's public records and upgrades `/ws` to a WebSocket
+carrying the Atsign Protocol. Since atServer 3.17.0, a command that
+starts like an HTTP request, on a connection that did not select
+`http/1.1`, is answered `AT0003` and the connection is closed.
 
 The port is per-atSign and is discovered via the atDirectory. The
 atDirectory response is the canonical source for the host and port to
@@ -172,26 +189,37 @@ connect to.
 1. Client opens TCP connection.
 2. TLS handshake; server certificate is validated against the trusted
    roots (and optionally a pinned `cacert.pem`).
-3. **No pre-banner.** The server does not send a greeting line; it
-   waits for the client's first verb.
+3. **Banner.** On accept, the atServer writes a bare `@`, with no
+   newline, then waits for the client's first verb; clients discard it.
+   An atServer at its connection limit writes
+   `error:AT0012-Inbound connection limit exceeded\n` instead, with no
+   prompt, and closes the connection.
 4. Client sends verb, terminated by `\n`.
 5. Server responds with `data:…\n@…@` or `error:…\n@…@`. The trailing
    `@…@` (or bare `@` before authentication) is the **prompt**, see
    [§4](#4-framing).
-6. Steps 4–5 repeat. Either side may close the connection at any time;
-   the client may signal a graceful close with `@exit\n` (atDirectory
-   only) or by closing the socket.
+6. Steps 4–5 repeat. Either side may close the connection at any time.
+   On the atDirectory a client may close with `@exit\n`. An atServer
+   answers `@exit` with `AT0003`, so a client ends an atServer
+   connection by closing the socket.
 
 ### 3.4 Idle and timeout behaviour
 
 - atClient default outbound idle timeout: **600 000 ms** (10 minutes).
   Source: `at_lookup/lib/src/connection/outbound_connection_impl.dart`.
 - atClient default per-response wait: **90 000 ms**, with a
-  **10 000 ms** transient-wait between data packets. Source:
+  **10 000 ms** wait between data packets in at_lookup 3.6.1, and
+  **30 000 ms** in at_lookup 3.7.0. Source:
   `at_lookup/lib/src/connection/outbound_message_listener.dart`.
-- atServer default inbound and outbound idle limits are configurable
-  per deployment (see `inbound_idle_time_millis`,
-  `outbound_idle_time_millis`).
+- atServer idle limits, in at_secondary_server's `connection`
+  configuration, with their defaults: `inbound_idle_time_millis`
+  (600 000) for an inbound connection that has not authenticated, and
+  `authenticated_inbound_idle_time_millis` (600 000) for one that has
+  authenticated or proved itself with `pol`; `outbound_idle_time_millis`
+  (599 000) and `authenticated_outbound_idle_time_millis` (599 000) for
+  its own outbound connections, before and after `pol`. The allowed inbound idle time can
+  shrink towards a minimum as the number of inbound connections nears
+  `inbound_max_limit` (200).
 
 When the server-side idle timeout fires, the server closes the
 connection without warning. Long-lived `monitor` connections must be
@@ -205,8 +233,8 @@ disable idle-close for that connection class.
 ### 4.1 Line terminator
 
 All client-to-server and server-to-server commands end with a single
-**LF** (`\n`, ASCII 10). CR (`\r`) is not part of the protocol; some
-older atDirectory implementations emit `\r\n@`, and clients tolerate
+**LF** (`\n`, ASCII 10). CR (`\r`) is not part of the protocol, but
+the atDirectory ends every reply with `\r\n@`, so clients tolerate
 both.
 
 ### 4.2 Response delimiter (the "prompt")
@@ -220,10 +248,12 @@ client request. The prompt is one of:
 | Authenticated as the server's own atSign | `@<atSign>@`    |
 | `pol`-authenticated as another atSign    | `<fromAtSign>@` |
 
-The prompt is appended to the response line preceded by `\n`. Clients
-detect "response complete" by scanning for the byte sequence `\n@`.
-Source: `at_lookup/lib/src/connection/outbound_message_listener.dart`
-treats `\n` followed by `@` as the frame boundary.
+On a `pol` connection, some error responses end with the bare `@`
+rather than `<fromAtSign>@`; clients should accept either.
+
+A response ends with `\n`, and the server then writes the prompt with
+no newline of its own, so the next response follows the prompt on the
+same line. A client takes a response as complete at its `\n`.
 
 ```text
 data:42\n@alice@
@@ -241,73 +271,112 @@ UTF-8. atKeys, values, and metadata are all UTF-8 strings on the wire.
 
 ### 4.4 Newline escapes in values
 
-Because `\n` is the framing terminator, an atServer rewrites embedded
-newlines in **public** data values: `\n` becomes the literal
-4-character sequence `~NL~` on the wire. Clients writing values that
-contain newlines apply the same escape; clients reading public values
-reverse it. The escape is not applied to encrypted (binary)
-ciphertext, that is base64-encoded and so contains no `\n` to begin
-with.
+Because `\n` is the framing terminator, a value cannot carry one on
+the wire. The atServer stores and returns values as sent. `~NL~` is a
+convention of the reference SDK: it writes the literal four-character
+sequence `~NL~` in place of `\n` in the update commands it syncs, and
+turns `~NL~` back into `\n` in `lookup`, `llookup` and `plookup`
+results. An encrypted value is base64 ciphertext, so contains no `\n`
+to begin with.
 
 ### 4.5 Binary values
 
-Binary values cross the wire base64-encoded. The metadata flag
-`isBinary:true` declares that the value, once decoded, is binary.
+Values cross the wire as text. The reference SDK turns a binary value
+into Base2e15 text (`AtClient.putBinary`) before any encryption, and
+sets `isBinary:true`, which declares that the value, once decoded, is
+binary.
 `isEncrypted:true` declares it is ciphertext. The two are independent
 and both can be true. See [§7](#7-the-metadata-fragment).
 
 ### 4.6 Maximum value size
 
-Bounded by the atServer's `bufferLimit` configuration parameter.
-Implementations should expose the limit via the `stats` verb. Clients
-that exceed the limit receive `error:AT0005-Buffer limit exceeded` and
+at_secondary_server holds at most 10 240 000 bytes per connection that
+it has not yet dispatched, the terminating `\n` included. A single
+command, verb, atKey and value together, must fit, and commands
+pipelined behind one still being handled count towards the same limit.
+The limit is fixed: it is not configurable, and `stats` does not report
+it. Going over it is answered with `AT0005` (see [§17](#17-errors)), and
 the connection is closed.
 
 ### 4.7 Pipelining
 
-The protocol is request-response with a single in-flight verb per
-connection. A client must not send a second verb before reading the
-first verb's complete response (terminated by the prompt). The
-exception is `monitor`, which streams notifications continuously and
-optionally accepts request-response interleaving when `:multiplexed:`
-is set, see [§11.7](#117-monitor).
+The protocol is request-response. Since atServer 3.16.6, an atServer
+handles the commands a connection sends in the order they arrive and
+answers each in turn, so a client may send a command before reading
+the previous response. A client that may meet an older atServer must
+wait for each response, terminated by the prompt, before sending the
+next. `monitor` streams notifications continuously, see
+[§11.7](#117-monitor).
 
 ---
 
 ## 5. The atSign identity model
 
-An **atSign** is a unique identifier of the form `@<name>` where
-`<name>` matches `[^@:\s]+`. Comparison is case-preserving but
-case-insensitive on the wire, `@Alice` and `@alice` resolve to the
-same identity (atServers normalise to lowercase before keystore
-lookup).
+An **atSign** is a unique identifier of the form `@<name>`. In a
+verb's syntax, `<name>` matches `[^@:\s]+`.
 
-The maximum atSign length is **55 characters** including the leading
-`@`. Anything longer is invalid.
+An atSign has one canonical form: lowercase, with every `.` removed
+from the name, so `@Alice`, `@alice` and `@a.lice` are all the atSign
+`@alice`. The atServer puts each atSign named in `from:`, `update`,
+`delete`, `lookup`, `llookup`, `plookup` and `notify` into this form.
+It refuses one that is empty, holds a second `@`, or contains
+whitespace, an ASCII control character, one of the control pictures
+U+2400–U+241F, U+2421, U+2424 and U+2425, or any of
+``!*'`();:&=+$,/?#[]{}``.
+
+Inside an atKey ([§6](#6-the-atkey-model)), an owner or recipient
+atSign must also meet a second rule: each character after the `@` is
+an ASCII letter, a digit, `_` or `-`, or falls in U+00A9, U+00AE,
+U+2000–U+3300, U+FE00–U+FE0F or U+1F000–U+1FBFF.
+
+Inside an atKey, an owner or recipient has at most **55 characters**
+after its `@`, so at most 56 with it. An atKey whose owner or recipient
+is longer is invalid.
 
 ### 5.1 Lifecycle phases
 
-The full lifecycle of an atSign from registration to active use breaks
-into 3 phases. The `at_auth` package documents this in detail; the
-phases are summarised here because each produces credentials that
-appear on the wire.
+An atSign goes through 3 phases from registration to everyday use.
+Each produces credentials that later exchanges on the wire use.
 
-1. **Register.** The atSign is created on the atDirectory's registrar.
-   Output: a one-time **CRAM secret** delivered to the registered email
-   address. No cryptographic keys exist yet.
-2. **Onboard.** The atClient CRAM-authenticates exactly once, generates
-   the atSign's master keypairs (PKAM signing, encryption,
-   self-encryption), publishes the public halves to the atServer, and
-   stores the private halves locally (`.atKeys` file or device
-   keychain). After onboarding, the CRAM secret is no longer accepted.
-3. **Authenticate (per app).** Subsequent apps authenticate via
-   **APKAM enrollment**, they request a scoped key set bound to a
-   namespace permission map (e.g. `{'todos': 'rw'}`); the master-keys
-   holder approves; the atServer issues new scoped credentials.
-   APKAM-issued keys are revocable.
+1. **Register.** The atSign gets an atDirectory entry and an
+   atServer, for example through a registrar. The atServer is started
+   with the atSign's **CRAM secret**, and the atSign's encryption keys
+   do not exist yet. An app activates the atSign once its atDirectory
+   entry resolves and its atServer answers; the reference SDK waits
+   for both. The activating app needs the CRAM secret.
+   at_onboarding_cli, for example, has the registrar send a
+   verification code to the owner's email or phone, and exchanges
+   that code with the registrar for the secret.
+2. **Onboard.** The activating app authenticates with `cram`. It
+   generates the atSign's RSA encryption keypair and AES
+   self-encryption key, and an APKAM keypair of its own. On the CRAM
+   connection it sends `enroll:request` with its APKAM public key. The
+   atServer approves that enrollment at once and grants it `rw` on
+   `__manage` and on `*`. The app reconnects, authenticates with
+   `pkam` as that enrollment, stores its keys on the device (for
+   example in an `.atKeys` file), publishes
+   `public:publickey@<atSign>` and deletes `privatekey:at_secret`.
+   From then on `cram` fails. The app does not write
+   `public:signing_publickey@<atSign>`: the atServer generates that
+   keypair, its server authentication signing key, itself when it
+   first starts ([§6.5](#65-reserved-keys)).
+3. **Enroll (per app).** Each further app enrolls with APKAM
+   ([§9.4](#94-apkam-enroll-otp-keys)). It generates its own APKAM
+   keypair and asks for a namespace permission map such as
+   `{"todos":"rw"}`, quoting a passcode from `otp:get`
+   ([§9.4.2](#942-the-otp-verb)). An approving app approves the
+   request and supplies the atSign's encryption private key and
+   self-encryption key, encrypted for the new app. The new app then
+   authenticates with `pkam` as its own enrollment. The namespace map
+   limits what that enrollment may read and write on the atServer,
+   and `enroll:revoke` withdraws it.
 
-CRAM is bootstrap-only. After Phase 2, all client authentication is
-PKAM (with or without APKAM scoping). See [§9](#9-authentication).
+CRAM serves only activation. After Phase 2 every client authenticates
+with `from` and `pkam` ([§9.3](#93-pkam-pkam)), and the reference SDK
+names its enrollment with `enrollmentId:` unless that is `primary`.
+The exchanges are shown in
+[§16.1](#161-cram-bootstrap-phase-2-onboarding) and
+[§16.2](#162-apkam-enrollment-end-to-end).
 
 ---
 
@@ -317,22 +386,42 @@ A key in the atServer's keystore is an **atKey**, a structured string
 whose shape encodes its visibility and ownership. There are 5 key
 shapes plus 2 augmentations.
 
+The atServer stores an atKey in a folded form: trimmed, lowercased,
+and with any spaces removed. Two spellings that fold to the same
+string name one record, and `scan` returns keys in the folded form.
+
 ### 6.1 The 5 shapes
 
-| Shape   | Wire format                                | Visibility                                         |
-|---------|--------------------------------------------|----------------------------------------------------|
-| Public  | `public:<key>[.<namespace>]@<owner>`       | Any atSign (no auth needed via `plookup`)          |
-| Self    | `<key>[.<namespace>]@<owner>`              | Owner only                                         |
-| Shared  | `@<recipient>:<key>[.<namespace>]@<owner>` | Owner and `<recipient>` only                       |
-| Local   | `local:<key>[.<namespace>]@<owner>`        | Owner only; **never synced** to a remote atServer  |
-| Private | `privatekey:<key>[.<namespace>]@<owner>`   | Owner only; not enumerated by `scan` (system keys) |
+| Shape   | Wire format                                  | Visibility                                |
+|---------|----------------------------------------------|-------------------------------------------|
+| Public  | `public:<key>[.<namespace>]@<owner>`         | Anyone; `lookup` needs no auth            |
+| Self    | `<key>[.<namespace>]@<owner>`                | Owner only                                |
+| Shared  | `@<recipient>:<key>[.<namespace>]@<owner>`   | Owner and `<recipient>` only              |
+| Local   | `local:<key>[.<namespace>]@<owner>`          | Client only; see [§10.1](#101-update)     |
+| Private | `private:<key>@<owner>`, `privatekey:<name>` | atServer internal; never listed or synced |
+
+A `local:` key is kept in a client's own keystore. `update` refuses
+one unless its name contains a reserved key ([§10.1](#101-update)),
+and the atServer's commit log never records one. On an
+atServer, `private:` and `privatekey:` keys are records the atServer
+keeps for itself. A `privatekey:` name carries no `@<owner>`.
+[§6.5](#65-reserved-keys) lists the reserved ones.
 
 ### 6.2 Augmentations
 
-A **hidden** key is one whose `<key>` part starts with `_`. The atServer
-omits hidden keys from the `scan` verb's output unless the caller
-passes `:showhidden:true`. Public, self, and shared keys may all be
-hidden.
+A **hidden** key is a public or self key whose `<key>` part starts
+with `_`. Which hidden keys `scan` lists depends on the form:
+
+- `public:__<key>@<owner>` (two underscores) and a self key
+  `_<key>@<owner>` are listed only when the caller passes
+  `:showhidden:true`. The commit log records both, so both sync.
+- `public:_<key>@<owner>` (one underscore) is never listed, even with
+  `:showhidden:true`. The commit log never records one, so it never
+  syncs, and a write of one answers `data:-1`.
+
+An unauthenticated `scan` lists no hidden key. A shared key whose
+`<key>` part starts with `_`, such as `@bob:_handshake.wavi@alice`, is
+not hidden: `scan` lists it like any other shared key.
 
 A **cached** key is a copy of a remote-owned shared or public key,
 stored on the recipient's atServer for offline or fast access. Wire
@@ -348,96 +437,252 @@ domain (e.g. `phone.wavi`, `email.myapp`). APKAM enrollments grant
 permissions per namespace, so the namespace is part of the
 authorisation surface, not a free-form annotation.
 
-The namespace can be omitted when the atKey represents an
-infrastructural item (atSign-wide encryption keys, e.g.
-`public:publickey@alice`).
+The atServer accepts an atKey without a namespace. Most reserved
+keys ([§6.5](#65-reserved-keys)), such as `public:publickey@alice`,
+have none. An enrollment's namespace grants match only keys that carry a
+namespace, so an enrollment reaches a key without one only through a
+`*` grant. Reserved keys have rules of their own, and an enrollment
+needs no `*` grant to read a cached copy of another atSign's
+`publickey` or `signing_publickey`.
 
 ### 6.4 Key length
 
-The maximum on-wire length of an atKey is **255 characters**
-inclusive of all segments and separators. Compute against this hard
-cap, not a typical size, atSigns alone may consume up to 55
-characters of the budget.
+An atKey is at most **248 characters**, counted over the whole key as
+the atServer stores it: any `public:` or `@<recipient>:` prefix, the
+name and namespace, and the `@<owner>` suffix. A cached copy
+([§6.2](#62-augmentations)), which the atServer writes itself, may be
+255 characters, so that a 248-character key still fits with its
+`cached:` prefix. Length is counted in UTF-16 code units. The default
+Hive keystore also applies the limit to the key's UTF-7 encoding when
+it creates a record, so a key with non-ASCII characters reaches the
+limit sooner.
+
+Compute against this hard cap, not a typical size. An atSign alone may
+take up to 56 characters of the budget, or 111 UTF-16 code units when
+its characters are emoji, and a shared key names two.
 
 ### 6.5 Reserved keys
 
-Every atServer carries a set of system keys created during onboarding.
-These are required for the protocol to function and have stable names:
+An atServer may hold records under these reserved names:
 
-| Reserved key                        | Purpose                                                                 |
-|-------------------------------------|-------------------------------------------------------------------------|
-| `public:publickey@<atSign>`         | Encryption public key. Used by other atSigns to encrypt to this owner.  |
-| `public:signing_publickey@<atSign>` | PKAM/pol signing public key. Used to verify pol challenges.             |
-| `privatekey:at_pkam_publickey`      | PKAM authentication public key (single-key model; legacy).              |
-| `privatekey:at_pkam_privatekey`     | PKAM authentication private key (in the on-disk `.atKeys` file).        |
-| `privatekey:privatekey`             | Encryption private key (`.atKeys`).                                     |
-| `privatekey:self_encryption_key`    | Self-encryption symmetric key (`.atKeys`).                              |
-| `privatekey:at_secret`              | CRAM secret. Rotated to the keystore at onboarding; not used after.     |
-| `<atSign>:shared_key@<atSign>`      | Symmetric key wrapping shared-with values. Not actually used; reserved. |
-| `private:blocklist@<atSign>`        | List of atSigns blocked by `config:block:add`.                          |
+| Reserved key                                                 | Purpose                                                                               |
+|--------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| `public:publickey@<atSign>`                                  | Encryption public key. Used by other atSigns to encrypt to this owner.                |
+| `public:signing_publickey@<atSign>`                          | Public half of the atServer's server authentication signing key (RSA), for checking its `pol` proofs and `notify:all` signatures. |
+| `@<atSign>:signing_privatekey@<atSign>`                      | Private half of that keypair. The atServer signs its `pol` proofs, and the `dataSignature` of a `notify:all` notification, with it. |
+| `privatekey:signing_keypair_generated`                       | Marks that the atServer has generated its server authentication signing keypair.      |
+| `privatekey:at_secret`                                       | CRAM secret. Onboarding deletes it.                                                   |
+| `privatekey:at_secret_deleted`                               | Kept once the CRAM secret is deleted, so that it is not planted again.                |
+| `privatekey:at_pkam_publickey`                               | Legacy PKAM public key. See below.                                                    |
+| `@<recipient>:shared_key@<atSign>`                           | AES key for data shared with `<recipient>`, encrypted to the recipient's `publickey`. |
+| `shared_key.<recipient>@<atSign>`                            | The owner's copy of that AES key, encrypted to the owner's `publickey`.               |
+| `private:blocklist@<atSign>`                                 | List of atSigns blocked by `config:block:add`.                                        |
+| `privatekey:commitLogCompactionStats`                        | Statistics from the last compaction of the commit log.                                |
+| `privatekey:accessLogCompactionStats`                        | Statistics from the last compaction of the access log.                                |
+| `privatekey:notificationCompactionStats`                     | Statistics from the last compaction of the notification store.                        |
+| `privatekey:at_telemetry_signing_privatekey`                 | Experimental. The atServer's telemetry signing key. See below.                        |
+| `public:_at_telemetry_signing_publickey.__atserver@<atSign>` | Experimental. Public record of the telemetry signing key.                             |
 
-APKAM-issued keys live under the `__pkams` and `__manage` reserved
-namespaces.
+The atServer generates its RSA signing keypair, its server
+authentication signing key, the first time it starts, and records
+`privatekey:signing_keypair_generated` so that it does so once.
+Another atServer checks this atServer's `pol` proof against
+`public:signing_publickey@<atSign>`
+([§15.2](#152-the-pol-handshake)), and the atServer also signs
+`notify:all`'s `dataSignature` with it
+([§14.2](#142-public-data-signatures)). PKAM does not use this
+keypair.
+
+This specification names the keys that sign as follows:
+
+- The **client authentication signing key** signs `pkam:`
+  ([§9.3](#93-pkam-pkam)). It is the atSign's PKAM key or, under
+  APKAM, the enrollment's own APKAM key.
+- The **client data signing key** is an enrollment's key for signing
+  data. Its public half is published at
+  `public:_apsk.<enrollmentId>.a.__e@<atSign>` (below). Unless the app
+  has a separate data signing key, the reference SDK advertises the
+  enrollment's APKAM key there, so the two client keys are one
+  keypair. The request's `apsk` or `apskLegacy` names the key to
+  advertise, so the two can differ. The reference SDK already
+  requires a separate data signing key when the APKAM key is not
+  RSA-2048, and forthcoming releases require the two keys to differ.
+- The **legacy data signing key** is the client encryption key, the
+  private half of `public:publickey@<atSign>`. The reference SDK's
+  `AtClient.put` signs public values with it
+  ([§14.2](#142-public-data-signatures)).
+- The **server authentication signing key** is the atServer's own
+  `signing_privatekey`, above.
+
+The atServer's telemetry key, below, is none of these.
+
+The atServer plants `privatekey:at_secret` at startup from the CRAM
+secret it is started with, and stops once
+`privatekey:at_secret_deleted` exists. Onboarding deletes the secret
+with `delete:privatekey:at_secret` after it first authenticates with
+PKAM, and the atServer then keeps `privatekey:at_secret_deleted`.
+
+Since atServer 3.16.4 no record is kept under
+`privatekey:at_pkam_publickey`. At startup the atServer moves one it
+finds into the enrollment named `primary`, or deletes it. A CRAM
+`update` of this name installs the key as `primary` and answers
+`data:-1`.
+
+With its default encryption, the reference SDK writes
+`shared_key.<recipient>@<atSign>` and
+`@<recipient>:shared_key@<atSign>` when the owner first shares data
+with `<recipient>`. The recipient's copy carries `ttr:3888000`.
+
+Since atServer 3.17.0, an atServer started with a telemetry endpoint
+creates an Ed25519 key for signing its telemetry, and publishes a
+record of the public half at
+`public:_at_telemetry_signing_publickey.__atserver@<atSign>`. Only the
+atServer writes these two records. Both names are experimental.
+
+These three names are reserved for the atSign's private keys in a
+client's own keystore. The atServer creates no record under them.
+
+| Reserved name                    | Purpose                 |
+|----------------------------------|-------------------------|
+| `privatekey:at_pkam_privatekey`  | PKAM private key.       |
+| `privatekey:privatekey`          | Encryption private key. |
+| `privatekey:self_encryption_key` | Self-encryption key.    |
+
+`configkey`, and any name that starts with `_` and carries no
+`@<atSign>`, are reserved as well.
+
+Two namespaces are reserved:
+
+- `__manage` holds, among others, each enrollment record, at
+  `<enrollmentId>.new.enrollments.__manage@<atSign>`, and the
+  encrypted copies of the atSign's encryption private key and
+  self-encryption key that `enroll:approve` supplies for it, at
+  `<enrollmentId>.default_enc_private_key.__manage@<atSign>` and
+  `<enrollmentId>.default_self_enc_key.__manage@<atSign>`.
+- `__atserver` holds records the atServer writes for its clients, such
+  as `<micros>.events.__atserver@<atSign>` when another atSign's
+  `publickey` changes. Every approved enrollment may read it.
+
+Each approved enrollment also holds `rw` on a namespace of its own,
+`<enrollmentId>.a.__e`. When the enrollment is revoked, its data
+moves to `<enrollmentId>.r.__e`, and an un-revoke moves it back. When
+the enrollment record is removed, by `enroll:delete` or once it has
+expired, its data moves to `<enrollmentId>.d.__e`.
+
+Since atServer 3.16.1, approving an enrollment whose request carries
+`apsk` or `apskLegacy` also publishes its `apskLegacy`, or else its
+`apsk` as JSON, at `public:_apsk.<enrollmentId>.a.__e@<atSign>`: the
+public half of the enrollment's client data signing key.
+
+The `__pkams` namespace is legacy. At startup the atServer deletes any
+`public:<app>.<device>.pkam.__pkams.__public_keys@<atSign>` record left
+for an enrollment.
 
 ### 6.6 atKey examples
 
-| Wire form                       | Shape   | Hidden? | Cached? |
-|---------------------------------|---------|---------|---------|
-| `public:phone.wavi@alice`       | Public  | No      | No      |
-| `public:_diagnostics@alice`     | Public  | Yes     | No      |
-| `phone.wavi@alice`              | Self    | No      | No      |
-| `@bob:phone.wavi@alice`         | Shared  | No      | No      |
-| `@bob:_handshake.wavi@alice`    | Shared  | Yes     | No      |
-| `cached:public:publickey@alice` | Public  | No      | Yes     |
-| `cached:@bob:phone.wavi@alice`  | Shared  | No      | Yes     |
-| `local:cache.myapp@alice`       | Local   | No      | No      |
-| `privatekey:at_pkam_publickey`  | Private | —       | —       |
+| Wire form                              | Shape   | Hidden? | Cached? |
+|----------------------------------------|---------|---------|---------|
+| `public:phone.wavi@alice`              | Public  | No      | No      |
+| `public:_diagnostics@alice`            | Public  | Yes     | No      |
+| `public:__location@alice`              | Public  | Yes     | No      |
+| `phone.wavi@alice`                     | Self    | No      | No      |
+| `_settings.wavi@alice`                 | Self    | Yes     | No      |
+| `@bob:phone.wavi@alice`                | Shared  | No      | No      |
+| `@bob:_handshake.wavi@alice`           | Shared  | No      | No      |
+| `cached:public:publickey@alice`        | Public  | No      | Yes     |
+| `cached:@bob:phone.wavi@alice`         | Shared  | No      | Yes     |
+| `local:cache.myapp@alice`              | Local   | No      | No      |
+| `private:blocklist@alice`              | Private | —       | —       |
+| `privatekey:signing_keypair_generated` | Private | —       | —       |
 
 ---
 
 ## 7. The metadata fragment
 
 A **metadata fragment** is a sequence of `:tag:value` segments embedded
-in the `update`, `update:meta`, and `notify` verbs. Every metadata
-field a key can carry has a corresponding wire tag. Unrecognised tags
+in the `update`, `update:meta`, and `notify` verbs. The atServer also
+keeps metadata that has no tag, which it sets itself: `createdBy`,
+`updatedBy`, `status`, `version` and `refreshAt`. Unrecognised tags
 must be rejected by an atServer (servers tighten the surface; clients
-should not send tags they don't understand).
+should not send tags they don't understand). The atServer matches tag
+names, and the values `true` and `false`, in any case: `:TTL:60` reads
+as `:ttl:60`. It does not relax their order (§7.2).
 
 ### 7.1 Catalogue
 
 Source of truth: `at_commons/lib/src/verb/syntax.dart`'s
 `metadataFragment`.
 
-| Wire tag          | Type     | Description                                                                                                                     |
-|-------------------|----------|---------------------------------------------------------------------------------------------------------------------------------|
-| `ttl`             | int (ms) | Time-to-live. Key auto-deletes `ttl` ms after creation. `0` or omitted = never expires.                                         |
-| `ttb`             | int (ms) | Time-to-birth. Key is invisible to lookups for `ttb` ms after creation.                                                         |
-| `ttr`             | int (ms) | Time-to-refresh for cached copies. `-1` = cache forever; positive = re-fetch interval.                                          |
-| `ccd`             | bool     | Cascade-delete. If `true`, deleting the original key deletes its cached copies.                                                 |
-| `cAt`             | ISO 8601 | `createdAt` — UTC timestamp of creation. Regex: `\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z` (fractional seconds optional). |
-| `uAt`             | ISO 8601 | `updatedAt` — UTC timestamp of most recent update.                                                                              |
-| `eAt`             | ISO 8601 | `expiresAt` — derived from `cAt + ttl`. Normally server-emitted; clients can also set explicitly (e.g. on sync replay).         |
-| `aAt`             | ISO 8601 | `availableAt` — derived from `cAt + ttb`. Same write semantics as `eAt`.                                                        |
-| `dataSignature`   | string   | Signature over a public value, signed by the owner's signing private key. Verifies authenticity.                                |
-| `sharedKeyStatus` | enum     | Lifecycle status of a shared key: `localUpdated`, `remoteUpdated`, `sharedWithNotified`, etc.                                   |
-| `isBinary`        | bool     | `true` if the value is binary (base64-encoded on the wire).                                                                     |
-| `isEncrypted`     | bool     | `true` if the value is ciphertext.                                                                                              |
-| `sharedKeyEnc`    | string   | The shared symmetric key, RSA-encrypted to the recipient's encryption public key. Inline in metadata.                           |
-| `pubKeyHash`      | string   | Hash of the recipient public key that encrypted `sharedKeyEnc`. Lets the recipient detect key rotation.                         |
-| `pubKeyCS`        | string   | **Deprecated.** Predecessor to `pubKeyHash`. New code must emit `pubKeyHash` + `hashingAlgo`.                                   |
-| `hashingAlgo`     | enum     | Algorithm for `pubKeyHash`: `sha256` or `sha512`.                                                                               |
-| `encoding`        | string   | Encoding of the value if not raw UTF-8 (e.g. `base64`).                                                                         |
-| `encKeyName`      | string   | Name of the symmetric key used to encrypt the value (resolves to a key name in the owner's keystore).                           |
-| `encAlgo`         | string   | Symmetric algorithm used to encrypt the value (e.g. `AES/SIC/PKCS7Padding`).                                                    |
-| `ivNonce`         | string   | Base64 IV / nonce used in symmetric encryption of the value.                                                                    |
-| `skeEncKeyName`   | string   | Name of the public key that wrapped `sharedKeyEnc`.                                                                             |
-| `skeEncAlgo`      | string   | Algorithm used to wrap `sharedKeyEnc` (default `RSA`).                                                                          |
-| `immutable`       | bool     | If `true`, the key cannot be updated; deletion requires `:force:`.                                                              |
+| Wire tag          | Type     | Description                                                                                                                               |
+|-------------------|----------|-------------------------------------------------------------------------------------------------------------------------------------------|
+| `ttl`             | int (ms) | Time-to-live, in ms from the write that sets it (see below). `0` = no expiry.                                                             |
+| `ttb`             | int (ms) | Time-to-birth. For `ttb` ms after the write that sets it, `llookup`, `scan`, and an unauthenticated or `pol` `lookup` do not see the key. |
+| `ttr`             | int (s)  | Time-to-refresh, in seconds, for another atServer's cached copy. `-1` = cache indefinitely; positive = refresh interval.                  |
+| `ccd`             | bool     | Cascade-delete. If `true`, deleting the original key deletes its cached copies.                                                           |
+| `cAt`             | ISO 8601 | `createdAt` — UTC timestamp of creation. Regex: `\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z` (fractional seconds optional).           |
+| `uAt`             | ISO 8601 | `updatedAt` — UTC timestamp of most recent update.                                                                                        |
+| `eAt`             | ISO 8601 | `expiresAt`. Derived from `ttl`; since atServer 3.16.3 an asserted value is stored instead (see below).                                   |
+| `aAt`             | ISO 8601 | `availableAt`. Derived from `ttb`; since atServer 3.16.3 an asserted value is stored instead (see below).                                 |
+| `dataSignature`   | string   | Signature over a public value or, in a `notify:all` notification, over the notified key (RSA, SHA-256, base64). See [§14.2](#142-public-data-signatures) for the keys that make them. |
+| `sharedKeyStatus` | enum     | Shared-key status (`localUpdated`, `remoteUpdated`, `sharedWithNotified`, etc.). The atServer neither stores nor returns it.              |
+| `isBinary`        | bool     | `true` if the value is binary; the reference SDK carries it as Base2e15 text ([§4.5](#45-binary-values)).                                 |
+| `isEncrypted`     | bool     | `true` if the value is ciphertext.                                                                                                        |
+| `sharedKeyEnc`    | string   | The shared symmetric key, RSA-encrypted to the recipient's encryption public key. Inline in metadata.                                     |
+| `pubKeyHash`      | string   | Hash of the recipient public key that encrypted `sharedKeyEnc`, to detect key rotation. Stored only with `hashingAlgo`.                   |
+| `pubKeyCS`        | string   | MD5 hex digest of the recipient public key that encrypted `sharedKeyEnc`. Older than `pubKeyHash`; see Appendix B.4.                      |
+| `hashingAlgo`     | enum     | Algorithm for `pubKeyHash`. The reference SDK writes `sha512`; the atServer stores any value.                                             |
+| `encoding`        | string   | Encoding of the value if not raw UTF-8 (e.g. `base64`).                                                                                   |
+| `encKeyName`      | string   | Name of the symmetric key used to encrypt the value (resolves to a key name in the owner's keystore).                                     |
+| `encAlgo`         | string   | Symmetric algorithm used to encrypt the value (e.g. `AES/SIC/PKCS7Padding`).                                                              |
+| `ivNonce`         | string   | Base64 IV / nonce used in symmetric encryption of the value.                                                                              |
+| `skeEncKeyName`   | string   | Name of the public key that wrapped `sharedKeyEnc`.                                                                                       |
+| `skeEncAlgo`      | string   | Algorithm used to wrap `sharedKeyEnc` (default `RSA`).                                                                                    |
+| `immutable`       | bool     | If `true`, the key cannot be updated; deletion requires `:force:`.                                                                        |
+| `appMetadata`     | string   | Base64 of a UTF-8 JSON object whose non-empty string `providerId` names the crypto provider for the value (see below).                    |
 
-Negative integer values for `ttl`/`ttb` are accepted by the regex (the
-syntax allows `(-?)\d+`) but server-side semantics are documented at
-the constants level, typically only `ttr:-1` ("cache forever") is a
-useful negative.
+The grammar admits a sign on `ttl`, `ttb` and `ttr` (`(-?)\d+`), but
+the atServer refuses a negative `ttl` or `ttb`, and a `ttr` below
+`-1`, with `AT0003`.
+
+`ttl` and `ttb` count from the write that sets them, and a write that
+sets both expires `ttb` + `ttl` ms after it. `ttl:0` clears an expiry.
+Since atServer 3.16.3, an `update` or `update:meta` that sets neither
+`ttl` nor `eAt` keeps the stored `expiresAt`, one that sets neither
+`ttb` nor `aAt` keeps the stored `availableAt`, and a `ttl` sent
+without `ttb` counts from the write alone, whatever `ttb` the record
+holds.
+
+An update notification with no `ttr`, or `ttr:0`, does not cache the
+value at the recipient's atServer.
+
+Since atServer 3.13.0 (at_commons 5.10.0), the grammar takes `cAt`,
+`uAt`, `eAt` and `aAt`. Since atServer 3.16.3, the atServer stores
+an asserted value, truncated to milliseconds, in place of the one it
+would set or derive. An `update` or `update:meta` that asserts `eAt`
+with no `ttl`, or `ttl:0`, also stores the `ttl` that `eAt` implies;
+`aAt` and `ttb` work the same way.
+
+On `update` and `update:meta`, a string tag that the command omits
+keeps its stored value, and one sent as the literal `null` clears it:
+`dataSignature`, `sharedKeyEnc`, `pubKeyCS`, `encoding`, `encKeyName`,
+`encAlgo`, `ivNonce`, `skeEncKeyName` and `skeEncAlgo`. A `null` does
+not clear `pubKeyHash` or `appMetadata`.
+
+`encKeyName`, `encAlgo`, `skeEncKeyName` and `skeEncAlgo` are
+optional, and at_commons defines what an absent one means: for
+`encKeyName`, the inline `sharedKeyEnc`, else the default shared key;
+for `encAlgo`, `AES/SIC/PKCS7Padding` for a value; for
+`skeEncKeyName`, the recipient's `public:publickey`; and for
+`skeEncAlgo`, `RSA`. When the reference SDK encrypts with its `legacy`
+crypto provider, it sets `ivNonce` and none of these four.
+
+Since atServer 3.14.0 (at_commons 5.11.0), `appMetadata` may carry
+provider-owned fields beside `providerId`. The reference SDK sets it
+on each value it encrypts, with `providerId` `legacy` unless the app
+configures another provider. The atServer refuses, with `AT0003`, a
+value that does not decode to such an object. Otherwise it stores,
+returns and forwards it without acting on it. An `update` or
+`update:meta` that omits it, or sends `null`, keeps the stored value.
 
 ### 7.2 Tag ordering
 
@@ -446,8 +691,9 @@ producing wire commands SHOULD emit tags in regex-declared order:
 `ttl, ttb, ttr, ccd, cAt, uAt, eAt, aAt, dataSignature,
 sharedKeyStatus, isBinary, isEncrypted, sharedKeyEnc, pubKeyCS,
 pubKeyHash, hashingAlgo, encoding, encKeyName, encAlgo, ivNonce,
-skeEncKeyName, skeEncAlgo, immutable`. Servers parse via the canonical
-regex which enforces this order; deviating produces a syntax error.
+skeEncKeyName, skeEncAlgo, immutable, appMetadata`. Servers parse via
+the canonical regex which enforces this order; deviating produces a
+syntax error.
 
 ---
 
@@ -464,22 +710,24 @@ prompt.
 
 ### 8.2 Lookup
 
-Send the atSign followed by `\n`. Either form is accepted:
+Send the atSign followed by `\n`, without its leading `@` (the
+reference SDK strips it). The atDirectory lowercases the line before it
+looks it up:
 
 ```text
-@alice\n
 alice\n
 ```
 
 ### 8.3 Response
 
 When the atSign is found, the atDirectory replies with
-`<host>:<port>\n@`, where `host` is a hostname or IP and `port` is the
-atServer's TLS port for that atSign. When the atSign is not found, the
-reply is `null\n@`.
+`<host>:<port>\r\n@`, where `host` is a hostname or IP and `port` is
+the atServer's TLS port for that atSign. When the atSign is not found,
+the reply is `null\r\n@`. Clients should also accept `\n@`.
 
-Some atDirectory implementations emit `\r\n@` instead of `\n@`;
-implementations should accept both.
+On one connection, the second lookup of an atSign the atDirectory does
+not know is answered after a 3-second delay, and the third, after the
+same delay, closes the connection without a reply.
 
 ### 8.4 Disconnect
 
@@ -491,8 +739,8 @@ flush and close the socket. No response is expected.
 ```text
 C: <TLS handshake>
 S: @
-C: @alice\n
-S: alice.atsign.com:6589\n@
+C: alice\n
+S: alice.atsign.com:6589\r\n@
 C: @exit\n
 C: <socket close>
 ```
@@ -544,8 +792,12 @@ Response: the server generates a UUIDv4 challenge and a session
 ID and stores the challenge under
 `<keyPrefix><sessionId><fromAtSign>` (with TTL 60 s), where
 `keyPrefix` is `private:` if the connecting atSign matches the
-server's own atSign (self-connect) and `public:` otherwise (this
-matters for `pol`, which retrieves the challenge via `plookup`).
+server's own atSign (self-connect) and `public:` otherwise. This
+matters for `pol`: the verifier reads the challenge back under this
+name, and the prover stores its copy, signed with its server
+authentication signing key, under the same name in its own keystore,
+where the verifier fetches it with an unauthenticated `lookup` (see
+[§15.2](#152-the-pol-handshake)).
 
 The response payload is:
 
@@ -608,8 +860,10 @@ After success the connection is **authenticated as owner**.
 ### 9.3 PKAM (`pkam`)
 
 Plain PKAM is the underlying signature-based authentication that APKAM
-extends. A client running plain PKAM holds the master signing private
-key directly.
+extends. A client running plain PKAM signs with the atSign's PKAM
+private key; under APKAM, each enrollment signs with its own APKAM
+private key. Either is a client authentication signing key
+([§6.5](#65-reserved-keys)).
 
 #### Syntax
 
@@ -625,8 +879,8 @@ Source:
 
 Signature computation: the client signs the `from` challenge
 (everything the `from` response payload contained, less any leading
-`data:`) with the owner's signing private key, base64-encodes the
-result, and sends it as `<signature>`.
+`data:`) with its client authentication signing key, base64-encodes
+the result, and sends it as `<signature>`.
 
 Defaults: `signingAlgo:rsa2048`, `hashingAlgo:sha256`. The `enrollmentId`
 is omitted for plain PKAM; an APKAM-issued credential includes the
@@ -657,6 +911,9 @@ A high-level flow:
    decrypts the APKAM symmetric key, then sends back the
    default encryption private key and self-encryption key, each
    encrypted with the now-shared APKAM symmetric key (with IVs).
+   Since atServer 3.17.1, the approved enrollment expires no later than
+   the approver's own enrollment: the atServer caps its expiry on
+   approval.
 5. **PKAM-with-enrollmentId**, the new app authenticates as usual via
    `from` + `pkam`, passing `enrollmentId:<id>` so the atServer scopes
    the connection to the granted namespaces.
@@ -692,20 +949,56 @@ Source:
 | `encryptedDefaultSelfEncryptionKey`    | approve                                   | Owner's self-encryption key, AES-encrypted with the APKAM symmetric key.                       |
 | `selfEncKeyIV`                         | approve                                   | IV (base64) for the line above.                                                                |
 | `enrollmentStatusFilter`               | list                                      | Optional list of statuses to filter on: `pending`, `approved`, `denied`, `revoked`, `expired`. |
-| `apkamKeysExpiryDuration`              | request                                   | ISO-8601 duration: lifetime of the APKAM credentials before forced re-enrollment.              |
+| `apkamKeysExpiryInMillis`              | request                                   | Lifetime the request asks for, in milliseconds from approval; absent or 0 for none.            |
 
 #### Operations and responses
 
-| Operation  | Response payload                                                                         |
-|------------|------------------------------------------------------------------------------------------|
-| `request`  | `data:{"enrollmentId":"<uuid>","status":"pending"}`                                      |
-| `approve`  | `data:{"enrollmentId":"<uuid>","status":"approved"}`                                     |
-| `deny`     | `data:{"enrollmentId":"<uuid>","status":"denied"}`                                       |
-| `revoke`   | `data:{"enrollmentId":"<uuid>","status":"revoked"}` (`:force:` to revoke own enrollment) |
-| `unrevoke` | `data:{"enrollmentId":"<uuid>","status":"approved"}`                                     |
-| `delete`   | `data:{"enrollmentId":"<uuid>","status":"deleted"}`                                      |
-| `fetch`    | `data:{ <full enrollment record JSON> }`                                                 |
-| `list`     | `data:{"<enrollKey>":{<enrollment record JSON>}, …}`                                     |
+| Operation  | Response payload                                                                                |
+|------------|-------------------------------------------------------------------------------------------------|
+| `request`  | `data:{"enrollmentId":"<uuid>","status":"pending"}`, or `"approved"` when approved at once      |
+| `approve`  | `data:{"status":"approved","enrollmentId":"<uuid>"}`. Since atServer 3.17.1 it also carries `"expiresAt"`, an ISO-8601 UTC string or null |
+| `deny`     | `data:{"status":"denied","enrollmentId":"<uuid>"}`                                              |
+| `revoke`   | `data:{"status":"revoked","enrollmentId":"<uuid>"}`, with `"cascadedEnrollmentIds":[…]` when it also revoked the enrollments that descend from it, those it approved and those they approved (`:force:` to revoke own enrollment) |
+| `unrevoke` | `data:{"status":"approved","enrollmentId":"<uuid>"}`                                            |
+| `delete`   | `data:{"enrollmentId":"<uuid>","status":"deleted"}`                                             |
+| `fetch`    | `data:{ <full enrollment record JSON> }`                                                        |
+| `list`     | `data:{"<enrollKey>":{<enrollment record JSON>}, …}`                                            |
+
+Since atServer 3.17.1, a request is refused with `AT0022` unless its
+`apkamKeysExpiryInMillis`, when given, is a whole number from 0 to
+3155760000000 (36,525 days); before, a negative value also asked for
+none.
+
+Since atServer 3.17.1, `approve` caps the approved enrollment's expiry at
+that of the enrollment the connection authenticated as, when that one
+expires, and reports the moment the approved enrollment ends as
+`expiresAt`, null when it never does. An earlier expiry the request asked
+for is kept. An approval over a CRAM connection, or by an enrollment that
+never expires, caps nothing.
+
+The encryption keys stored for an enrollment on approval expire when the
+enrollment does.
+
+An `enroll:request` sent over a CRAM connection is the atSign's root
+enrollment: it is approved at once and never expires, whatever expiry it
+asks for. Since atServer 3.17.1 it reports `apkamKeysExpiryInMillis` as
+0; a root requested earlier reports the expiry it asked for.
+
+`list` entries and `fetch` carry `apkamKeysExpiryInMillis` and
+`expiresAt`. For a pending request, `apkamKeysExpiryInMillis` is the key
+expiry it asks for (0 or less for none), and `expiresAt` is when the
+request lapses unapproved, 48 hours after it was made by default. Once
+a request is approved, they are the term granted and the moment it ends;
+a root requested before atServer 3.17.1 is the exception above.
+`list` and `fetch` carry `expiresAt` since atServer 3.16.4, and `fetch`
+carries `apkamKeysExpiryInMillis` since 3.17.1.
+
+A pending request is announced to approver apps as a self notification
+keyed `<enrollmentId>.new.enrollments.__manage@<atSign>`. Its value
+carries `appName`, `deviceName`, `namespace`, the encrypted APKAM
+symmetric key under both `encryptedApkamSymmetricKey` and
+`encryptedAPKAMSymmetricKey`, and, since atServer 3.17.1,
+`apkamKeysExpiryInMillis`. A request approved at once is not announced.
 
 #### 9.4.2 The `otp` verb
 
@@ -758,9 +1051,11 @@ non-committed) and `data:<JSON record>` on `get`.
 
 ## 10. CRUD verbs
 
-All CRUD verbs require an authenticated connection (owner or APKAM-
-authenticated). The unauthenticated case for `lookup` is handled by
-the dedicated `plookup` verb.
+`lookup` and `scan` run on any connection and answer from what that
+connection may see; see [§10.4](#104-lookup) for `lookup`. A `scan` of
+the commit log, or of another atSign's keys, needs a connection
+authenticated as the atSign. The other CRUD verbs, `plookup` among them,
+need a connection authenticated as the atSign (owner or APKAM).
 
 ### 10.1 `update`
 
@@ -784,13 +1079,17 @@ Source:
 ^update(:nc(?<noCommit>))?(:json:(?<json>.+)|<metadataFragment>(:(public|@(?<forAtSign>...)))?:(?<atKey>...)(@(?<atSign>...))? (?<value>.+))$
 ```
 
-`:nc` (no-commit) suppresses the commit-log entry, used for local
-keys that should not be synced.
+Since atServer 3.16.3, `:nc` (no-commit) writes no commit-log entry
+for the change, removes any entry the key already has, and answers
+`data:-1`. From atServer 3.13.0 to 3.16.2 the grammar takes `:nc`, and
+the write is committed as usual.
 
 Response: `data:<commitId>` where `commitId` is the integer
-commit-log sequence number assigned to the operation. Self-connected
-clients use this to detect that their local cache is at least as
-fresh as the server.
+commit-log sequence number assigned to the operation. The reference
+SDK's sync takes it as the atServer's acknowledgement of a pushed
+write. A write to a key the commit log never records, a `public:_`
+key (but not `public:__`), or a `local:`, `private:` or `privatekey:`
+key, also answers `data:-1`.
 
 ```text
 C: update:@bob:phone.wavi@alice +1 555 0100\n
@@ -800,27 +1099,69 @@ S: data:42\n@alice@
 Setting metadata at update time:
 
 ```text
-C: update:ttr:60000:ccd:true:isEncrypted:true:@bob:secret.myapp@alice <ciphertext>\n
+C: update:ttr:86400:ccd:true:isEncrypted:true:@bob:secret.myapp@alice <ciphertext>\n
 S: data:43\n@alice@
 ```
 
-JSON form (atomic put with full metadata):
+JSON form:
 
 ```text
-C: update:json:{"atKey":{"key":"phone","sharedWith":"@bob","sharedBy":"@alice","namespace":"wavi"},"value":"+1 555 0100","metadata":{"ttl":60000}}\n
+C: update:json:{"atKey":"phone.wavi","sharedBy":"@alice","sharedWith":"@bob","value":"+1 555 0100","metadata":{"ttl":60000,"isPublic":false,"isBinary":false,"isEncrypted":false}}\n
 S: data:44\n@alice@
 ```
 
+`atKey` is a string. The atServer builds the stored key as
+`[public:][<sharedWith>:]<atKey>[<sharedBy>]`, with `public:` when
+`metadata.isPublic` is `true`; the example stores
+`@bob:phone.wavi@alice`. `metadata` is required, and must hold
+`isPublic`, `isBinary` and `isEncrypted` as booleans; a document
+without them is refused. Its other fields are optional and take the
+wire tags' names (§7.1), except that the timestamps are `createdAt`,
+`updatedAt`, `expiresAt` and `availableAt`, and `pubKeyHash` is an
+object, `{"hash":"…","hashingAlgo":"…"}`.
+
+The atServer refuses to `update` a `local:`, `cached:` or `private:`
+key, or a name that is not a valid atKey, unless a reserved key from
+either table in [§6.5](#65-reserved-keys) appears within the name. A
+`privatekey:` name counts only at the end of the name,
+`@<recipient>:shared_key@<atSign>` only at its start, `configkey` and
+`_` names only as the whole name, and any other reserved key wherever
+it appears. So `update` stores
+`cached:public:publickey@<atSign>`,
+`cached:public:signing_publickey@<atSign>` and
+`private:blocklist@<atSign>`, and also names such as
+`cached:shared_key.bob@alice`, answered with a commit id, and
+`local:shared_key.bob@alice`, answered `data:-1`. Only the JSON form
+can name a `local:`, `cached:` or `private:` key. The atServer also
+refuses to overwrite a record that carries `immutable:true`. Since
+atServer 3.16.2, a record whose expiry has passed counts as absent, so
+an expired immutable record no longer blocks the write.
+
+When the write creates the key, `ccd` is kept only if the request
+also sets a non-zero `ttr`.
+
 ### 10.2 `update:meta`
 
-Update only the metadata of an existing key. Same metadata fragment as
-`update`. Useful for changing TTL or marking a key encrypted after
+Update only the metadata of a key. Same metadata fragment as
+`update`, but it comes after the atKey, and the owner's atSign is
+required. Useful for changing TTL or marking a key encrypted after
 the fact.
+
+#### Syntax
+
+```text
+update:meta[:nc][:public|@<forAtSign>]:<atKey>@<atSign><metadata>
+```
 
 ```text
 C: update:meta:@bob:phone.wavi@alice:ttl:600000:isEncrypted:true\n
 S: data:45\n@alice@
 ```
+
+On a key the atServer does not hold, `update:meta` creates a record
+with that metadata and no value. The response, `:nc` and the
+refusals are as for `update`. On an APKAM connection, `update:meta`
+needs `rw` access to the key's namespace, as `update` does.
 
 ### 10.3 `delete`
 
@@ -838,14 +1179,30 @@ Source:
 ^delete(:dAt:...)?(:nc)?(:force)?(:priority:...)?(:cached)?(:public|@<forAtSign>)?:<atKey>(@<atSign>)?$
 ```
 
-- `:dAt:<timestamp>`, assert deletion time (used by sync).
-- `:nc`, no commit.
+- `:dAt:<timestamp>`, the deletion time the caller asserts, an ISO
+  8601 UTC timestamp as for `cAt` (§7.1). Since atServer 3.16.3, the
+  atServer stamps the DELETE commit entry with it. From atServer 3.13.0
+  to 3.16.2 it is accepted and not used.
+- `:nc`, no commit. Since atServer 3.16.3, no entry is written, any
+  entry the key already has is removed, and the response is
+  `data:-1`. From atServer 3.13.0 to 3.16.2 it is accepted, and the
+  delete is committed as usual.
 - `:force`, required to delete an `immutable:true` key.
+- `:priority:<low|medium|high>`, the priority of the auto-notification
+  described below.
 - `:cached`, delete a cached copy on this server (does not affect the
   origin).
 
-Response: `data:<commitId>` (yes, even when the key didn't exist;
-`delete` is idempotent and always commits).
+`delete` refuses to remove this atServer's own `publickey`,
+`signing_publickey` and `signing_privatekey`, whatever `public:` or
+`@<recipient>:` scope the command gives them, `at_pkam_publickey`, and
+any key listed under `hive.protectedKeys` in the atServer's
+configuration. A `:cached` delete is not refused.
+
+Response: `data:<commitId>`, even when the key did not exist (see
+[§D.13](#d13-delete-is-idempotent-and-always-commits)). A key the
+commit log never records, a `public:_` key (but not `public:__`) or
+`privatekey:at_secret`, answers `data:-1`.
 
 ```text
 C: delete:@bob:phone.wavi@alice\n
@@ -858,9 +1215,30 @@ to the recipient, see [§11](#11-notification-verbs).
 
 ### 10.4 `lookup`
 
-Read a value from another atSign's atServer (cross-atSign read,
-authenticated). Internally proxied via the requestor's local atServer
-(see [§15](#15-the-inter-atserver-protocol)).
+Read a value. What `lookup` answers depends on the connection it
+arrives on:
+
+- On a connection authenticated as the atSign (owner or APKAM), a key
+  owned by this atServer's atSign is read from its own keystore. A key
+  owned by another atSign is fetched from that atSign's atServer over a
+  `pol`-authenticated connection (see
+  [§15.3](#153-cross-atsign-lookup)), and may be answered from a cached
+  copy, per the key's `ttr`, unless `bypassCache:true` is set.
+- On a connection where another atServer has proved itself as `@x` with
+  `pol`, `lookup:<atKey>@<this atSign>` returns the record this atSign
+  shares with `@x`, `@x:<atKey>@<this atSign>`.
+- On a connection that has not authenticated,
+  `lookup:<atKey>@<this atSign>` returns the public record
+  `public:<atKey>@<this atSign>`.
+
+Since atServer 3.17.1, on a connection not authenticated as the atSign
+(a `pol` connection, or one that has not authenticated at all), a
+`lookup:` may name only this atServer's atSign as the key's owner. A
+lookup naming another owner is refused with `AT0009`, and the connection
+is closed. Before 3.17.1, a lookup naming another owner was answered as
+the bullets above describe, from the `public:` record or the record
+shared with `@x` under that name, so it could read only what that
+connection may see; the change is that it is now refused.
 
 #### Syntax
 
@@ -904,9 +1282,11 @@ If the remote atServer is unreachable: `error:AT0007-atServer not found.`
 
 ### 10.5 `plookup`
 
-Public lookup, read a public key from any atSign without
-authentication. The server may answer from its own cache (per the
-key's `ttr`) unless `:bypassCache:true:` is set.
+Read another atSign's public record through this atServer, on a
+connection authenticated as the atSign. The atServer fetches
+`public:<atKey>@<atSign>` from the owner's atServer with an
+unauthenticated `lookup:`, and may answer from its own cached copy, per
+the record's `ttr`, unless `bypassCache:true` is set.
 
 #### Syntax
 
@@ -935,6 +1315,15 @@ Source:
 
 - `:cached:`, look up a cached copy on this atServer.
 
+A key the atServer does not hold answers error `AT0015`. A key past
+its expiry (`ttl`), or not yet available (`ttb`), answers `data:null`
+(see [§D.4](#d4-expired-keys-return-null-instead-of-an-at0015-error)).
+
+On an APKAM connection, a key that is not `public:` must be one the
+enrollment may read, which for a key in a namespace means `r` or `rw`
+access to that namespace. A `public:` key, cached or not, is not
+checked.
+
 Response is identical in shape to `lookup`.
 
 ### 10.7 `scan`
@@ -944,20 +1333,52 @@ Enumerate keys.
 #### Syntax
 
 ```text
-scan[:cl][:showhidden:<true|false>][:<forAtSign>][:page:<n>][ <regex>]
+scan[:cl][:showhidden:<true|false>][:@<forAtSign>][:page:<n>][ <regex>]
 ```
 
 Source:
 
 ```text
-^scan$|scan(:cl)?(:showhidden:...)?(:<forAtSign>)?(:page:...)?( <regex>)?$
+^scan$|scan(:cl)?(:showhidden:...)?(:@<forAtSign>)?(:page:...)?( <regex>)?$
 ```
 
-- `:cl`, scan the commit log instead of the keystore.
-- `:showhidden:true`, include keys whose `<key>` starts with `_`.
-- `:<forAtSign>`, only return keys shared with that atSign.
-- `:page:<n>`, pagination index (server-defined page size).
-- `<regex>` (space-separated), filter results by regex.
+- `:cl`, since atServer 3.16.3, list commit-log entries instead of
+  keys (see Response below). It needs a connection authenticated as
+  the atSign, and naming another atSign with it is refused. From
+  atServer 3.13.0 to 3.16.2 `:cl` is accepted, and the scan answers as
+  it would without it.
+- `:showhidden:true`, on an authenticated connection, also list the
+  hidden keys: keys that start with `_` (such as `_x.wavi@alice`) and
+  `public:__` keys. `public:_` keys with a single underscore,
+  `private:` keys and `privatekey:` keys are never listed. A key that
+  starts with `@` (a shared key) is not hidden, whatever its name.
+- `:@<forAtSign>`, naming another atSign, asks that atSign's atServer,
+  over a `pol` connection, for the keys it shares with this atSign
+  (see [§15](#15-the-inter-atserver-protocol)). It needs a connection
+  authenticated as the atSign. Only `<regex>` is passed on, and the
+  response is that atServer's. Naming this atServer's own atSign
+  is an ordinary scan.
+- `:page:<n>`, accepted by the grammar and ignored: the whole result
+  comes back in one response.
+- `<regex>` (after a space), a regular expression matched anywhere in
+  each stored key name, such as `@bob:phone.wavi@alice`. It cannot
+  contain whitespace.
+
+Keys past their expiry (`ttl`), or not yet available (`ttb`), are not
+listed. What else `scan` lists depends on the connection:
+
+- Not authenticated: the `public:` keys, without the `public:` prefix.
+  `public:_` keys, `public:__` keys among them, are left out.
+- `pol`, as `@<x>`: the keys shared with `@<x>`, without the `@<x>:`
+  prefix.
+- CRAM: every key that `:showhidden` does not leave out.
+- APKAM: the public keys, and the keys the enrollment may read (`r` or
+  `rw`) through their namespace. Other keys with no `.` in their name
+  are left out unless the enrollment holds `*`, and
+  `shared_key.<recipient>@<atSign>` is listed for every approved
+  enrollment. Non-public `__manage` keys, and
+  other enrollments' `<enrollmentId>.a|r|d.__e` keys, are always left
+  out.
 
 #### Response
 
@@ -967,7 +1388,20 @@ data:["public:phone.wavi@alice","@bob:email.wavi@alice", …]
 
 A JSON array of strings, on a single line. Empty result is `data:[]`.
 
-The `forAtSign` and `regex` filters operate on key **structure**, not
+`scan:cl` answers a JSON array of objects, one per key, in ascending
+`commitId` order. DELETE entries are included. The hidden-key, regex
+and enrollment filters apply as for a keystore scan on that
+connection.
+
+```text
+data:[{"atKey":"phone.wavi@alice","operation":"+","commitId":42,"opTime":"2026-10-16T10:52:58.123000Z"}, …]
+```
+
+`operation` is `+` or `*` for a write, `#` for a metadata-only write
+and `-` for a delete. `opTime` is ISO 8601 UTC with six fractional
+digits, or `null`.
+
+The `regex` filter operates on key **structure**, not
 value contents, value-level filtering is impossible because the
 server has no plaintext to filter against ([§14](#14-end-to-end-encryption)).
 
@@ -996,8 +1430,8 @@ Source: see `at_commons/lib/src/verb/syntax.dart` `notify`.
 | Tag               | Description                                                                                       |
 |-------------------|---------------------------------------------------------------------------------------------------|
 | `id`              | Caller-supplied notification ID. Server generates one if omitted.                                 |
-| `update           | delete`                                                                                           | Operation. Defaults to `update`.                                                                      |
-| `messageType:key` | Notification refers to an atKey change. (`text` exists; **deprecated** — see Appendix B.)         |
+| `update\|delete`  | Operation. Defaults to `update`.                                                                  |
+| `messageType:key` | Notification refers to an atKey change. `text` is retired since atServer 3.17.1 ([Appendix B.3](#b3-notify-messagetypetext)). |
 | `priority`        | Delivery priority hint.                                                                           |
 | `strategy:all`    | Deliver every notification (default).                                                             |
 | `strategy:latest` | Coalesce: deliver only the most recent `<latestN>` for the same atKey if recipient was offline.   |
@@ -1021,8 +1455,11 @@ single `forAtSign` segment normally goes.
 #### Syntax
 
 ```text
-notify:all:[<update|delete>:][messageType:<key|text>:][ttl:<ms>:][ttb:<ms>:][ttr:<ms>:][ccd:<bool>:]<recipient,recipient,…>:<atKey>[@<atSign>][:<value>]
+notify:all:[<update|delete>:][messageType:<key|text>:][ttl:<ms>:][ttb:<ms>:][ttr:<s>:][ccd:<bool>:]<recipient,recipient,…>:<atKey>[@<atSign>][:<value>]
 ```
+
+The grammar still parses `messageType:text`; since atServer 3.17.1 the
+atServer refuses it ([Appendix B.3](#b3-notify-messagetypetext)).
 
 Response: a JSON map of `recipient → notificationId`:
 
@@ -1123,7 +1560,7 @@ Source:
 |---------------------|-----------------------------------------------------------------------------------------------------|
 | `strict`            | Emit **only** notifications matching the regex; suppress server-control notifications (e.g. stats). |
 | `selfNotifications` | Include notifications the connecting atSign emitted itself.                                         |
-| `multiplexed`       | Allow request-response interleaving on the same connection.                                         |
+| `multiplexed`       | Accepted, and has no effect.                                                                        |
 | `<epochMillis>`     | Replay notifications received at or after this timestamp.                                           |
 | `<regex>`           | Filter notifications by atKey regex.                                                                |
 
@@ -1138,10 +1575,9 @@ remains open until either side closes it. Server-control
 notifications use the same `notification: …` prefix unless `:strict`
 is set.
 
-If `:multiplexed` is set, the server processes a subsequent verb
-arriving on the same connection (e.g. `lookup`) when no notification
-delivery is mid-flight, and emits the response with the standard
-prompt; notifications resume after the response.
+`:multiplexed` is accepted and has no effect. A monitor connection
+takes further commands like any other (see [§4.7](#47-pipelining)),
+and a notification may arrive between a command and its response.
 
 ---
 
@@ -1180,8 +1616,8 @@ data:[{"atKey":"@bob:phone.wavi@alice","operation":"+","opTime":"2026-05-05T10:3
       {"atKey":"@bob:shared_key.wavi@alice","operation":"-","opTime":"2026-05-05T10:31:42.000Z","commitId":43}]
 ```
 
-Operations: `+` for upsert, `-` for delete, `*` for metadata-only
-update.
+Operations: `+` or `*` for a write, `#` for a metadata-only write,
+`-` for a delete.
 
 The legacy `sync:<from_commit_seq>` syntax (without `:from:`) is
 retained for backward compatibility and is documented in
@@ -1333,56 +1769,120 @@ data:[{"id":1,"response":{"data":"42"}},{"id":2,"response":{"data":"43"}}]
 
 ## 14. End-to-end encryption
 
-End-to-end encryption is **entirely an atClient concern**. atServers
-store opaque ciphertext in the `value` field, opaque ciphertext in the
-`sharedKeyEnc` metadata field, and opaque metadata about which keys
-encrypted which, but they never see plaintext keys, plaintext values,
-or have any way to decrypt anything they store. No server-side
-behaviour in this specification depends on understanding what the
-encrypted material means.
+End-to-end encryption is **entirely an atClient concern**. For an
+encrypted value, the atServer stores ciphertext in the `value` field,
+metadata about how the value was encrypted and, for a value shared
+with another atSign, the encrypted shared key in the `sharedKeyEnc`
+metadata field. Nothing in the atServer decrypts what it stores, and
+no server-side behaviour in this specification depends on
+understanding what the encrypted material means.
+
+Not everything an atServer stores is ciphertext. Public values and
+public keys are plaintext by design, as is any value an atClient sends
+unencrypted.
 
 This section describes how the wire-level metadata fields hang together
-so an atClient implementer can interoperate with the existing Dart
-SDK. It does **not** specify the encryption protocol normatively; that
-lives in the [`at_chops`](https://pub.dev/packages/at_chops) package
-and is allowed to evolve.
+so an atClient implementer can interoperate with the reference SDK. It
+does **not** specify the encryption protocol normatively. In the
+reference SDK the scheme lives in the `at_client` package's crypto
+providers, built on primitives from
+[`at_chops`](https://pub.dev/packages/at_chops), and it is allowed to
+evolve: post-quantum cryptography is in active development (see
+[Appendix C.1](#c1-post-quantum-cryptography-and-crypto-agility)).
 
 ### 14.1 Two layers
 
-Atsign Protocol e2ee uses two layers:
+The reference SDK's `legacy` crypto provider encrypts a value shared
+with another atSign in two layers:
 
-1. **Symmetric layer.** Each atSign holds one symmetric **shared key**
-   per recipient. Values shared from `@alice` to `@bob` are encrypted
-   with `alice`'s sharedKey-for-bob (AES). The metadata fields
-   `encKeyName`, `encAlgo`, `ivNonce`, and `encoding` describe this
-   encryption.
+1. **Symmetric layer.** Each atSign holds one AES-256 **shared key**
+   per recipient. A value `@alice` shares with `@bob` is encrypted with
+   `@alice`'s shared key for `@bob`. The `ivNonce` metadata field
+   carries the IV it was encrypted with.
 2. **Asymmetric layer.** The shared key is itself encrypted with the
-   recipient's encryption public key (RSA), serialised into the
-   `sharedKeyEnc` metadata field, and pinned to the public key that
-   wrapped it via `pubKeyHash` (and `hashingAlgo`) and `skeEncKeyName`
-   / `skeEncAlgo`.
+   recipient's encryption public key, `public:publickey@<recipient>`
+   (RSA), and carried in the `sharedKeyEnc` metadata field. Two fields
+   record which public key wrapped it: `pubKeyHash`, its SHA-512 hash
+   (with `hashingAlgo:sha512`), and `pubKeyCS`, its MD5 hex digest (see
+   [§14.3](#143-public-key-rotation)).
 
-Inline shared-key delivery (`sharedKeyEnc` carried in the metadata of
-the value itself) is the supported pattern. Alternative delivery via a
-separately-stored `<atSign>:shared_key.<namespace>@<owner>` atKey is
-accepted for backward compatibility but not recommended.
+The SDK does not set `encKeyName`, `encAlgo`, `skeEncKeyName` or
+`skeEncAlgo`, and does not read them when it decrypts. A value an
+atSign keeps for itself has only the symmetric layer: the SDK encrypts
+it with the atSign's self-encryption key.
+
+With the legacy provider, the SDK puts `sharedKeyEnc` in the metadata of
+every value it encrypts for another atSign, and a reader uses it when
+present. When the SDK finds no copy of its shared key for a recipient,
+locally or on the atServer, it creates one and writes two records of it.
+In these key names, `<recipient>` and `<owner>` are atSigns without
+their `@`:
+
+- `@<recipient>:shared_key@<owner>`, encrypted with the recipient's
+  `publickey`;
+- `shared_key.<recipient>@<owner>`, the owner's own copy, encrypted
+  with the owner's `publickey`.
+
+A reader given a value without `sharedKeyEnc` falls back to
+`@<recipient>:shared_key@<owner>`: its cached copy if it has one, else
+a `lookup` of `shared_key@<owner>`.
+
+Since at_client 3.13.0, the SDK names the provider that encrypted a
+value in the `providerId` of the value's `appMetadata` tag. It decrypts
+a value with no `appMetadata`, or with `providerId` `legacy`, by the
+scheme above. Other providers may encrypt differently.
 
 ### 14.2 Public-data signatures
 
-Public values may be signed by the owner's signing private key; the
-signature appears in `dataSignature`. Recipients verify against the
-owner's `public:signing_publickey@<owner>`. This is the only signature
-on a value-side payload, encrypted (shared) values rely on the AES
-authenticated-encryption mode in `encAlgo` to detect tampering.
+When the reference SDK's `AtClient.put` writes a public value, it
+signs the value with the legacy data signing key, the client
+encryption key ([§6.5](#65-reserved-keys)), using RSA with SHA-256,
+and puts the base64 signature in `dataSignature`. It signs the UTF-8
+bytes of the value's text: for a binary value, its Base2e15 text
+([§4.5](#45-binary-values)), and before any `encoding:base64`
+([Appendix D.9](#d9-newline-escaping-is-value-class-specific)). The
+matching public key is `public:publickey@<owner>`, not
+`public:signing_publickey@<owner>`. Signing public values with the
+legacy data signing key is the legacy scheme. It will be widened to
+sign with client data signing keys, post-quantum ones included
+([Appendix C.1](#c1-post-quantum-cryptography-and-crypto-agility)).
+
+In a `notify:all` notification the atServer sets `dataSignature`
+itself: a signature over `<atKey>@<atSign>`, the notified key without
+its recipient, made with its server authentication signing key. The
+atServer stores the same signature on each recipient's notification.
+The `notify` it sends on to a recipient's atServer does not carry
+it.
 
 ### 14.3 Public-key rotation
 
-If the recipient rotates their encryption keypair, every shared key
-encrypted to the old public key becomes unrecoverable. `pubKeyHash`
-lets the recipient detect this on read: if the hash doesn't match
-their current public key, the recipient asks the sender to re-share.
-There is no in-protocol re-key flow; the sender re-issues the
-update with a fresh `sharedKeyEnc`.
+If a recipient's encryption keypair changes, values shared with it
+before the change carry a `sharedKeyEnc` wrapped with the old public
+key, which only the old private key opens. Each side has a signal for
+this.
+
+The recipient's atClient sees it on read. The reference SDK compares a
+received value's `pubKeyHash` and `pubKeyCS`, each when present, with
+hashes of its own current `publickey`, and fails the read with
+`AtPublicKeyChangeException` when either differs.
+
+The sender's atServer sees it when it fetches the recipient's
+`publickey`, as it does each time it opens an outbound connection to
+the recipient's atServer. When the fetched key differs from its cached
+copy, `cached:public:publickey@<recipient>`, the atServer:
+
+- stores an `AtSignPKChangedEvent` naming the recipient, at
+  `<epochMicros>.events.__atserver@<sender>`;
+- sends its own atSign a `self` notification of that key, which
+  expires after five minutes;
+- renames `shared_key.<recipient>@<sender>`, if it holds one, to
+  `shared_key.<recipient>.until.<epochMillis>@<sender>`.
+
+The reference SDK creates a new shared key whenever it finds no
+`shared_key.<recipient>@<sender>`, locally or on the atServer (see
+[§14.1](#141-two-layers)). The atServer re-encrypts nothing: to share
+a value again, the sender's atClient re-issues its `update` with a
+fresh `sharedKeyEnc`.
 
 ### 14.4 Why server-side filtering is impossible
 
@@ -1411,9 +1911,9 @@ connection to the target atServer (resolved via the atDirectory),
 authenticates via the `pol` handshake, and runs the appropriate verb
 on behalf of the requesting client.
 
-The complete set of verbs an atServer ever sends to another atServer
-on this proxied channel is: `from`, `pol`, `lookup`, `plookup`, `scan`,
-and `notify`. Each atServer is the sole authority for its own atSign's data.
+The verbs an atServer sends to another atServer on this proxied channel
+include `from`, `pol`, `lookup`, `scan` and `notify`. Each atServer is
+the sole authority for its own atSign's data.
 
 This chapter specifies that proxying. The single most important verb
 here is `pol`, the proof-of-life handshake between two atServers.
@@ -1427,9 +1927,10 @@ Source: `at_secondary_server/lib/src/connection/outbound/outbound_client.dart`.
    for the target atSign, pooled per-target so repeat traffic to the
    same B reuses one connection.
 2. **Resolve.** A queries its atDirectory for B's host:port.
-3. **Connect.** A opens a TLS connection to B. Most A→B connections
-   are one-way TLS (B presents a cert). For deployments configured
-   with `clientCertificateRequired`, A presents a client cert (mTLS).
+3. **Connect.** A opens a TLS connection to B. By default this is
+   mutual TLS: A presents a client certificate, which B checks against
+   the host the atDirectory gives for A's atSign (see
+   [§3.2](#32-atserver)).
 4. **Public-key warm-up.** Before any handshake, A runs an
    unauthenticated `lookup:all:publickey<B-atSign>` against B and
    caches the result (cached as
@@ -1438,7 +1939,8 @@ Source: `at_secondary_server/lib/src/connection/outbound/outbound_client.dart`.
    rotation early.
 5. **Handshake.** If the planned operation requires authentication, A
    runs the `pol` handshake, see [§15.2](#152-the-pol-handshake).
-   `lookup` requires it; `plookup` does not.
+   `lookup` requires it. Serving a `plookup` does not: A fetches the
+   public record with an unauthenticated `lookup:`.
 6. **Run verbs.** A sends the verb (e.g. `lookup:phone.wavi@alice`),
    reads the response, strips the trailing prompt, returns the
    `data:…` payload to the original caller.
@@ -1453,8 +1955,9 @@ challenge mechanism as PKAM but inverted: instead of A signing a
 challenge from B and sending the signature inline, A *publishes* its
 signed challenge as a public atKey on its own atServer (under a
 session-scoped name) and tells B to come and look it up. This means
-the secret signing key never leaves A; B verifies by fetching A's
-public signing key from A and verifying the signature.
+A's server authentication signing key never leaves A; B verifies the
+signature with its public half, `public:signing_publickey@A`, which it
+fetches from A.
 
 **Step-by-step.** Source:
 `at_secondary_server/lib/src/verb/handler/pol_verb_handler.dart` and
@@ -1467,7 +1970,7 @@ A → B:  from:@A
 B → A:  data:proof:<sessionId>@A:<challenge-uuid>\n@
 
 A:  parses cookieParams from response → (sessionId, challenge)
-A:  signedChallenge = base64( sign_RSA_SHA256(challenge, A_signing_priv) )
+A:  signedChallenge = base64( sign_RSA_SHA256(challenge, A_server_auth_priv) )
 A:  store in own keystore: public:<sessionId>@A = signedChallenge   (TTL ~60s)
 
 A → B:  pol\n
@@ -1477,10 +1980,10 @@ B's pol handler:
   - Opens its own outbound to A (no handshake required — public lookup):
       B → A:  lookup:<sessionId>@A
       A → B:  data:<signedChallenge>
-      B → A:  plookup:signing_publickey@A
-      A → B:  data:<A's RSA signing public key>
+      B → A:  lookup:signing_publickey@A
+      A → B:  data:<A's server authentication signing public key>
   - Reads its own stored secret: get(public:<sessionId>@A) = challenge
-  - Verifies: RSA_SHA256_verify(A_signing_pub, challenge, signedChallenge)
+  - Verifies: RSA_SHA256_verify(A_server_auth_pub, challenge, signedChallenge)
   - On success: marks the inbound connection as polAuthenticated,
                 deletes the stored secret, responds:
 
@@ -1496,10 +1999,12 @@ A:  reads handshake result; if it begins with "@A@", marks the
 ```
 
 After `pol` succeeds, A's connection to B is authenticated **as @A**.
-B treats subsequent verbs on this connection as coming from `@A`, for
-example, a `lookup:phone.wavi@A` returns only the keys `@A` is allowed
-to read on B's atServer (`@bob:phone.wavi@A`-shaped, where `@bob` is
-B's atSign).
+B treats subsequent verbs on this connection as coming from `@A`. For
+example, where `@bob` is B's atSign, a `lookup:phone.wavi@bob` returns
+the record `@bob` shares with `@A`, `@A:phone.wavi@bob`. Since atServer
+3.17.1, a lookup on this connection naming an owner other than `@bob` is
+refused with `AT0009`, and the connection is closed (see
+[§10.4](#104-lookup)).
 
 #### Failure modes
 
@@ -1524,7 +2029,10 @@ atServer:
    outbound connection.
 4. @alice's atServer evaluates the lookup with the inbound connection
    marked `polAuthenticated as @bob`, the result is whatever @alice
-   has shared **with @bob** (typically `@bob:phone.wavi@alice`).
+   has shared **with @bob** (typically `@bob:phone.wavi@alice`). Since
+   atServer 3.17.1, it answers a lookup on that connection only for a
+   key @alice owns; one naming another owner is refused with `AT0009`,
+   and the connection is closed.
 5. @alice's atServer responds `data:<value>\n@bob@` (the
    pol-authenticated prompt).
 6. @bob's atServer strips the prompt, returns `data:<value>` to
@@ -1551,109 +2059,216 @@ shows the full notify→deliver→monitor path end-to-end.
 
 ### 16.1 CRAM bootstrap (Phase 2 onboarding)
 
-The first time an atClient authenticates as a freshly-registered
-atSign, it has only the CRAM secret. It must (a) authenticate, (b)
-generate keypairs, (c) publish the public halves, (d) write the
-private halves to disk.
+An app activating a newly registered atSign holds only its CRAM
+secret. It authenticates with `cram`, enrolls itself, authenticates
+again with `pkam` as that enrollment, stores its keys, publishes the
+encryption public key and deletes the CRAM secret. This is the
+exchange the reference SDK sends with its default settings, which use
+RSA keys, and with its default app and device names. The reference
+SDK can also activate an atSign with post-quantum keys
+([Appendix C.1](#c1-post-quantum-cryptography-and-crypto-agility)),
+which changes the keys and the fields of `enroll:request`.
+
+The flows in this section leave out the optional `:clientConfig:{…}`
+that a client may add to `from` ([§9.1](#91-the-from-verb)). The
+reference SDK sends none on the connections it activates and enrolls
+over.
 
 ```text
 C: <TCP+TLS connect to alice's atServer>
+C: lookup:publickey@alice\n
+S: error:AT0015-<description>\n@
+# The reference SDK sends this lookup unauthenticated, and retries
+# until the atServer answers. AT0015 says that
+# public:publickey@alice does not exist yet.
+
 C: from:@alice\n
 S: data:_4af24c03-d732-48f8-a9a2-570e8fb6a01c@alice:d6cac849-9c29-42b0-b0c5-493db62728b9\n@
 
 C: cram:<sha512_hex(cramSecret + "_4af24c03-d732-48f8-a9a2-570e8fb6a01c@alice:d6cac849-9c29-42b0-b0c5-493db62728b9")>\n
 S: data:success\n@alice@
 
-# Generate RSA-2048 PKAM keypair, RSA-2048 encryption keypair, AES-256
-# self-encryption key (all client-side, never on the wire as plaintext).
+# Client side, nothing on the wire: generate an RSA-2048 encryption
+# keypair, an AES-256 self-encryption key, an AES-256 APKAM symmetric
+# key and the app's RSA-2048 APKAM keypair.
 
-C: update:privatekey:at_pkam_publickey <PKAM public key>\n
-S: data:0\n@alice@
+C: enroll:request:{
+     "appName":"firstApp",
+     "deviceName":"firstDevice",
+     "apkamPublicKey":"<APKAM public key>",
+     "signingAlgo":"rsa2048",
+     "apskLegacy":"<APKAM public key>"
+   }\n
+S: data:{"enrollmentId":"<uuid>","status":"approved"}\n@alice@
+# Over CRAM the atServer approves the request at once and grants it
+# rw on __manage and on * (§9.4.1). signingAlgo names the algorithm
+# of the APKAM key; since atServer 3.15.0 the atServer keeps it with
+# the enrollment. Since atServer 3.16.1, the atServer also publishes
+# the apskLegacy value as public:_apsk.<uuid>.a.__e@alice: the
+# public half of the enrollment's client data signing key, here its
+# APKAM public key.
 
-C: update:public:publickey@alice <encryption public key>\n
-S: data:1\n@alice@
+# === Close the connection. On a new one, authenticate as the
+#     enrollment. ===
+C: <TCP+TLS connect to alice's atServer>
+C: from:@alice\n
+S: data:<sessionId>@alice:<challenge>\n@
+C: pkam:signingAlgo:rsa2048:hashingAlgo:sha256:enrollmentId:<uuid>:<signature>\n
+S: data:success\n@alice@
+# <signature> is made with the APKAM private key, the enrollment's
+# client authentication signing key (§9.3).
 
-C: update:public:signing_publickey@alice <signing public key>\n
-S: data:2\n@alice@
+# Client side: store the keys and the enrollment id, for example in
+# an .atKeys file.
 
-# Write .atKeys file: PKAM private key + encryption private key +
-# self-encryption key, all encrypted-at-rest with the user's password.
+C: update:ttr:-1:isEncrypted:false:public:publickey@alice <encryption public key>\n
+S: data:<commitId>\n@alice@
+
+C: delete:privatekey:at_secret\n
+S: data:-1\n@alice@
 ```
 
-After bootstrap, the CRAM secret is no longer accepted. The same
-client now reconnects with `from` + `pkam` for any subsequent session.
+Once `privatekey:at_secret` is deleted, `cram` fails
+([§6.5](#65-reserved-keys)). The app authenticates every later
+session with `from` and `pkam`, as above. The reference SDK then opens
+a client on the new keys, which authenticates that way.
+
+Before this exchange, at_onboarding_cli sends the same
+`lookup:publickey@alice` on a connection of its own, and stops if the
+atServer answers with a key.
+
+Onboarding does not write `public:signing_publickey@alice`. The
+atServer generates that keypair, its server authentication signing
+key, itself when it first starts ([§6.5](#65-reserved-keys)).
+
+The reference SDK does not send
+`update:privatekey:at_pkam_publickey`. Since atServer 3.16.4, that
+`update` over a CRAM connection installs the key as the enrollment
+named `primary` and answers `data:-1`.
 
 ### 16.2 APKAM enrollment end-to-end
 
-Phase 3, a new app on a new device authenticates as `@alice` without
-ever holding the master keys.
+Phase 3: a new app on a new device enrolls for `@alice`. The approver
+here is the first app, whose enrollment holds `rw` on `__manage` and
+on `*` ([§16.1](#161-cram-bootstrap-phase-2-onboarding)). Its
+connections are authenticated with `from` and `pkam`. Both apps use
+the reference SDK's default settings.
 
 ```text
-# === New device: generate APKAM keypair, generate APKAM symmetric key,
-#                 RSA-encrypt the APKAM symmetric key to alice's
-#                 public:publickey@alice ===
+# === Approver: issue an OTP. ===
+C(approver): otp:get:ttl:300000\n
+S:           data:A1B2C3\n@alice@
+# (The reference SDK asks for an OTP that lasts 5 minutes. The owner
+#  gives "A1B2C3" to the new app.)
 
-# === Existing master-keys session: get an OTP for the new device. ===
-C(master): otp:get\n
-S:        data:A1B2C3\n@alice@
-# (Owner reads "A1B2C3" to the new device.)
+# === Approver, on its own monitor connection: listen. ===
+C(approver): monitor:selfNotifications:<epochMillis>\n
+# (<epochMillis> is that of the last notification the approver
+#  received or, before it has received one, the moment its
+#  notification service started.)
+# (No response line. Notifications stream from here on.)
 
-# === New device: submit enrollment request. ===
-C(new): from:@alice\n
-S:      data:proof:<sessionId>@alice:<chal>\n@
-# (No prior PKAM keys; the new device authenticates the enroll:request
-# verb as unauthenticated — the OTP is the credential here.)
+# === New app: it holds no credential yet, so it does not
+#     authenticate. ===
+C(new): <TCP+TLS connect to alice's atServer>
+C(new): lookup:publickey@alice\n
+S:      data:<encryption public key>\n@
+# Unauthenticated, lookup reads public:publickey@alice.
+
+# Client side: generate an RSA-2048 APKAM keypair and an AES-256 APKAM
+# symmetric key, and encrypt the symmetric key with the encryption
+# public key (RSA).
+
 C(new): enroll:request:{
           "appName":"todos",
           "deviceName":"phone-1",
           "namespaces":{"todos":"rw"},
           "otp":"A1B2C3",
-          "apkamPublicKey":"<base64 RSA pub>",
-          "encryptedAPKAMSymmetricKey":"<RSA-to-alice's-encryption-pub>"
+          "encryptedAPKAMSymmetricKey":"<RSA ciphertext>",
+          "apkamPublicKey":"<APKAM public key>",
+          "signingAlgo":"rsa2048",
+          "apskLegacy":"<APKAM public key>"
         }\n
 S:      data:{"enrollmentId":"<uuid>","status":"pending"}\n@
+# The OTP is what admits this unauthenticated request.
 
-# === Existing master-keys session: monitor for enrollment notifications. ===
-C(master): monitor\n
-S:         notification: {"id":"…","key":"<uuid>.new.enrollments.__manage@alice", …}
+# === New app, on a new connection: authenticate as the enrollment,
+#     retrying until the request is decided. ===
+C(new): <TCP+TLS connect to alice's atServer>
+C(new): from:@alice\n
+S:      data:<sessionId>@alice:<challenge>\n@
+C(new): pkam:signingAlgo:rsa2048:hashingAlgo:sha256:enrollmentId:<uuid>:<signature>\n
+S:      error:AT0026:enrollment_id: <uuid> is pending\n@
+# <signature> is made with the new app's APKAM private key, its
+# client authentication signing key (§9.3).
 
-# === Existing master-keys session: fetch and approve. ===
-C(master): enroll:fetch:{"enrollmentId":"<uuid>"}\n
-S:         data:{ <full request including encryptedAPKAMSymmetricKey> }\n@alice@
+# === Approver's monitor connection: the request is announced. ===
+S(approver): notification: {"id":"<id>","from":"@alice","to":"@alice",
+               "key":"<uuid>.new.enrollments.__manage@alice",
+               "value":"{…}","operation":"update",…}\n
+# value carries appName, deviceName, namespace, the encrypted APKAM
+# symmetric key and, since atServer 3.17.1, apkamKeysExpiryInMillis
+# (§9.4.1).
 
-# Master decrypts encryptedAPKAMSymmetricKey using its
-# default encryption private key. Now both sides share the APKAM
-# symmetric key.
+# === Approver: read the request from the enrollment list. ===
+C(approver): enroll:list:{
+             "enrollmentStatusFilter":["pending","approved"]
+           }\n
+S:           data:{"<uuid>.new.enrollments.__manage@alice":{…,
+               "appName":"todos","deviceName":"phone-1",
+               "namespaces":{"todos":"rw"},…,
+               "encryptedAPKAMSymmetricKey":"<RSA ciphertext>",…,
+               "status":"pending",…},…}\n@alice@
+# The answer holds every pending or approved enrollment, the
+# approver's own among them. The reference SDK sends this request
+# twice before it approves.
 
-# Master encrypts its OWN default encryption private key + self-encryption
-# key with the APKAM symmetric key (AES, with random IVs).
+# Client side: decrypt the APKAM symmetric key with the encryption
+# private key (RSA). Encrypt the encryption private key and the
+# self-encryption key with it (AES-256, each with a random 16-byte IV).
 
-C(master): enroll:approve:{
+C(approver): enroll:approve:{
              "enrollmentId":"<uuid>",
              "encryptedDefaultEncryptionPrivateKey":"<AES ciphertext>",
              "encPrivateKeyIV":"<base64 IV>",
              "encryptedDefaultSelfEncryptionKey":"<AES ciphertext>",
              "selfEncKeyIV":"<base64 IV>"
            }\n
-S:         data:{"enrollmentId":"<uuid>","status":"approved"}\n@alice@
+S:           data:{"status":"approved","expiresAt":null,
+               "enrollmentId":"<uuid>"}\n@alice@
+# Since atServer 3.17.1 the answer carries expiresAt, null here
+# because neither the request nor the approver's enrollment expires.
+# Since atServer 3.16.1 the approval publishes the request's
+# apskLegacy value as public:_apsk.<uuid>.a.__e@alice.
+# The reference SDK then reads the list again, narrowed to
+# ["approved"] and then to ["approved","revoked"].
 
-# === New device: PKAM-authenticate using the APKAM private key + enrollmentId. ===
+# === New app: the next attempt succeeds. ===
 C(new): from:@alice\n
-S:      data:proof:<sessionId>@alice:<chal>\n@
-C(new): pkam:enrollmentId:<uuid>:<base64 RSA-SHA256 signature of chal>\n
+S:      data:<sessionId>@alice:<challenge>\n@
+C(new): pkam:signingAlgo:rsa2048:hashingAlgo:sha256:enrollmentId:<uuid>:<signature>\n
 S:      data:success\n@alice@
 
-# New device now retrieves its bootstrap material:
-C(new): keys:get:keyName:public:encryption_<uuid>.__public_keys.__pkams@alice\n
-S:      data:{ "enrollmentId":"<uuid>", "value":"<encryptedDefaultEncryptionPrivateKey>", "iv":"…" }\n@alice@
-# (And likewise for the self-encryption key.)
+# === New app: collect what the approval stored for it. ===
+C(new): keys:get:keyName:<uuid>.default_enc_private_key.__manage@alice\n
+S:      data:{"value":"<encryptedDefaultEncryptionPrivateKey>",
+          "iv":"<base64 IV>"}\n@alice@
+C(new): keys:get:keyName:<uuid>.default_self_enc_key.__manage@alice\n
+S:      data:{"value":"<encryptedDefaultSelfEncryptionKey>",
+          "iv":"<base64 IV>"}\n@alice@
 
-# New device decrypts those using its now-shared APKAM symmetric key,
-# writes them locally as its scoped .atKeys, and is fully provisioned.
+# Client side: decrypt both with the APKAM symmetric key, and store
+# the keys and the enrollment id, for example in an .atKeys file.
 ```
 
-The new device never sees the master signing private key. APKAM-issued
-keys are revocable via `enroll:revoke`.
+The new app generates its own APKAM keypair and never sends the
+private half. `enroll:revoke` withdraws its enrollment
+([§9.4.1](#941-the-enroll-verb)).
+
+at_onboarding_cli's `otp` command sends `otp:get` with no `:ttl:`
+unless it is given an expiry, so the atServer's default applies. Its
+`enroll` command adds `"apkamKeysExpiryInMillis":0` to the request
+when it is given no expiry.
 
 ### 16.3 Cross-atSign read with pol handshake
 
@@ -1671,7 +2286,7 @@ C(bob): lookup:phone.wavi@alice\n
 #   bobServer → aliceServer:  from:@bob
 #   aliceServer → bobServer:  data:proof:<sessionId>@bob:<chal>\n@
 #
-#   bobServer signs <chal> with @bob's signing private key.
+#   bobServer signs <chal> with its server authentication signing key.
 #   bobServer stores public:<sessionId>@bob = signedChallenge in its
 #   own keystore.
 #
@@ -1679,9 +2294,10 @@ C(bob): lookup:phone.wavi@alice\n
 #
 #   aliceServer:
 #     opens unauthenticated outbound to bobServer
-#     bobServer → aliceServer (in pol):
+#     aliceServer → bobServer (in pol):
 #         lookup:<sessionId>@bob → data:<signedChallenge>
-#         plookup:signing_publickey@bob → data:<@bob's signing pub key>
+#         lookup:signing_publickey@bob →
+#             data:<@bob's server authentication signing public key>
 #     verifies signature; succeeds.
 #
 #   aliceServer → bobServer:  @bob@   (PolResponseHandler strips `pol:`)
@@ -1810,9 +2426,11 @@ should map to an equivalent.
 
 `AT0401` is emitted on **authentication** failure (the credential is
 wrong). `AT0009` is emitted on **authorisation** failure (the
-authenticated principal lacks permission for the requested key,
-notably APKAM scopes prohibiting the namespace). Implementations must
-distinguish between them; clients may retry on `AT0401` but not on
+authenticated principal lacks permission for the requested key, notably
+APKAM scopes prohibiting the namespace). Since atServer 3.17.1, `AT0009`
+also refuses a `lookup` that names another owner on a connection not
+authenticated as the atSign (see [§10.4](#104-lookup)). Implementations
+must distinguish between them; clients may retry on `AT0401` but not on
 `AT0009`.
 
 ---
@@ -1827,8 +2445,8 @@ distinguish between them; clients may retry on `AT0401` but not on
 - **atKey**, A key in an atServer's keystore. Five shapes (public,
   self, shared, local, private) plus augmentations (hidden, cached).
 - **atServer**, The personal server for one atSign.
-- **atSign**, An identifier of the form `@<name>`. Maximum length 55
-  characters.
+- **atSign**, An identifier of the form `@<name>`. At most 55
+  characters after the `@`.
 - **Commit log**, Append-only log of `update`/`delete` operations.
   Walked by `sync:from`.
 - **CRAM**, Challenge-Response Authentication Mechanism. The
@@ -1836,8 +2454,10 @@ distinguish between them; clients may retry on `AT0401` but not on
 - **Enrollment**, An APKAM record granting an app a namespace-scoped
   keypair. Has lifecycle states `pending`, `approved`, `denied`,
   `revoked`, `expired`.
-- **Master AtKeys**, The atSign's root keypairs (PKAM signing,
-  encryption, self-encryption), produced at onboarding.
+- **Master AtKeys**, The atSign's root keys, produced at
+  onboarding: the PKAM key (a client authentication signing key), the
+  encryption key (also the legacy data signing key) and the
+  self-encryption key.
 - **OTP**, Six-character alphanumeric one-time password. Used to bind
   an APKAM enrollment to an out-of-band human approval.
 - **PKAM**, Public-Key Authentication Mechanism. Sign-the-challenge
@@ -1850,6 +2470,9 @@ distinguish between them; clients may retry on `AT0401` but not on
   request on a connection.
 - **`sharedKeyEnc`**, Inline-in-metadata, RSA-encrypted shared
   symmetric key.
+- **Signing keys**, The client authentication, client data, legacy
+  data and server authentication signing keys. See
+  [§6.5](#65-reserved-keys).
 - **Verb**, A single-line command in the protocol.
 
 ---
@@ -1871,8 +2494,8 @@ Terse reference for ctrl-F. Authoritative regex source:
 | `update`        | yes    | Insert/overwrite an atKey.                                            | §10.1   |
 | `update:meta`   | yes    | Update only metadata.                                                 | §10.2   |
 | `delete`        | yes    | Remove an atKey.                                                      | §10.3   |
-| `lookup`        | yes    | Cross-atSign read.                                                    | §10.4   |
-| `plookup`       | —      | Public lookup.                                                        | §10.5   |
+| `lookup`        | varies | Read a value; the answer depends on the connection (see §10.4).       | §10.4   |
+| `plookup`       | yes    | Another atSign's public record, through this atServer.                | §10.5   |
 | `llookup`       | yes    | Local-server-only lookup.                                             | §10.6   |
 | `scan`          | varies | Enumerate atKeys (regex/filter).                                      | §10.7   |
 | `notify`        | yes    | Emit a notification.                                                  | §11.1   |
@@ -1916,17 +2539,25 @@ without the `:limit:` and `:skipDeletesUntil:` knobs. New clients use
 
 ### B.3 `notify` `messageType:text`
 
-`notify:…:messageType:text:…` is a freeform-text notification (not
-tied to an atKey change). Marked deprecated in `at_commons`. New code
-uses `messageType:key` exclusively; freeform messaging is now done via
-a regular shared atKey + `notify:update`.
+`notify:…:messageType:text:…` is a freeform-text notification, not
+tied to an atKey change. Since atServer 3.17.1, text notifications are
+retired. A client's `notify` or `notify:all` with `messageType:text` is
+refused with AT0003 (`messageType:text is no longer supported`), one
+arriving from a peer atServer over `pol` is answered `data:success`
+and dropped, and `info` lists `notify.text` as `Retired`. Freeform
+messaging uses a shared atKey and `notify:update`.
 
 ### B.4 `pubKeyCS`
 
-Predecessor metadata field to `pubKeyHash`. A truncated checksum
-rather than a full hash; lacks an `algo` companion field. Servers
-accept it on read; new metadata writes must use `pubKeyHash` +
-`hashingAlgo`.
+The MD5 checksum, as a hex digest, of the recipient's encryption
+public key (`public:publickey@<recipient>`) that encrypted
+`sharedKeyEnc`. It is older than `pubKeyHash`, which names its
+algorithm in `hashingAlgo`, but at_commons does not mark it
+deprecated. When the reference SDK shares a value with its `legacy`
+crypto provider, it sets both: `pubKeyCS`, and `pubKeyHash` as
+SHA-512 with `hashingAlgo:sha512`. On read it refuses to decrypt when
+either no longer matches its own public key. The atServer stores
+`pubKeyCS` as given.
 
 ### B.5 `stream`
 
@@ -2088,9 +2719,10 @@ the SDK; not a wire-protocol change.
 ### C.11 Expired-key lookup returns null
 
 [at_server #2568](https://github.com/atsign-foundation/at_server/issues/2568).
-Today, looking up a key whose `eAt` has passed returns `data:null`;
-the proposed correction is `error:AT0015-Key not found`. A small
-change but observable on the wire (see
+Today, an atServer answering `llookup`, or an unauthenticated or `pol`
+`lookup`, of a key whose `eAt` has passed returns `data:null`; the
+proposed correction is `AT0015`. A small change but observable on the
+wire (see
 [§D.4](#d4-expired-keys-return-null-instead-of-an-at0015-error)).
 
 ---
@@ -2154,10 +2786,21 @@ unauthenticated). A handful do not:
 
 ### D.4 Expired keys return null instead of an AT0015 error
 
-A `lookup` against an expired key returns `data:null` rather than
-`error:AT0015-Key not found`. This conflicts with the documented
-behaviour of `KeyNotFoundException` and surprises clients that switch
-on the error path. Tracked in
+`llookup`, and a `lookup` on a connection that is unauthenticated or
+`pol`-authenticated, answer `data:null` for a key the atServer holds
+whose `eAt` has passed, or whose `aAt` has not yet come. A key it does
+not hold is answered `AT0015` (see [§17](#17-errors)). Two other paths
+differ:
+
+- An authenticated `lookup`, or a `plookup`, of another atSign's key
+  is answered by the caller's own atServer, with `AT0015` for an
+  expired key: it skips an expired cached copy, and turns the owner's
+  `data:null` into `AT0015`.
+- An authenticated `lookup` of a key the atServer's own atSign owns
+  checks neither `eAt` nor `aAt`. It returns the stored value until
+  the atServer's expiry sweep removes the key.
+
+Tracked in
 [at_server #2568](https://github.com/atsign-foundation/at_server/issues/2568);
 the proposed fix is to emit `AT0015` consistently. Until then,
 clients reading possibly-expired keys must handle `data:null` as a
@@ -2214,20 +2857,21 @@ Every other write verb (`update`, `update:meta`, `delete`, `notify`,
 
 ### D.9 Newline escaping is value-class-specific
 
-`~NL~` is the on-wire escape for a literal `\n` inside a value, but
-it is applied **only to plaintext public values** by the atServer.
+The atServer does no newline escaping, and `~NL~` is a convention of
+the reference SDK (see [§4.4](#44-newline-escapes-in-values)). What
+keeps a `\n` out of a value written by the reference SDK's
+`AtClient.put` depends on the class of value:
 
-- Encrypted values (`isEncrypted:true`) carry ciphertext that has
-  been base64-encoded; base64 contains no newlines, so the escape is
-  irrelevant.
-- Binary values (`isBinary:true`) are likewise base64-encoded.
-- Self / shared plaintext values are atypical (clients almost always
-  encrypt) and the escape behaviour for them is implementation-
-  specific; do not rely on either path.
+- An encrypted value (`isEncrypted:true`) is base64 ciphertext, which
+  contains no `\n`.
+- An unencrypted binary value (`isBinary:true`) is Base2e15 text (see
+  [§4.5](#45-binary-values)), which contains no `\n` either.
+- The SDK base64-encodes any other unencrypted value that contains a
+  `\n`, public or not, and sets `encoding:base64`. A reader decodes it
+  by `encoding`.
 
-Because `\n` is the framing terminator, a client must never write a
-plaintext value containing an unescaped `\n`, the server will treat
-the `\n` as end-of-command.
+Whatever the class, a `\n` in a command ends it: the atServer takes
+the `\n` as the terminator (see [§4.1](#41-line-terminator)).
 
 ### D.10 atDirectory historically emits `\r\n@`
 
@@ -2242,7 +2886,9 @@ is a sequence of `(:tag:value)?` groups in a fixed order. A request
 that emits `:isEncrypted:true:ttr:-1:` (out of order) does **not**
 match the regex and produces `error:AT0003-Invalid Syntax`. Clients
 must emit metadata tags in the canonical order (the order they
-appear in the regex; reproduced in §7.2).
+appear in the regex; reproduced in §7.2). The atServer matches the
+regex ignoring case, so `:TTL:60` reads as `:ttl:60`, but order still
+matters.
 
 ### D.12 `clientConfig` JSON is unenforced free-form
 
@@ -2256,17 +2902,22 @@ unrecognised key produces no warning.
 ### D.13 `delete` is idempotent and always commits
 
 Calling `delete` on a non-existent key returns `data:<commitId>`
-exactly as if the key had existed. The commit log gains a tombstone
-entry regardless. Other CRUD verbs error on a missing target; only
-`delete` is idempotent in this way.
+exactly as if the key had existed. The commit log gains a DELETE
+entry regardless. The exceptions answer `data:-1` and write no entry:
+`:nc` (since atServer 3.16.3), and a key the commit log never records
+(a `public:_` key, but not `public:__`, or `privatekey:at_secret`).
 
-### D.14 Negative metadata integers are mostly meaningless
+`update` and `update:meta` do not error on a missing key either: they
+create it. `llookup` of a missing key answers `AT0015`.
 
-The metadata regex permits `(-?)\d+` for `ttl`, `ttb`, `ttr`. Only
-`ttr:-1` ("cache forever") is a useful negative; `ttl:-1` and
-`ttb:-1` are accepted by the regex and produce undefined / silently
-useless behaviour. Clients should emit `0` (or omit the tag entirely)
-for "no TTL".
+### D.14 Negative metadata integers are refused, except `ttr:-1`
+
+The metadata regex permits `(-?)\d+` for `ttl`, `ttb`, `ttr`, but the
+atServer refuses a negative `ttl` or `ttb`, and a `ttr` below `-1`,
+with `AT0003`. `ttr:-1` ("cache indefinitely") is the only negative it
+accepts. For no expiry, omit `ttl` when creating a record, or send
+`ttl:0` to clear an expiry; since atServer 3.16.3, a later write that
+omits both `ttl` and `eAt` keeps the stored expiry.
 
 ### D.15 `info` auth requirement is per-deployment
 
@@ -2278,17 +2929,18 @@ first and fall back if rejected.
 
 ### D.16 Two metadata tags for the same concept: `pubKeyCS` and `pubKeyHash`
 
-`pubKeyCS` (a checksum) was the predecessor of `pubKeyHash` (a hash
-plus `hashingAlgo` companion field). Servers accept both on read.
-New writes must emit `pubKeyHash` + `hashingAlgo`. A record may
-carry one or the other, never both meaningfully, see Appendix B.4.
+`pubKeyCS` (an MD5 checksum) is older than `pubKeyHash` (a hash plus a
+`hashingAlgo` companion field), but both are in use: the reference SDK
+sets both on a value it shares with its `legacy` crypto provider, and
+checks both on read. The atServer stores both as given, keeping
+`pubKeyHash` only when `hashingAlgo` comes with it. See Appendix B.4.
 
 ### D.17 Session ID format
 
-Session IDs (`<sessionID>` in `from`/`pol`) are produced server-side
-and have a leading `_` followed by a UUID, e.g.
-`_4af24c03-d732-48f8-a9a2-570e8fb6a01c`. The leading underscore
-matters: it makes the per-session keystore entries (
-`public:<sessionID><atSign>`)
-"hidden" by atKey-shape rules and so they don't appear in `scan`
-output without `:showhidden:true`.
+Session IDs (`<sessionID>` in `from`/`pol`) are produced server-side and
+have a leading `_` followed by a UUID, e.g.
+`_4af24c03-d732-48f8-a9a2-570e8fb6a01c`. `from` stores its challenge
+under `public:<sessionID><fromAtSign>`, or
+`private:<sessionID><fromAtSign>` when an atSign connects to its own
+atServer, and `scan` lists neither: it never lists a `public:_` key (see
+[§6.2](#62-augmentations)).
