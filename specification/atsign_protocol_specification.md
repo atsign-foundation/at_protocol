@@ -681,7 +681,8 @@ provider-owned fields beside `providerId`. The reference SDK sets it
 on each value it encrypts, with `providerId` `legacy` unless the app
 configures another provider. The atServer refuses, with `AT0003`, a
 value that does not decode to such an object. Otherwise it stores,
-returns and forwards it without acting on it. An `update` or
+returns and forwards it without acting on it, except for the `apskLinks` it
+keeps on an enrollment's `_apsk` record ([§9.4.4](#944-linking-an-enrollments-client-data-signing-keys-enrolllink)). An `update` or
 `update:meta` that omits it, or sends `null`, keeps the stored value.
 
 ### 7.2 Tag ordering
@@ -964,6 +965,7 @@ Source:
 | `delete`   | `data:{"enrollmentId":"<uuid>","status":"deleted"}`                                             |
 | `fetch`    | `data:{ <full enrollment record JSON> }`                                                        |
 | `list`     | `data:{"<enrollKey>":{<enrollment record JSON>}, …}`                                            |
+| `link`     | `data:{"enrollmentId":"<uuid>","linked":["<kid>", …]}`; see [§9.4.4](#944-linking-an-enrollments-client-data-signing-keys-enrolllink) |
 
 Since atServer 3.17.1, a request is refused with `AT0022` unless its
 `apkamKeysExpiryInMillis`, when given, is a whole number from 0 to
@@ -1052,11 +1054,12 @@ non-committed) and `data:<JSON record>` on `get`.
 
 > **Since atServer 3.18.0.**
 
-An enrollment publishes the keys it signs with at
+An enrollment publishes its client data signing keys at
 `public:_apsk.<enrollmentId>.a.__e@<atSign>`, from its request or a later
-`enroll:update`: its client data signing keys, or, while it holds none, its
-client authentication signing key, which takes no link. The value is one bare
-RSA-2048 public key, or the list form:
+`enroll:update`. Where the key published there is also the enrollment's
+client authentication signing key, its APKAM key, as
+[§6.5](#65-reserved-keys) describes, that key takes no link. The value is one
+bare RSA-2048 public key, or the list form:
 
 ```json
 {"v":1,"keys":[{"kid":"<kid>","use":"sign","alg":"<alg>","pub":"<public key>","status":"<status>"}]}
@@ -1081,6 +1084,9 @@ enroll:link:{"enrollmentId":"<uuid>","links":{"<kid>":{"link":<link>,"expect":<l
 | `links`        | Required and not empty. For each `kid`, an object holding the link to store as `link`, and as `expect` the link the writer read on that key, or `null` if it read none. `expect` must be present. |
 
 **Response**: `data:{"enrollmentId":"<uuid>","linked":["<kid>", …]}`.
+
+An atServer before 3.18.0 refuses `enroll:link` with `AT0003`, as a command
+its grammar does not know.
 
 #### Who may call it
 

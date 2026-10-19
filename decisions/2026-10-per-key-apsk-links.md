@@ -1,7 +1,7 @@
 # Per-key links for an enrollment's signing keys
 
-* **Status:** Draft
-* **Last Updated:** 2026-10-17
+* **Status:** Approved
+* **Last Updated:** 2026-10-19
 * **Objective:** Let an enrollment vouch for each of another enrollment's
 signing keys in one call to the atServer, so a signing chain can be mended at
 once, without waiting for the other enrollment to come online.
