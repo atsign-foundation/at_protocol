@@ -682,8 +682,8 @@ on each value it encrypts, with `providerId` `legacy` unless the app
 configures another provider. The atServer refuses, with `AT0003`, a
 value that does not decode to such an object. Otherwise it stores,
 returns and forwards it without acting on it, except that since atServer
-3.18.0 it writes and keeps the `apskLinks` on an enrollment's `_apsk`
-record
+3.18.0 it writes, keeps and drops the `apskLinks` on an enrollment's
+`_apsk` record
 ([§9.4.4](#944-linking-an-enrollments-client-data-signing-keys-enrolllink)).
 An `update` or `update:meta` that omits it, or sends `null`, keeps the
 stored value.
@@ -1109,14 +1109,16 @@ is refused with `AT0009`, and nothing is written.
 The atServer writes every link in a call or none of them. A call is
 refused, naming what failed, unless:
 
-- the target enrollment is approved;
-- each `kid` is one the target's `_apsk` lists, with its public key spelt in
-  padded standard base64, and that key is not the target's client
+- the target enrollment is approved, and its `_apsk` record is not
+  immutable;
+- each `kid` is one the target's `_apsk` lists once, with its public key
+  spelt in padded standard base64, and that key is not the target's client
   authentication signing key, the `apkamPublicKey` its enrollment record
   holds, compared as key bytes;
 - each link is a JSON object whose `payload`, a JSON object or the base64url
-  encoding of one, names the target enrollment and that key's `kid`, `alg`
-  and public key as `enrollmentId`, `kid`, `alg` and `pub`;
+  encoding of one, names the target enrollment, its id compared in the
+  folded form of [§6](#6-the-atkey-model), and that key's `kid`, `alg` and
+  public key as `enrollmentId`, `kid`, `alg` and `pub`;
 - each link is at most 16 KiB as JSON, the call's parameters are within
   500 KiB (512,000 bytes) as JSON, and so is the `_apsk` record's value and
   `appMetadata` with every link the record would then hold;
@@ -1124,18 +1126,22 @@ refused, naming what failed, unless:
   is `null` when none is stored.
 
 A stale `expect` is refused with `AT0032`, so a writer can tell a lost race
-from a bad request, read the record again and decide afresh. The request's
-required fields and every other check above are refused with `AT0022`,
-except the target's own state: a target that does not exist or is not
-approved is refused with an error naming it. Two writers of one key's link
-therefore cannot lose each other's write. `enroll:link` never removes a
-link: a key's link goes when a write of the record stops listing that key,
-or when the record is deleted.
+from a bad request, read the record again and decide afresh. An immutable
+record is refused with `AT0032` too. The request's required fields and
+every other check above are refused with `AT0022`, except the target's own
+state: a target that does not exist or is not approved is refused with an
+error naming it. Two writers of one key's link therefore cannot lose each
+other's write. Beside the links it writes, `enroll:link` keeps only the
+stored links that any write of the record keeps
+([Other writes of the record](#other-writes-of-the-record)); otherwise a
+key's link goes only when another write of the record stops keeping it, or
+when the record is deleted.
 
-In the list form, the atServer reads each entry that carries a string
-`kid`, `alg` and `pub`, takes its `kid` as written, ignores `use` and
-`status`, so a retired key can take a link, and keeps the first entry when
-a `kid` repeats. A bare `_apsk` value is one `rsa2048` key, whose `kid` the
+The atServer reads an `_apsk` value trimmed of surrounding whitespace, as a
+client does. In the list form, it reads each entry that carries a string
+`kid`, `alg` and `pub`, takes its `kid` as written, and ignores `use` and
+`status`, so a retired key can take a link. A `kid` the value lists twice
+takes no link. A bare `_apsk` value is one `rsa2048` key, whose `kid` the
 atServer derives: the first 8 bytes of the SHA-256 of the decoded key, as
 lowercase hex, which is how clients derive every `kid`. The atServer
 compares `kid`s exactly.
@@ -1162,17 +1168,41 @@ in one of two forms:
 
 #### Other writes of the record
 
-Every other write of an approved enrollment's `_apsk` record, an
-`enroll:update` that republishes it, the publish at `enroll:approve`, or an
-`update` or `update:meta` of the record, keeps the links for the keys the
-new value still lists, whatever the write sent, and removes those for keys
-it no longer lists. `enroll:link`, these writes and a `delete` of the record
-run one at a time for each atSign, so each lands wholly before or after
-another.
+Every other write of an approved enrollment's `_apsk` record keeps a link
+on a key only while the new value lists that key's `kid` once, with the
+`alg` and public key the link's payload names, and never on the
+enrollment's client authentication signing key. It drops every other link
+in the same write, whatever the write sent, and when it drops the last one
+from `appMetadata` holding nothing else under the `providerId` the atServer
+gives, it drops that `appMetadata` too. These writes are an `enroll:update`
+that republishes the record, the publish when an enrollment is approved, an
+`update` or `update:meta` of the record, a rotation of the enrollment's
+client authentication signing key, and the record's move back when the
+enrollment is unrevoked. A publish or republish that changes the value
+drops a `dataSignature` over the value it replaces. `enroll:link`, these
+writes and a `delete` of the record run one at a time for each atSign, so
+each lands wholly before or after another.
 
-An `enroll:update` is refused, naming the key, when it would leave the
-enrollment's client authentication signing key listed in its `_apsk` beside
-another key, or carrying a link.
+An `enroll:update`, an `update` or `update:meta` of the record, or an
+`enroll:request` is refused with `AT0022`, naming what failed, when the
+`_apsk` it would leave or carries lists a `kid` twice, an entry without a
+string `kid`, `alg` and `pub`, or the enrollment's client authentication
+signing key beside another key. An `enroll:request` is refused before its
+OTP is spent. An `enroll:update` is also refused, naming the key, when the
+client authentication signing key it would leave carries a link, and so is
+a CRAM `update` of `privatekey:at_pkam_publickey` when `primary`'s `_apsk`
+lists the key it installs beside another key or with a link. A write that
+would take the record, with the links it keeps, over 500 KiB is refused
+with `AT0022`; a record that keeps no links is not held to that bound. An
+`enroll:update` that republishes an immutable record is refused with
+`AT0032`, as an `update` of one is.
+
+The publish at `enroll:approve`, a rotation of `primary`'s key that the
+atServer makes itself, at startup or on a legacy `pkam:`, and the move back
+on unrevoke cannot be refused. Each keeps fewer links instead: it drops a
+link on the client authentication signing key, keeps none when they would
+take the record over 500 KiB, leaves an immutable record as it stands, and
+logs at warning what it drops.
 
 ---
 
