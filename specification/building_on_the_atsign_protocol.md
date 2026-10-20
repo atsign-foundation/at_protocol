@@ -7,7 +7,6 @@ atServer or atClient in another language, you want
 instead.
 
 <!-- pyml disable-num-lines 999 md013-->
-
 ## Pick the right SDK package
 
 | If you're building…                            | Start with                                                                                                                                                                                                                                                                   |
