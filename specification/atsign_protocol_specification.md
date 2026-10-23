@@ -1201,8 +1201,9 @@ what failed, when the `_apsk` it would leave or carries lists a `kid`
 twice, an entry without a string `kid`, `alg` and `pub`, or the
 enrollment's client authentication signing key beside another key. An
 `enroll:request` is refused before its OTP is spent. A CRAM `update` of
-`privatekey:at_pkam_publickey` is refused when `primary`'s `_apsk` lists
-the key it installs beside another key or with a link. A write that would
+`privatekey:at_pkam_publickey` is refused when `primary`'s `_apsk`, whether
+`primary` is approved, revoked or deleted, lists the key it installs beside
+another key or with a link. A write that would
 take the record, with the links it keeps, over 500 KiB is refused with
 `AT0022`; a record that keeps no links is not held to that bound. An
 `enroll:update` that republishes an immutable record is refused with
