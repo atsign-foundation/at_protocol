@@ -203,7 +203,29 @@ A hard-coded `root.atsign.org:64` is not Atsign-Protocol-compliant.
 | TLS          | One-way (atDirectory presents a server certificate; client does not)                                                                                                                                              |
 | Default port | `64`                                                                                                                                                                                                              |
 | Default host | `root.atsign.org` (configurable)                                                                                                                                                                                  |
-| HTTPS        | Also on port `443`: `GET /<atSign>` returns `host:port`, `GET /<atSign>/<path>` redirects to `https://<host:port>/<path>`, an unknown atSign gets `404`, any other method `401`; the atSign is looked up as given |
+| HTTP         | HTTPS on port `443` and, by ALPN, on the default port; see below                                                                                                                                                  |
+
+The atDirectory answers HTTP over TLS on port `443` and, since atServer
+[3.19.0](#atserver-3190), on its Atsign Protocol port to a client that
+negotiates `http/1.1` by ALPN. A client that negotiates `atProtocol/1.0`,
+or no protocol, speaks the Atsign Protocol ([§8](#8-the-atdirectory-protocol)).
+
+- `GET /<atSign>` returns `host:port`, and `GET /<atSign>/<path>`
+  redirects to `https://<host:port>/@<atSign>/<path>`. The atSign may
+  be given with or without its `@`, and is matched in its canonical form
+  ([§5](#5-the-atsign-identity-model)).
+- An unknown atSign gets `404`, a path that does not decode `400`, any
+  method other than `GET` `401`, and a request the atDirectory cannot
+  answer `500`.
+- Every answer carries `Access-Control-Allow-Origin: *` and closes its
+  connection, and an HTTP connection that sends no complete request is
+  closed within 10 seconds.
+
+Before atServer 3.19.0, HTTP is answered on port `443` only, a redirect
+goes to `https://<host:port>/<path>` without the atSign, and the atSign
+is looked up as given. The `400` for a path that does not decode, the
+`500`, the `Access-Control-Allow-Origin` header and the closing of
+connections are since 3.19.0.
 
 ### 3.2 atServer
 
@@ -469,6 +491,12 @@ An unauthenticated `scan` lists no hidden key. A shared key whose
 `<key>` part starts with `_`, such as `@bob:_handshake.wavi@alice`, is
 not hidden: `scan` lists it like any other shared key.
 
+Since atServer [3.19.0](#atserver-3190), a key whose name starts with
+`__` and has no `.<namespace>`, such as `public:__location@alice`, uses
+a reserved namespace ([§6.5](#65-reserved-keys)), so `update`,
+`update:meta` and `delete` refuse it. Give such a key a namespace, as
+in `public:__location.wavi@alice`.
+
 A **cached** key is a copy of a remote-owned shared or public key,
 stored on the recipient's atServer for offline or fast access. Wire
 format is `cached:public:<key>@<owner>` or
@@ -597,7 +625,7 @@ client's own keystore. The atServer creates no record under them.
 `configkey`, and any name that starts with `_` and carries no
 `@<atSign>`, are reserved as well.
 
-Two namespaces are reserved:
+The atServer reserves namespaces for itself:
 
 - `__manage` holds, among others, each enrollment record, at
   `<enrollmentId>.new.enrollments.__manage@<atSign>`, and the
@@ -608,12 +636,36 @@ Two namespaces are reserved:
 - `__atserver` holds records the atServer writes for its clients, such
   as `<micros>.events.__atserver@<atSign>` when another atSign's
   `publickey` changes. Every approved enrollment may read it.
+- `__otp` holds passcodes: each OTP from `otp:get` at
+  `private:<otp>.__otp@<atSign>`, and the semi-permanent passcode from
+  `otp:put` at `private:spp.__otp@<atSign>`
+  ([§9.4.2](#942-the-otp-verb)).
+- `__e` holds each enrollment's own data, below.
+- `__global`, `__private` and `__config` are reserved too.
 
 Each approved enrollment also holds `rw` on a namespace of its own,
 `<enrollmentId>.a.__e`. When the enrollment is revoked, its data
 moves to `<enrollmentId>.r.__e`, and an un-revoke moves it back. When
 the enrollment record is removed, by `enroll:delete` or once it has
 expired, its data moves to `<enrollmentId>.d.__e`.
+
+Since atServer [3.19.0](#atserver-3190), a record in a reserved
+namespace changes only through the verbs that own it. A key uses a
+reserved namespace when the last dot-separated segment of its name
+begins with `__`, or when any segment is `__e` or begins with
+`__manage`, `__atserver`, `__otp`, `__global`, `__private` or
+`__config`, compared in the folded form of [§6](#6-the-atkey-model).
+`update`, `update:meta` and `delete` refuse such a key with `AT0009` on
+every connection, CRAM included, unless it is in the connection's own
+enrollment's namespace, `<enrollmentId>.a.__e` (`primary.a.__e` for a
+connection that carries no enrollment), or is a cached copy of another
+atSign's record. `update` and `update:meta` also refuse, with `AT0009`,
+a key in an enrollment's namespace that is shared with another atSign,
+such as `@bob:x.<enrollmentId>.a.__e@alice`. A notification may not name
+a key in a reserved namespace ([§11.1](#111-notify)), `lookup` and
+`llookup` refuse a passcode ([§9.4.2](#942-the-otp-verb)), and
+`enroll:list` and the atServer's own checks count only this atSign's
+enrollment records.
 
 Since atServer [3.16.5](#atserver-3165), approving an enrollment whose request carries
 `apsk` or `apskLegacy` also publishes its `apskLegacy`, or else its
@@ -756,13 +808,18 @@ atSign and returns the address of that atSign's atServer.
 
 Open a TLS connection to the atDirectory address (default
 `root.atsign.org:64`). The atDirectory sends a single `@` byte as its
-prompt.
+prompt. Since atServer [3.19.0](#atserver-3190), a client that
+negotiates `http/1.1` by ALPN is answered HTTP instead
+([§3.1](#31-atdirectory)).
 
 ### 8.2 Lookup
 
 Send the atSign followed by `\n`, without its leading `@` (the
-reference SDK strips it). The atDirectory lowercases the line before it
-looks it up:
+reference SDK strips it). Since atServer [3.19.0](#atserver-3190), the
+atDirectory also takes the atSign with its `@`, and looks it up in its
+canonical form ([§5](#5-the-atsign-identity-model)): a line that is not
+a valid atSign is not found. Before, it lowercased the line and looked
+that up:
 
 ```text
 alice\n
@@ -1056,22 +1113,56 @@ symmetric key under both `encryptedApkamSymmetricKey` and
 
 ```text
 otp:get[:ttl:<ms>]
-otp:put:<otp>[:ttl:<ms>]
+otp:put:<spp>[:ttl:<ms>]
+otp:list
+otp:delete:<otp>
+otp:delete:spp
 ```
 
-Source:
+Source (at_commons 5.24.0):
 
 ```text
-^otp:(?<operation>get|put)(:(?<otp>(?<=put:)\w{6,}))?(:(?:ttl:(?<ttl>\d+)))?$
+^otp:(?<operation>get|put|list|delete)(:(?<otp>(?<=put:)\w{6,}|(?<=delete:)(?:spp|\w{6,})))?(?<=^otp:(?:get|put|put:\w{6,}|list|delete:spp|delete:\w{6,}))(:(?:(?<=^otp:(?:get|put|put:\w{6,}):)ttl:(?<ttl>\d+)))?$
 ```
 
-- `otp:get`, owner-authenticated. Returns a fresh 6-character
-  alphanumeric OTP. Used as the `otp` field of `enroll:request`.
-- `otp:put:<otp>`, owner-authenticated. Stores a semi-permanent OTP
-  for use in headless / CLI enrollment flows.
-- `:ttl:<ms>`, sets the OTP validity window.
+Every operation needs an authenticated connection. A **full-privilege**
+connection here is a CRAM connection, or an enrollment holding `*:rw`
+and `__manage:rw`.
 
-**Response**: `data:<otp>` (for `get`) or `data:ok` (for `put`).
+- `otp:get` needs access to `__manage`, since atServer
+  [3.16.5](#atserver-3165): a CRAM connection, or an enrollment holding
+  `__manage`; before, any authenticated connection. It returns a fresh
+  6-character
+  alphanumeric OTP, valid for `:ttl:` ms or, without it, 5 minutes,
+  for the `otp` field of `enroll:request`. Since atServer
+  [3.19.0](#atserver-3190), the OTP records the namespaces of the
+  enrollment that issued it; one issued over CRAM records none.
+- `otp:put:<spp>` sets the semi-permanent passcode (SPP), for headless
+  or CLI enrollment flows, valid for `:ttl:` ms or, without it, until
+  it is replaced. Since atServer [3.19.0](#atserver-3190) it needs a
+  full-privilege connection and refuses any other with `AT0009`; before,
+  access to `__manage` was enough.
+- `otp:list`, since atServer [3.19.0](#atserver-3190), returns the live
+  passcodes as a JSON array of
+  `{"type":"otp"|"spp","value":"<passcode>","expiresAt":<epochMillis or -1>}`,
+  with `"namespaces":{…}` on an OTP that records them. A full-privilege
+  connection sees every OTP and the SPP. An enrollment holding
+  `__manage` sees only the OTPs whose namespaces it holds, each at the
+  same access or more (`*` covers any namespace but `*` and
+  `__manage`), and never the SPP. Any other connection is refused with
+  `AT0009`.
+- `otp:delete:<otp>` deletes an OTP, and `otp:delete:spp` the SPP,
+  since atServer [3.19.0](#atserver-3190), by the rules of `otp:list`.
+  It answers `data:ok` whether or not it deleted anything.
+
+Each OTP admits one `enroll:request`; the SPP admits any number until it
+is replaced or expires. `lookup` and `llookup` refuse a passcode record
+with `AT0009`, since atServer [3.19.0](#atserver-3190), so passcodes are
+read only through `otp:`. `info` lists `otp.list` and `otp.delete` with
+status `Beta`.
+
+**Response**: `data:<otp>` for `get`, `data:ok` for `put` and
+`delete`, and `data:[…]` for `list`.
 
 #### 9.4.3 The `keys` verb
 
@@ -1332,7 +1423,10 @@ S: data:44\n@alice@
 without them is refused. Its other fields are optional and take the
 wire tags' names (§7.1), except that the timestamps are `createdAt`,
 `updatedAt`, `expiresAt` and `availableAt`, and `pubKeyHash` is an
-object, `{"hash":"…","hashingAlgo":"…"}`.
+object, `{"hash":"…","hashingAlgo":"…"}`. Since atServer
+[3.19.0](#atserver-3190), an `atKey` that ends in `@<owner>` is refused
+with `AT0016` unless the owner is this atServer's atSign, as a
+`sharedBy` naming another atSign is.
 
 The atServer refuses to `update` a `local:`, `cached:` or `private:`
 key, or a name that is not a valid atKey, unless a reserved key from
@@ -1349,7 +1443,10 @@ it appears. So `update` stores
 can name a `local:`, `cached:` or `private:` key. The atServer also
 refuses to overwrite a record that carries `immutable:true`. Since
 atServer [3.16.5](#atserver-3165), a record whose expiry has passed counts as absent, so
-an expired immutable record no longer blocks the write.
+an expired immutable record no longer blocks the write. Since atServer
+[3.19.0](#atserver-3190), `update` refuses a key in a reserved
+namespace, and a key in an enrollment's namespace that is shared with
+another atSign, with `AT0009` ([§6.5](#65-reserved-keys)).
 
 When the write creates the key, `ccd` is kept only if the request
 also sets a non-zero `ttr`.
@@ -1411,7 +1508,9 @@ Source:
 `signing_publickey` and `signing_privatekey`, whatever `public:` or
 `@<recipient>:` scope the command gives them, `at_pkam_publickey`, and
 any key listed under `hive.protectedKeys` in the atServer's
-configuration. A `:cached` delete is not refused.
+configuration. A `:cached` delete is not refused. Since atServer
+[3.19.0](#atserver-3190), `delete` also refuses a key in a reserved
+namespace with `AT0009` ([§6.5](#65-reserved-keys)).
 
 Response: `data:<commitId>`, even when the key did not exist (see
 [§D.13](#d13-delete-is-idempotent-and-always-commits)). A key the
@@ -1494,6 +1593,9 @@ data:{"key":"@alice:country.wavi@bob","data":"USA","metaData":{ … }}
 
 If the remote atServer is unreachable: `error:AT0007-atServer not found.`
 
+Since atServer [3.19.0](#atserver-3190), a `lookup` of a passcode record
+is refused with `AT0009` ([§9.4.2](#942-the-otp-verb)).
+
 ### 10.5 `plookup`
 
 Read another atSign's public record through this atServer, on a
@@ -1537,6 +1639,9 @@ On an APKAM connection, a key that is not `public:` must be one the
 enrollment may read, which for a key in a namespace means `r` or `rw`
 access to that namespace. A `public:` key, cached or not, is not
 checked.
+
+Since atServer [3.19.0](#atserver-3190), an `llookup` of a passcode
+record is refused with `AT0009` ([§9.4.2](#942-the-otp-verb)).
 
 Response is identical in shape to `lookup`.
 
@@ -1659,6 +1764,15 @@ Response: `data:<notificationId>` on success.
 C: notify:update:ttr:-1:isEncrypted:true:@bob:phone.wavi@alice <ciphertext>\n
 S: data:7c6c8d7d-7e0e-4ab4-9c7d-4b07e1e84a52\n@alice@
 ```
+
+Since atServer [3.19.0](#atserver-3190), a `notify` or `notify:all` from
+a client is refused with `AT0003` when its atKey's name holds a
+character other than an ASCII letter or digit, `_`, `.`, `-`, `'`, `*`
+or `"`, or one in the ranges [§5](#5-the-atsign-identity-model) allows
+in an atSign inside an atKey, and with `AT0009` when the name uses a
+reserved namespace
+([§6.5](#65-reserved-keys)). A `notify` from another atServer that
+breaks either rule is answered `data:success` and dropped.
 
 ### 11.2 `notify:all`
 
@@ -1978,6 +2092,13 @@ Response: array of `{id, response}` pairs in submission order:
 ```text
 data:[{"id":1,"response":{"data":"42"}},{"id":2,"response":{"data":"43"}}]
 ```
+
+Since atServer [3.19.0](#atserver-3190), a batch that is not a JSON array
+is refused with `AT0003`. An entry that is not an object with a string
+`command`, whose `id` is present but not an integer, or whose command
+names no verb the atServer has, is answered with `AT0003` in its place,
+and the rest of the batch runs. Before, an entry naming no verb was left
+out of the response.
 
 ---
 
@@ -2703,7 +2824,7 @@ Terse reference for ctrl-F. Authoritative regex source:
 | `pkam`          | —      | Sign-the-challenge authentication.                                    | §9.3    |
 | `pol`           | —      | Inter-atServer proof-of-life. Server-emitted only.                    | §15.2   |
 | `enroll`        | varies | APKAM enrollment lifecycle; `enroll:link` in §9.4.4.                  | §9.4.1  |
-| `otp`           | owner  | Get/put OTP for APKAM.                                                | §9.4.2  |
+| `otp`           | owner  | Get, put, list or delete passcodes for APKAM.                         | §9.4.2  |
 | `keys`          | yes    | APKAM-issued key storage. **Being deprecated** — see §9.4.3 and §B.7. | §9.4.3  |
 | `update`        | yes    | Insert/overwrite an atKey.                                            | §10.1   |
 | `update:meta`   | yes    | Update only metadata.                                                 | §10.2   |
@@ -2775,11 +2896,10 @@ either no longer matches its own public key. The atServer stores
 
 ### B.5 `stream`
 
-Binary-framed file transfer between two atSigns. Not used by current
-SDKs; the recommended pattern for sharing binary blobs is `update`
-with `isBinary:true` + `isEncrypted:true`. The `stream` verb's
-implementation is preserved in the atServer but is intentionally not
-specified in this document.
+Removed in atServer [3.19.0](#atserver-3190), and listed here only so
+that references to it resolve. An atServer refuses `stream:`, batched or
+not, with `AT0003`. To share binary data, use `update` with
+`isBinary:true` and `isEncrypted:true`.
 
 ### B.6 `*Commons*` and *atServer/atSecondary* terminology drift
 
@@ -2993,9 +3113,6 @@ unauthenticated). A handful do not:
 - **`monitor`**, emits a stream of `notification: {<json>}\n` lines
   with no per-line `data:` prefix and no trailing prompt between
   events. Connection remains open until either side closes.
-- **`stream`**, uses binary framing with `stream:ack` / `stream:done`
-  control lines interleaved with raw payload bytes. (`stream` is
-  legacy, see Appendix B.5.)
 - **`from`**, see [§D.6](#d6-from-response-shape-self-vs-cross).
 
 ### D.4 Expired keys return null instead of an AT0015 error
