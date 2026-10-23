@@ -1,6 +1,8 @@
 # Atsign Protocol Specification
 
 <!-- pyml disable-num-lines 5000 md013-->
+**This document describes atServer 3.19.0** (production release [p3.19.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.19.0), YYYY-MM-DD, to be set when p3.19.0 is published). Behaviour marked *Unreleased* is on at_server's trunk but not yet in a production release. Changes by version are in [Appendix E](#appendix-e-changes-by-atserver-version).
+
 This document specifies the **Atsign Protocol** at the level required to
 implement either side of the wire, an atClient or an atServer, in any
 language. Every byte that crosses a TCP socket between an atClient,
@@ -46,6 +48,7 @@ wins and this document is a bug. Pull requests welcomed.
 20. [Appendix B, Legacy and deprecated](#appendix-b-legacy-and-deprecated)
 21. [Appendix C, Significant near-term projects](#appendix-c-significant-near-term-projects)
 22. [Appendix D, Inconsistencies and quirks](#appendix-d-inconsistencies-and-quirks)
+23. [Appendix E, Changes by atServer version](#appendix-e-changes-by-atserver-version)
 
 ---
 
@@ -81,9 +84,48 @@ store opaque ciphertext and opaque metadata fields, and never see
 plaintext values. Server-side filtering on values is therefore
 architecturally impossible, see [§14](#14-end-to-end-encryption).
 
+### How this document is versioned
+
+These rules keep the header under the title, the markers in the text
+and [Appendix E](#appendix-e-changes-by-atserver-version) in step.
+`tools/check_spec_versions.py`, which CI runs, checks that they agree.
+
+1. **The header** names the production release of the atServer this
+   document describes, with a link to its release and the date it was
+   published.
+2. **What is described** is that production release. Newer behaviour,
+   on at_server's trunk but not yet in a production release, may
+   appear marked *Unreleased*, linking to the Unreleased block at the
+   top of Appendix E; an entry there may name the canary release that
+   first carried it. A removal keeps its old text, marked *Removed,
+   unreleased*, until the removal reaches a production release. The
+   change that moves the header to a new production release turns the
+   Unreleased block into that release's block, and its markers into
+   "Since atServer X.Y.Z".
+3. **One block per production release.** A version released only as a
+   canary belongs to the first production release that shipped it,
+   and that release's block lists the canary versions it includes. A
+   "Since atServer X.Y.Z" marker cites the production version, and
+   links to its block.
+4. **Each block's date** is the date its production release was
+   published on GitHub, as YYYY-MM-DD.
+5. **Blocks run newest first**, with Unreleased at the very top.
+6. **Only production releases that changed the protocol have a block.**
+   The history starts at atServer 3.0.35.
+7. **A change is listed** when an implementer of either side needs it:
+   verbs and grammar; responses, refusals and error codes; record
+   shapes and reserved keys; authentication and authorization rules;
+   limits that change what is accepted; removals and deprecations.
+   Refactors, performance, logging, dependencies and builds are not.
+8. **Versions are atServer versions.** A change a client originates is
+   listed under the atServer release that first accepted or required
+   it, and a change to clients alone is not listed. A change to the
+   atDirectory is listed under the atServer release whose source first
+   carried it.
+
 ### For implementers, read these first
 
-If you're implementing this specification, read these two appendices
+If you're implementing this specification, read these appendices
 first:
 
 - [Appendix C, Significant near-term projects](#appendix-c-significant-near-term-projects)
@@ -99,6 +141,11 @@ first:
   per-verb, semantics that flip on auth state, and similar gotchas.
   Read this if your implementation is failing in ways that the
   per-verb sections don't seem to predict.
+
+- [Appendix E, Changes by atServer version](#appendix-e-changes-by-atserver-version)
+  lists what each production release of the atServer changed on the
+  wire. Read this if your implementation may meet an atServer older
+  than the one this document describes.
 
 ### Spelling and capitalisation
 
@@ -175,7 +222,7 @@ The atServer's port also negotiates ALPN. A connection that selects
 `atProtocol/1.0`, or no protocol, speaks the Atsign Protocol. One that
 selects `http/1.1` reaches an HTTP server, which answers a `GET` for
 one of the atSign's public records and upgrades `/ws` to a WebSocket
-carrying the Atsign Protocol. Since atServer 3.17.0, a command that
+carrying the Atsign Protocol. Since atServer [3.17.0](#atserver-3170), a command that
 starts like an HTTP request, on a connection that did not select
 `http/1.1`, is answered `AT0003` and the connection is closed.
 
@@ -299,7 +346,7 @@ the connection is closed.
 
 ### 4.7 Pipelining
 
-The protocol is request-response. Since atServer 3.16.6, an atServer
+The protocol is request-response. Since atServer [3.16.6](#atserver-3166), an atServer
 handles the commands a connection sends in the order they arrive and
 answers each in turn, so a client may send a command before reading
 the previous response. A client that may meet an older atServer must
@@ -521,7 +568,7 @@ secret it is started with, and stops once
 with `delete:privatekey:at_secret` after it first authenticates with
 PKAM, and the atServer then keeps `privatekey:at_secret_deleted`.
 
-Since atServer 3.16.4 no record is kept under
+Since atServer [3.16.5](#atserver-3165) no record is kept under
 `privatekey:at_pkam_publickey`. At startup the atServer moves one it
 finds into the enrollment named `primary`, or deletes it. A CRAM
 `update` of this name installs the key as `primary` and answers
@@ -532,7 +579,7 @@ With its default encryption, the reference SDK writes
 `@<recipient>:shared_key@<atSign>` when the owner first shares data
 with `<recipient>`. The recipient's copy carries `ttr:3888000`.
 
-Since atServer 3.17.0, an atServer started with a telemetry endpoint
+Since atServer [3.17.0](#atserver-3170), an atServer started with a telemetry endpoint
 creates an Ed25519 key for signing its telemetry, and publishes a
 record of the public half at
 `public:_at_telemetry_signing_publickey.__atserver@<atSign>`. Only the
@@ -568,7 +615,7 @@ moves to `<enrollmentId>.r.__e`, and an un-revoke moves it back. When
 the enrollment record is removed, by `enroll:delete` or once it has
 expired, its data moves to `<enrollmentId>.d.__e`.
 
-Since atServer 3.16.1, approving an enrollment whose request carries
+Since atServer [3.16.5](#atserver-3165), approving an enrollment whose request carries
 `apsk` or `apskLegacy` also publishes its `apskLegacy`, or else its
 `apsk` as JSON, at `public:_apsk.<enrollmentId>.a.__e@<atSign>`: the
 public half of the enrollment's client data signing key.
@@ -620,8 +667,8 @@ Source of truth: `at_commons/lib/src/verb/syntax.dart`'s
 | `ccd`             | bool     | Cascade-delete. If `true`, deleting the original key deletes its cached copies.                                                           |
 | `cAt`             | ISO 8601 | `createdAt` — UTC timestamp of creation. Regex: `\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z` (fractional seconds optional).           |
 | `uAt`             | ISO 8601 | `updatedAt` — UTC timestamp of most recent update.                                                                                        |
-| `eAt`             | ISO 8601 | `expiresAt`. Derived from `ttl`; since atServer 3.16.3 an asserted value is stored instead (see below).                                   |
-| `aAt`             | ISO 8601 | `availableAt`. Derived from `ttb`; since atServer 3.16.3 an asserted value is stored instead (see below).                                 |
+| `eAt`             | ISO 8601 | `expiresAt`. Derived from `ttl`; since atServer [3.16.5](#atserver-3165) an asserted value is stored instead (see below).                                   |
+| `aAt`             | ISO 8601 | `availableAt`. Derived from `ttb`; since atServer [3.16.5](#atserver-3165) an asserted value is stored instead (see below).                                 |
 | `dataSignature`   | string   | Signature over a public value or, in a `notify:all` notification, over the notified key (RSA, SHA-256, base64). See [§14.2](#142-public-data-signatures) for the keys that make them. |
 | `sharedKeyStatus` | enum     | Shared-key status (`localUpdated`, `remoteUpdated`, `sharedWithNotified`, etc.). The atServer neither stores nor returns it.              |
 | `isBinary`        | bool     | `true` if the value is binary; the reference SDK carries it as Base2e15 text ([§4.5](#45-binary-values)).                                 |
@@ -645,7 +692,7 @@ the atServer refuses a negative `ttl` or `ttb`, and a `ttr` below
 
 `ttl` and `ttb` count from the write that sets them, and a write that
 sets both expires `ttb` + `ttl` ms after it. `ttl:0` clears an expiry.
-Since atServer 3.16.3, an `update` or `update:meta` that sets neither
+Since atServer [3.16.5](#atserver-3165), an `update` or `update:meta` that sets neither
 `ttl` nor `eAt` keeps the stored `expiresAt`, one that sets neither
 `ttb` nor `aAt` keeps the stored `availableAt`, and a `ttl` sent
 without `ttb` counts from the write alone, whatever `ttb` the record
@@ -654,8 +701,8 @@ holds.
 An update notification with no `ttr`, or `ttr:0`, does not cache the
 value at the recipient's atServer.
 
-Since atServer 3.13.0 (at_commons 5.10.0), the grammar takes `cAt`,
-`uAt`, `eAt` and `aAt`. Since atServer 3.16.3, the atServer stores
+Since atServer [3.13.0](#atserver-3130) (at_commons 5.10.0), the grammar takes `cAt`,
+`uAt`, `eAt` and `aAt`. Since atServer [3.16.5](#atserver-3165), the atServer stores
 an asserted value, truncated to milliseconds, in place of the one it
 would set or derive. An `update` or `update:meta` that asserts `eAt`
 with no `ttl`, or `ttl:0`, also stores the `ttl` that `eAt` implies;
@@ -675,13 +722,13 @@ for `encAlgo`, `AES/SIC/PKCS7Padding` for a value; for
 `skeEncAlgo`, `RSA`. When the reference SDK encrypts with its `legacy`
 crypto provider, it sets `ivNonce` and none of these four.
 
-Since atServer 3.14.0 (at_commons 5.11.0), `appMetadata` may carry
+Since atServer [3.14.0](#atserver-3140) (at_commons 5.11.0), `appMetadata` may carry
 provider-owned fields beside `providerId`. The reference SDK sets it
 on each value it encrypts, with `providerId` `legacy` unless the app
 configures another provider. The atServer refuses, with `AT0003`, a
 value that does not decode to such an object. Otherwise it stores,
 returns and forwards it without acting on it, except that since atServer
-3.18.0 it writes, keeps and drops the `apskLinks` on an enrollment's
+[3.18.1](#atserver-3181) it writes, keeps and drops the `apskLinks` on an enrollment's
 `_apsk` record
 ([§9.4.4](#944-linking-an-enrollments-client-data-signing-keys-enrolllink)).
 An `update` or `update:meta` that omits it, or sends `null`, keeps the
@@ -914,7 +961,7 @@ A high-level flow:
    decrypts the APKAM symmetric key, then sends back the
    default encryption private key and self-encryption key, each
    encrypted with the now-shared APKAM symmetric key (with IVs).
-   Since atServer 3.17.1, the approved enrollment expires no later than
+   Since atServer [3.18.1](#atserver-3181), the approved enrollment expires no later than
    the approver's own enrollment: the atServer caps its expiry on
    approval.
 5. **PKAM-with-enrollmentId**, the new app authenticates as usual via
@@ -960,21 +1007,21 @@ Source:
 | Operation  | Response payload                                                                                |
 |------------|-------------------------------------------------------------------------------------------------|
 | `request`  | `data:{"enrollmentId":"<uuid>","status":"pending"}`, or `"approved"` when approved at once      |
-| `approve`  | `data:{"status":"approved","enrollmentId":"<uuid>"}`. Since atServer 3.17.1 it also carries `"expiresAt"`, an ISO-8601 UTC string or null |
+| `approve`  | `data:{"status":"approved","enrollmentId":"<uuid>"}`. Since atServer [3.18.1](#atserver-3181) it also carries `"expiresAt"`, an ISO-8601 UTC string or null |
 | `deny`     | `data:{"status":"denied","enrollmentId":"<uuid>"}`                                              |
 | `revoke`   | `data:{"status":"revoked","enrollmentId":"<uuid>"}`, with `"cascadedEnrollmentIds":[…]` when it also revoked the enrollments that descend from it, those it approved and those they approved (`:force:` to revoke own enrollment) |
 | `unrevoke` | `data:{"status":"approved","enrollmentId":"<uuid>"}`                                            |
 | `delete`   | `data:{"enrollmentId":"<uuid>","status":"deleted"}`                                             |
 | `fetch`    | `data:{ <full enrollment record JSON> }`                                                        |
 | `list`     | `data:{"<enrollKey>":{<enrollment record JSON>}, …}`                                            |
-| `link`     | Since atServer 3.18.0: `data:{"enrollmentId":"<uuid>","linked":["<kid>", …]}`; see [§9.4.4](#944-linking-an-enrollments-client-data-signing-keys-enrolllink) |
+| `link`     | Since atServer [3.18.1](#atserver-3181): `data:{"enrollmentId":"<uuid>","linked":["<kid>", …]}`; see [§9.4.4](#944-linking-an-enrollments-client-data-signing-keys-enrolllink) |
 
-Since atServer 3.17.1, a request is refused with `AT0022` unless its
+Since atServer [3.18.1](#atserver-3181), a request is refused with `AT0022` unless its
 `apkamKeysExpiryInMillis`, when given, is a whole number from 0 to
 3155760000000 (36,525 days); before, a negative value also asked for
 none.
 
-Since atServer 3.17.1, `approve` caps the approved enrollment's expiry at
+Since atServer [3.18.1](#atserver-3181), `approve` caps the approved enrollment's expiry at
 that of the enrollment the connection authenticated as, when that one
 expires, and reports the moment the approved enrollment ends as
 `expiresAt`, null when it never does. An earlier expiry the request asked
@@ -986,7 +1033,7 @@ enrollment does.
 
 An `enroll:request` sent over a CRAM connection is the atSign's root
 enrollment: it is approved at once and never expires, whatever expiry it
-asks for. Since atServer 3.17.1 it reports `apkamKeysExpiryInMillis` as
+asks for. Since atServer [3.18.1](#atserver-3181) it reports `apkamKeysExpiryInMillis` as
 0; a root requested earlier reports the expiry it asked for.
 
 `list` entries and `fetch` carry `apkamKeysExpiryInMillis` and
@@ -994,15 +1041,15 @@ asks for. Since atServer 3.17.1 it reports `apkamKeysExpiryInMillis` as
 expiry it asks for (0 or less for none), and `expiresAt` is when the
 request lapses unapproved, 48 hours after it was made by default. Once
 a request is approved, they are the term granted and the moment it ends;
-a root requested before atServer 3.17.1 is the exception above.
-`list` and `fetch` carry `expiresAt` since atServer 3.16.4, and `fetch`
-carries `apkamKeysExpiryInMillis` since 3.17.1.
+a root requested before atServer 3.18.1 is the exception above.
+`list` and `fetch` carry `expiresAt` since atServer [3.16.5](#atserver-3165), and `fetch`
+carries `apkamKeysExpiryInMillis` since atServer [3.18.1](#atserver-3181).
 
 A pending request is announced to approver apps as a self notification
 keyed `<enrollmentId>.new.enrollments.__manage@<atSign>`. Its value
 carries `appName`, `deviceName`, `namespace`, the encrypted APKAM
 symmetric key under both `encryptedApkamSymmetricKey` and
-`encryptedAPKAMSymmetricKey`, and, since atServer 3.17.1,
+`encryptedAPKAMSymmetricKey`, and, since atServer [3.18.1](#atserver-3181),
 `apkamKeysExpiryInMillis`. A request approved at once is not announced.
 
 #### 9.4.2 The `otp` verb
@@ -1054,7 +1101,7 @@ non-committed) and `data:<JSON record>` on `get`.
 
 #### 9.4.4 Linking an enrollment's client data signing keys (`enroll:link`)
 
-> **Since atServer 3.18.0.**
+> **Since atServer [3.18.1](#atserver-3181).**
 
 An enrollment publishes its client data signing keys at
 `public:_apsk.<enrollmentId>.a.__e@<atSign>`, from its request or a later
@@ -1090,7 +1137,7 @@ enroll:link:{"enrollmentId":"<uuid>","links":{"<kid>":{"link":<link>,"expect":<l
 
 **Response**: `data:{"enrollmentId":"<uuid>","linked":["<kid>", …]}`.
 
-An atServer before 3.18.0 refuses `enroll:link` with `AT0003`, as a command
+An atServer before 3.18.1 refuses `enroll:link` with `AT0003`, as a command
 its grammar does not know, and keeps an authenticated connection open.
 
 #### Who may call it
@@ -1122,14 +1169,13 @@ refused, naming what failed, unless:
 - each `expect` equals, compared as JSON, the link stored on that key, or
   is `null` when none is stored.
 
-Since atServer 3.18.1, a call is also refused when the target's `_apsk`
-record is immutable or lists the `kid` more than once, and the payload's
-`enrollmentId` is compared in the folded form of
-[§6](#6-the-atkey-model); 3.18.0 compares it exactly.
+A call is also refused when the target's `_apsk` record is immutable or
+lists the `kid` more than once. The payload's `enrollmentId` is compared in
+the folded form of [§6](#6-the-atkey-model).
 
 A stale `expect` is refused with `AT0032`, so a writer can tell a lost race
-from a bad request, read the record again and decide afresh. Since atServer
-3.18.1, an immutable record is refused with `AT0032` too. The request's
+from a bad request, read the record again and decide afresh. An immutable
+record is refused with `AT0032` too. The request's
 required fields and
 every other check above are refused with `AT0022`, except the target's own
 state: a target that does not exist or is not approved is refused with an
@@ -1145,10 +1191,9 @@ In the list form, the atServer reads each entry that carries a string
 `status`, so a retired key can take a link. A bare `_apsk` value is one
 `rsa2048` key, whose `kid` the atServer derives: the first 8 bytes of the
 SHA-256 of the decoded key, as lowercase hex, which is how clients derive
-every `kid`. The atServer compares `kid`s exactly. Since atServer 3.18.1,
-it reads an `_apsk` value trimmed of surrounding whitespace, as a client
-does, and a `kid` the value lists twice takes no link; 3.18.0 reads the
-value as stored and keeps the first entry when a `kid` repeats.
+every `kid`. The atServer compares `kid`s exactly. It reads an `_apsk`
+value trimmed of surrounding whitespace, as a client does, and a `kid` the
+value lists twice takes no link.
 
 #### Links
 
@@ -1180,7 +1225,7 @@ those for keys it no longer lists. `enroll:link`, these writes and a
 `delete` of the record run one at a time for each atSign, so each lands
 wholly before or after another.
 
-Since atServer 3.18.1, these writes, a rotation of the enrollment's client
+Since atServer [3.18.1](#atserver-3181), these writes, a rotation of the enrollment's client
 authentication signing key, and the record's move back when the enrollment
 is unrevoked keep a link on a key only while the new value lists that key's
 `kid` once, with the `alg` and public key the link's payload names, and
@@ -1190,11 +1235,12 @@ write drops the last link from `appMetadata` holding nothing else under the
 publish or republish that changes the value drops a `dataSignature` over
 the value it replaces.
 
-An `enroll:update` is refused with `AT0022`, naming the key, when it would
-leave the enrollment's client authentication signing key listed in its
-`_apsk` beside another key, or carrying a link.
+Since atServer [3.18.1](#atserver-3181), an `enroll:update` is refused
+with `AT0022`, naming the key, when it would leave the enrollment's client
+authentication signing key listed in its `_apsk` beside another key, or
+carrying a link.
 
-Since atServer 3.18.1, an `enroll:update`, an `update` or `update:meta` of
+Since atServer [3.18.1](#atserver-3181), an `enroll:update`, an `update` or `update:meta` of
 the record, or an `enroll:request` is also refused with `AT0022`, naming
 what failed, when the `_apsk` it would leave or carries lists a `kid`
 twice, an entry without a string `kid`, `alg` and `pub`, or the
@@ -1208,7 +1254,7 @@ take the record, with the links it keeps, over 500 KiB is refused with
 `enroll:update` that republishes an immutable record is refused with
 `AT0032`, as an `update` of one is.
 
-Since atServer 3.18.1, the publish at `enroll:approve`, a rotation of
+Since atServer [3.18.1](#atserver-3181), the publish at `enroll:approve`, a rotation of
 `primary`'s key that the atServer makes itself, at startup or on a legacy
 `pkam:`, and the move back on unrevoke cannot be refused. Each keeps fewer
 links instead: it drops a link on the client authentication signing key,
@@ -1247,9 +1293,9 @@ Source:
 ^update(:nc(?<noCommit>))?(:json:(?<json>.+)|<metadataFragment>(:(public|@(?<forAtSign>...)))?:(?<atKey>...)(@(?<atSign>...))? (?<value>.+))$
 ```
 
-Since atServer 3.16.3, `:nc` (no-commit) writes no commit-log entry
+Since atServer [3.16.5](#atserver-3165), `:nc` (no-commit) writes no commit-log entry
 for the change, removes any entry the key already has, and answers
-`data:-1`. From atServer 3.13.0 to 3.16.2 the grammar takes `:nc`, and
+`data:-1`. From atServer 3.13.0 to 3.15.0 the grammar takes `:nc`, and
 the write is committed as usual.
 
 Response: `data:<commitId>` where `commitId` is the integer
@@ -1302,7 +1348,7 @@ it appears. So `update` stores
 `local:shared_key.bob@alice`, answered `data:-1`. Only the JSON form
 can name a `local:`, `cached:` or `private:` key. The atServer also
 refuses to overwrite a record that carries `immutable:true`. Since
-atServer 3.16.2, a record whose expiry has passed counts as absent, so
+atServer [3.16.5](#atserver-3165), a record whose expiry has passed counts as absent, so
 an expired immutable record no longer blocks the write.
 
 When the write creates the key, `ccd` is kept only if the request
@@ -1348,12 +1394,12 @@ Source:
 ```
 
 - `:dAt:<timestamp>`, the deletion time the caller asserts, an ISO
-  8601 UTC timestamp as for `cAt` (§7.1). Since atServer 3.16.3, the
+  8601 UTC timestamp as for `cAt` (§7.1). Since atServer [3.16.5](#atserver-3165), the
   atServer stamps the DELETE commit entry with it. From atServer 3.13.0
-  to 3.16.2 it is accepted and not used.
-- `:nc`, no commit. Since atServer 3.16.3, no entry is written, any
+  to 3.15.0 it is accepted and not used.
+- `:nc`, no commit. Since atServer [3.16.5](#atserver-3165), no entry is written, any
   entry the key already has is removed, and the response is
-  `data:-1`. From atServer 3.13.0 to 3.16.2 it is accepted, and the
+  `data:-1`. From atServer 3.13.0 to 3.15.0 it is accepted, and the
   delete is committed as usual.
 - `:force`, required to delete an `immutable:true` key.
 - `:priority:<low|medium|high>`, the priority of the auto-notification
@@ -1399,11 +1445,11 @@ arrives on:
   `lookup:<atKey>@<this atSign>` returns the public record
   `public:<atKey>@<this atSign>`.
 
-Since atServer 3.17.1, on a connection not authenticated as the atSign
+Since atServer [3.18.1](#atserver-3181), on a connection not authenticated as the atSign
 (a `pol` connection, or one that has not authenticated at all), a
 `lookup:` may name only this atServer's atSign as the key's owner. A
 lookup naming another owner is refused with `AT0009`, and the connection
-is closed. Before 3.17.1, a lookup naming another owner was answered as
+is closed. Before 3.18.1, a lookup naming another owner was answered as
 the bullets above describe, from the `public:` record or the record
 shared with `@x` under that name, so it could read only what that
 connection may see; the change is that it is now refused.
@@ -1510,10 +1556,10 @@ Source:
 ^scan$|scan(:cl)?(:showhidden:...)?(:@<forAtSign>)?(:page:...)?( <regex>)?$
 ```
 
-- `:cl`, since atServer 3.16.3, list commit-log entries instead of
+- `:cl`, since atServer [3.16.5](#atserver-3165), list commit-log entries instead of
   keys (see Response below). It needs a connection authenticated as
   the atSign, and naming another atSign with it is refused. From
-  atServer 3.13.0 to 3.16.2 `:cl` is accepted, and the scan answers as
+  atServer 3.13.0 to 3.15.0 `:cl` is accepted, and the scan answers as
   it would without it.
 - `:showhidden:true`, on an authenticated connection, also list the
   hidden keys: keys that start with `_` (such as `_x.wavi@alice`) and
@@ -1599,7 +1645,7 @@ Source: see `at_commons/lib/src/verb/syntax.dart` `notify`.
 |-------------------|---------------------------------------------------------------------------------------------------|
 | `id`              | Caller-supplied notification ID. Server generates one if omitted.                                 |
 | `update\|delete`  | Operation. Defaults to `update`.                                                                  |
-| `messageType:key` | Notification refers to an atKey change. `text` is retired since atServer 3.17.1 ([Appendix B.3](#b3-notify-messagetypetext)). |
+| `messageType:key` | Notification refers to an atKey change. `text` is retired since atServer [3.18.1](#atserver-3181) ([Appendix B.3](#b3-notify-messagetypetext)). |
 | `priority`        | Delivery priority hint.                                                                           |
 | `strategy:all`    | Deliver every notification (default).                                                             |
 | `strategy:latest` | Coalesce: deliver only the most recent `<latestN>` for the same atKey if recipient was offline.   |
@@ -1626,7 +1672,7 @@ single `forAtSign` segment normally goes.
 notify:all:[<update|delete>:][messageType:<key|text>:][ttl:<ms>:][ttb:<ms>:][ttr:<s>:][ccd:<bool>:]<recipient,recipient,…>:<atKey>[@<atSign>][:<value>]
 ```
 
-The grammar still parses `messageType:text`; since atServer 3.17.1 the
+The grammar still parses `messageType:text`; since atServer [3.18.1](#atserver-3181) the
 atServer refuses it ([Appendix B.3](#b3-notify-messagetypetext)).
 
 Response: a JSON map of `recipient → notificationId`:
@@ -2170,7 +2216,7 @@ After `pol` succeeds, A's connection to B is authenticated **as @A**.
 B treats subsequent verbs on this connection as coming from `@A`. For
 example, where `@bob` is B's atSign, a `lookup:phone.wavi@bob` returns
 the record `@bob` shares with `@A`, `@A:phone.wavi@bob`. Since atServer
-3.17.1, a lookup on this connection naming an owner other than `@bob` is
+[3.18.1](#atserver-3181), a lookup on this connection naming an owner other than `@bob` is
 refused with `AT0009`, and the connection is closed (see
 [§10.4](#104-lookup)).
 
@@ -2198,7 +2244,7 @@ atServer:
 4. @alice's atServer evaluates the lookup with the inbound connection
    marked `polAuthenticated as @bob`, the result is whatever @alice
    has shared **with @bob** (typically `@bob:phone.wavi@alice`). Since
-   atServer 3.17.1, it answers a lookup on that connection only for a
+   atServer [3.18.1](#atserver-3181), it answers a lookup on that connection only for a
    key @alice owns; one naming another owner is refused with `AT0009`,
    and the connection is closed.
 5. @alice's atServer responds `data:<value>\n@bob@` (the
@@ -2271,7 +2317,7 @@ S: data:{"enrollmentId":"<uuid>","status":"approved"}\n@alice@
 # Over CRAM the atServer approves the request at once and grants it
 # rw on __manage and on * (§9.4.1). signingAlgo names the algorithm
 # of the APKAM key; since atServer 3.15.0 the atServer keeps it with
-# the enrollment. Since atServer 3.16.1, the atServer also publishes
+# the enrollment. Since atServer 3.16.5, the atServer also publishes
 # the apskLegacy value as public:_apsk.<uuid>.a.__e@alice: the
 # public half of the enrollment's client data signing key, here its
 # APKAM public key.
@@ -2310,7 +2356,7 @@ atServer generates that keypair, its server authentication signing
 key, itself when it first starts ([§6.5](#65-reserved-keys)).
 
 The reference SDK does not send
-`update:privatekey:at_pkam_publickey`. Since atServer 3.16.4, that
+`update:privatekey:at_pkam_publickey`. Since atServer [3.16.5](#atserver-3165), that
 `update` over a CRAM connection installs the key as the enrollment
 named `primary` and answers `data:-1`.
 
@@ -2375,7 +2421,7 @@ S(approver): notification: {"id":"<id>","from":"@alice","to":"@alice",
                "key":"<uuid>.new.enrollments.__manage@alice",
                "value":"{…}","operation":"update",…}\n
 # value carries appName, deviceName, namespace, the encrypted APKAM
-# symmetric key and, since atServer 3.17.1, apkamKeysExpiryInMillis
+# symmetric key and, since atServer 3.18.1, apkamKeysExpiryInMillis
 # (§9.4.1).
 
 # === Approver: read the request from the enrollment list. ===
@@ -2404,9 +2450,9 @@ C(approver): enroll:approve:{
            }\n
 S:           data:{"status":"approved","expiresAt":null,
                "enrollmentId":"<uuid>"}\n@alice@
-# Since atServer 3.17.1 the answer carries expiresAt, null here
+# Since atServer 3.18.1 the answer carries expiresAt, null here
 # because neither the request nor the approver's enrollment expires.
-# Since atServer 3.16.1 the approval publishes the request's
+# Since atServer 3.16.5 the approval publishes the request's
 # apskLegacy value as public:_apsk.<uuid>.a.__e@alice.
 # The reference SDK then reads the list again, narrowed to
 # ["approved"] and then to ["approved","revoked"].
@@ -2595,7 +2641,7 @@ should map to an equivalent.
 `AT0401` is emitted on **authentication** failure (the credential is
 wrong). `AT0009` is emitted on **authorisation** failure (the
 authenticated principal lacks permission for the requested key, notably
-APKAM scopes prohibiting the namespace). Since atServer 3.17.1, `AT0009`
+APKAM scopes prohibiting the namespace). Since atServer [3.18.1](#atserver-3181), `AT0009`
 also refuses a `lookup` that names another owner on a connection not
 authenticated as the atSign (see [§10.4](#104-lookup)). Implementations
 must distinguish between them; clients may retry on `AT0401` but not on
@@ -2708,7 +2754,7 @@ without the `:limit:` and `:skipDeletesUntil:` knobs. New clients use
 ### B.3 `notify` `messageType:text`
 
 `notify:…:messageType:text:…` is a freeform-text notification, not
-tied to an atKey change. Since atServer 3.17.1, text notifications are
+tied to an atKey change. Since atServer [3.18.1](#atserver-3181), text notifications are
 retired. A client's `notify` or `notify:all` with `messageType:text` is
 refused with AT0003 (`messageType:text is no longer supported`), one
 arriving from a peer atServer over `pol` is answered `data:success`
@@ -3072,7 +3118,7 @@ unrecognised key produces no warning.
 Calling `delete` on a non-existent key returns `data:<commitId>`
 exactly as if the key had existed. The commit log gains a DELETE
 entry regardless. The exceptions answer `data:-1` and write no entry:
-`:nc` (since atServer 3.16.3), and a key the commit log never records
+`:nc` (since atServer [3.16.5](#atserver-3165)), and a key the commit log never records
 (a `public:_` key, but not `public:__`, or `privatekey:at_secret`).
 
 `update` and `update:meta` do not error on a missing key either: they
@@ -3084,7 +3130,7 @@ The metadata regex permits `(-?)\d+` for `ttl`, `ttb`, `ttr`, but the
 atServer refuses a negative `ttl` or `ttb`, and a `ttr` below `-1`,
 with `AT0003`. `ttr:-1` ("cache indefinitely") is the only negative it
 accepts. For no expiry, omit `ttl` when creating a record, or send
-`ttl:0` to clear an expiry; since atServer 3.16.3, a later write that
+`ttl:0` to clear an expiry; since atServer [3.16.5](#atserver-3165), a later write that
 omits both `ttl` and `eAt` keeps the stored expiry.
 
 ### D.15 `info` auth requirement is per-deployment
@@ -3112,3 +3158,866 @@ under `public:<sessionID><fromAtSign>`, or
 `private:<sessionID><fromAtSign>` when an atSign connects to its own
 atServer, and `scan` lists neither: it never lists a `public:_` key (see
 [§6.2](#62-augmentations)).
+
+---
+
+## Appendix E, Changes by atServer version
+
+This appendix lists what each production release of the atServer changed
+in the protocol, newest first, by the rules in
+[How this document is versioned](#how-this-document-is-versioned). Only
+production releases that changed the protocol are listed; at_server's
+[releases](https://github.com/atsign-foundation/at_server/releases) list
+them all. Each block names the canary releases it includes, since a
+version released only as a canary is listed under the first production
+release that shipped it. The history starts at atServer 3.0.35.
+
+### Unreleased
+
+No changes yet.
+
+### atServer 3.19.0
+
+Production release [p3.19.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.19.0), YYYY-MM-DD, to be set when p3.19.0 is published. Includes canary release 3.19.0.
+
+- **Passcodes.** `otp:put`, which sets the semi-permanent passcode
+  (SPP), is refused with `AT0009` unless the connection is CRAM or an
+  enrollment holding `*:rw` and `__manage:rw`; access to `__manage` was
+  enough before. `otp:list` returns the live OTPs, and the SPP, as a JSON
+  array of `{type, value, expiresAt, namespaces}`. `otp:delete:<otp>` and
+  `otp:delete:spp` delete one, and always answer `data:ok`. An OTP
+  records the namespaces of the enrollment that issued it: an enrollment
+  holding `__manage` may list and delete only the OTPs whose namespaces
+  it holds, and never the SPP, while a full-privilege connection may list
+  and delete them all, including OTPs that record no namespaces. `info`
+  lists `otp.list` and `otp.delete` as `Beta`. The grammar is at_commons
+  5.24.0's ([§9.4.2](#942-the-otp-verb)).
+- **Reserved namespaces.** A record in a reserved namespace changes only
+  through the verbs that own it ([§6.5](#65-reserved-keys)). `update`,
+  `update:meta` and `delete` refuse such a key with `AT0009`, other than
+  one in the connection's own `<enrollmentId>.a.__e` namespace or a
+  cached copy of another atSign's record; a key whose name starts with
+  `__` and has no namespace counts as one. `update` and `update:meta`
+  refuse a key in an enrollment's namespace that is shared with another
+  atSign. `lookup` and `llookup` refuse a passcode record with `AT0009`.
+  A client's `notify` or `notify:all` is refused with `AT0009` when its
+  key uses a reserved namespace, and with `AT0003` when the key's name
+  holds a character an atKey may not; such a notification from another
+  atServer is answered `data:success` and dropped. `enroll:list` lists
+  only this atSign's own enrollment records.
+- **`update:json`** refuses, with `AT0016`, an `atKey` that ends in
+  `@<owner>` for an owner other than this atServer's atSign.
+- **`batch:`** refuses a batch that is not a JSON array with `AT0003`. An
+  entry that is not an object with a string `command`, whose `id` is not
+  an integer, or that names no verb, is answered `AT0003` in its place,
+  and the rest of the batch runs.
+- **`stream` removed.** A `stream:` command inside a `batch:` is refused
+  with `AT0003`, as one outside a batch has been since atServer
+  [3.12.0](#atserver-3120), and a `stream:init` notification from an
+  older atServer is dropped ([Appendix B.5](#b5-stream)).
+- **atDirectory.** The atDirectory answers HTTP on its Atsign Protocol
+  port to a client that negotiates `http/1.1` by ALPN, as on its HTTPS
+  port. A redirect for a path below an atSign keeps the atSign:
+  `GET /@alice/x` redirects to `https://<atServer>/@alice/x`. It matches
+  an atSign in its canonical form over HTTP and the Atsign Protocol, and
+  takes the Atsign Protocol's lookup line with or without its `@`. Every
+  HTTP answer carries `Access-Control-Allow-Origin: *` and closes its
+  connection, an HTTP connection that sends no complete request is
+  closed within 10 seconds, a path that does not decode gets `400`, and
+  a request it cannot answer `500` ([§3.1](#31-atdirectory),
+  [§8](#8-the-atdirectory-protocol)).
+
+### atServer 3.18.1
+
+Production release [p3.18.1](https://github.com/atsign-foundation/at_server/releases/tag/p3.18.1), 2026-10-22. Includes canary releases 3.18.0 and 3.18.1.
+
+- **Text notifications retired.** A client's `notify` or `notify:all`
+  with `messageType:text` is refused with `AT0003`; one from another
+  atServer is answered `data:success` and dropped. `info` lists
+  `notify.text` as `Retired`. Text notifications already stored still
+  list and fetch ([Appendix B.3](#b3-notify-messagetypetext)).
+- **`enroll:link`** stores links vouching for the client data signing
+  keys an approved enrollment's `_apsk` record lists, in `apskLinks` in
+  the record's `appMetadata`, and every other write of that record keeps
+  the links for the keys it still lists. The grammar is at_commons
+  5.23.0's
+  ([§9.4.4](#944-linking-an-enrollments-client-data-signing-keys-enrolllink)).
+- **`_apsk` values.** `enroll:request`, `enroll:update`, `update` and
+  `update:meta` are refused with `AT0022` when the `_apsk` they would
+  leave lists a `kid` twice, an entry without a string `kid`, `alg` and
+  `pub`, or the enrollment's client authentication signing key beside
+  another key, and `enroll:update` also when that key carries a link. A
+  write that would take the record and its links over 500 KiB is refused
+  with `AT0022`, and an `enroll:update` republishing an immutable record
+  with `AT0032`.
+- **Lookups from connections not authenticated as the atSign.** On an
+  unauthenticated or `pol` connection, a `lookup:` naming an owner other
+  than this atServer's atSign is refused with `AT0009`, and the
+  connection is closed. A `pol` connection's `lookup:` names its key as
+  `<key>@<atSign>`; one naming a scope, such as `public:` or
+  `@<atSign>:`, is refused with `AT0009` and the connection closed. A
+  client's `lookup:` of another atSign's key that names a scope is
+  refused with `AT0009`, and the client keeps its connection
+  ([§10.4](#104-lookup)).
+- **Authentication order.** A `from:` naming another atSign on a
+  connection that has authenticated, and a `cram:` on one that has
+  authenticated with `pkam:`, are refused with `AT0009`, and the
+  connection is closed. A `batch:` answers a `cram:` or `pkam:` among its
+  commands with `AT0009` and does not run it.
+- **Passcodes.** An `enroll:request` passcode is accepted only as the SPP
+  or as an OTP from `otp:get`, and each OTP admits one request. An OTP
+  stored in the namespace-less form older atServers used is not
+  accepted; an SPP in that form is, until `otp:put` sets an SPP, which
+  removes it.
+- **Enrollment expiry.** `enroll:approve` caps the approved enrollment's
+  expiry at that of the enrollment that approved it, and answers with
+  `expiresAt`. `enroll:fetch` and the `new.enrollments.__manage`
+  notification carry `apkamKeysExpiryInMillis`, and an enrollment
+  requested over CRAM reports it as 0. A retrofit successor expires no
+  later than its predecessor. An `enroll:request` is refused with
+  `AT0022` unless its `apkamKeysExpiryInMillis`, when given, is a whole
+  number from 0 to 3155760000000 ([§9.4.1](#941-the-enroll-verb)).
+- **atSigns.** An atSign of more than 55 characters after its `@`, or
+  otherwise invalid, is refused with `AT0003` wherever a command names
+  one, a `batch:` entry included, as is a `notify` naming no recipient;
+  an authenticated client, or a `pol` peer, keeps its connection.
+  `config:block:add`, `config:block:remove` and `scan` take each atSign
+  in its canonical form, and `from:` compares atSigns with
+  the blocklist in that form and never blocks this atServer's own
+  atSign.
+- **Cached copies.** A lookup of another atSign's public record leaves a
+  cached copy only when the record has a `ttr`, and the 24-hour copies
+  kept before are removed. A `plookup` that spells `publickey` in another
+  case leaves this atServer's copy of another atSign's encryption public
+  key unchanged. A cached copy the daily refresh finds unchanged is
+  served until its `ttr` next runs out.
+- **Sync.** A lookup of a record that does not exist, and the removal of
+  an enrollment, add no entry to clients' sync. The first `lookup`,
+  `llookup` or HTTP `GET` of an expired enrollment's data moves it to
+  `<enrollmentId>.d.__e`.
+
+### atServer 3.17.0
+
+Production release [p3.17.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.17.0), 2026-10-12. Includes canary release 3.17.0.
+
+- **Notification persistence and expiry.** `notify` takes `eph`, for a
+  notification no atServer stores, which lives at most two minutes and
+  which a restart loses, and `eAtn`, the moment a notification expires.
+  `eAtn` with `ttln`, or `eph` with `delete`, `ttr` or `ccd`, is refused
+  with `AT0003`. Before it passes either on, an atServer sends
+  `info:brief` to the receiving atServer, and passes them on, as given,
+  only when its `info` lists them with any status but `Retired`. `info`
+  and `info:brief` list `features`, among them `notify.eph` and
+  `notify.eAtn`. The grammar is at_commons 5.20.0's.
+- **Notifications from other atServers.** A notification another
+  atServer delivers is refused with `AT0009` unless it is addressed to
+  this atServer's atSign and, for a key notification, its key is owned
+  by the atSign that atServer proved with `pol`.
+- **`notify:all` deprecated.** `info` lists `notify.all` as
+  `Deprecated`; send a `notify` to each recipient instead. It judges
+  each recipient's key as `notify` does and, when it refuses one,
+  notifies nobody.
+- **HTTP.** A command that starts like an HTTP request, on a connection
+  that did not negotiate `http/1.1`, is answered `AT0003` and the
+  connection is closed ([§3.2](#32-atserver)). A request for `/ws` that
+  is not a WebSocket upgrade is answered `400`.
+- **Syntax errors before authentication.** A connection that has not
+  authenticated is closed after it is answered `AT0003`; an
+  authenticated one stays open.
+- **`clientConfig`.** The `clientId`, `appName`, `appVersion` and
+  `platform` a `from:` sends are kept to 64 characters, and a field that
+  is not a string, or a `version` that does not parse, is ignored rather
+  than failing the `from:`.
+- **Enrollment data.** Data in an enrollment's own namespace is not
+  served once that enrollment is no longer approved: `lookup` and
+  `llookup` answer `AT0015`, and an HTTP `GET` `404`.
+- **Monitors** are not sent notifications that have expired.
+- **`config:set`** refuses, with `AT0003`, a value its setting cannot
+  take, naming what it takes.
+- **Telemetry.** An atServer started with a telemetry endpoint keeps an
+  Ed25519 telemetry signing key and publishes its public half at
+  `public:_at_telemetry_signing_publickey.__atserver@<atSign>`. No
+  connection, CRAM included, can change either record, and neither an
+  enrollment request nor `keys:put` can name the `__atserver` namespace
+  ([§6.5](#65-reserved-keys)).
+
+### atServer 3.16.6
+
+Production release [p3.16.6](https://github.com/atsign-foundation/at_server/releases/tag/p3.16.6), 2026-10-09. Includes canary release 3.16.6.
+
+- **Pipelining.** Commands are framed one per `\n` and handled in the
+  order they arrive, so a client may send a command before it reads the
+  previous response ([§4.7](#47-pipelining)). A read that carries no
+  bytes no longer closes the connection.
+- **`notify:all`** stores each recipient as an atSign and notifies it
+  once however it is spelt, notifies the atServer's own atSign as
+  `notify` does, refuses a key another atSign owns as `notify` does, and
+  stores the time in UTC. Its reply is keyed by the canonical atSign.
+- **Protected keys.** `delete` refuses this atServer's own `publickey`,
+  `signing_publickey` and `signing_privatekey`, and
+  `at_pkam_publickey`, with `AT0009` however their name is spelt
+  ([§10.3](#103-delete)).
+- **Commit ids.** A commit id is never issued twice. `stats:3` with no
+  regex, and a monitor's stats notification, report the last commit id
+  issued, `-1` for an empty log. On a namespace-restricted enrollment,
+  `stats:3` counts by the rule `sync:from` sends by.
+- **`to:`.** An atServer opens a connection to another atServer with
+  `to:@<atSign>`, and falls back to `lookup:all:publickey@<atSign>` when
+  that atServer does not accept it.
+
+### atServer 3.16.5
+
+Production release [p3.16.5](https://github.com/atsign-foundation/at_server/releases/tag/p3.16.5), 2026-09-30. Includes canary releases 3.16.0 to 3.16.5.
+
+Authentication:
+
+- **`pol` challenges.** A `from:` naming another atSign is answered with
+  a challenge of the form `pol1.<base64url JSON>`, whose JSON names the
+  issuing atServer's atSign as `v` and a fresh nonce as `n`; a `from:`
+  naming the atServer's own atSign still gets a bare UUID. Proving itself
+  to another atServer, an atServer signs a `pol1.` challenge only when
+  `v` names the atSign it connected to, and signs a bare challenge as
+  before.
+- **One attempt per challenge.** Each `from:` challenge admits one
+  `pkam`, `cram` or `pol` attempt within its 60 seconds; a retry needs a
+  new `from:`, and `pkam` or `cram` without a live challenge is refused
+  with `AT0401`.
+- **APKAM algorithms.** An APKAM `pkam:` is verified under the signing
+  algorithm recorded on its enrollment, whatever it sends, and keys with
+  `signingAlgo` `mldsa65` authenticate.
+- **The `primary` enrollment.** At startup the atServer moves the legacy
+  PKAM public key into an enrollment named `primary`, approved, holding
+  `*:rw` and `__manage:rw` and never expiring, and keeps no record at
+  `privatekey:at_pkam_publickey`. A `pkam:` with no enrollment id, or
+  with `enrollmentId:primary`, authenticates as `primary`. A CRAM
+  `update` of `privatekey:at_pkam_publickey` installs the key as
+  `primary` and answers `data:-1`; any other write of it is refused with
+  `AT0009`. An `enroll:request` approved over CRAM no longer writes
+  `at_pkam_publickey`, and no enrollment may write
+  `privatekey:at_secret` or `privatekey:at_secret_deleted`
+  ([§6.5](#65-reserved-keys)).
+- **Retrofits.** An `enroll:request` on a connection authenticated as an
+  enrollment creates an approved successor, with no OTP or approver, that
+  holds exactly that enrollment's grants, needs a keypair of its own and
+  expires no later than it; a successor may not itself be replaced this
+  way. When the successor first authenticates, the enrollments its
+  predecessor approved move to it, and a predecessor that does not hold
+  `*:rw` and `__manage:rw` is revoked as superseded.
+- **Connections follow their enrollment.** A connection whose enrollment
+  is revoked, denied or pending is answered `AT0027`, `AT0025` or
+  `AT0026` on its next command, and closed.
+
+Authorization:
+
+- **Full access is CRAM's.** Only a CRAM connection holds every
+  permission. An unauthenticated `notify:all`, or `notify:status` of a
+  notification that exists, is refused with `AT0009`. `__manage` keys
+  never sync.
+- **Enrollment management.** `otp:get` needs access to `__manage`.
+  `enroll:fetch` and `enroll:delete` of another enrollment need
+  `__manage` and access to every namespace it holds, and acting on an
+  enrollment that holds `__manage:rw` needs `__manage:rw`; each refusal
+  is `AT0009`. A caller holding `__manage:r` gets `enroll:list` as a
+  roster without key material. `enroll:listns` and `enroll:infons` admit
+  a caller to `__manage` only when it holds `__manage` explicitly.
+- **Reserved namespaces and `*`.** A `*` grant does not reach `__manage`
+  records, or another enrollment's `<enrollmentId>.a|r|d.__e` records
+  beyond reading public ones. Another enrollment's `_apsk` record is
+  read-only.
+- **Keys without a namespace** are decided by kind: the two `shared_key`
+  forms are readable by every approved enrollment and writable by one
+  holding write access on some namespace; the atSign's own public and
+  signing keys are readable by all and writable only by a root
+  enrollment; `privatekey:` keys, the blocklist and `configkey` are
+  writable only by a root enrollment; any other needs a `*` grant. No
+  enrolled namespace matches such a key, one named `null` included, and
+  a key that does not parse is judged as one.
+- **`config:block`** needs a CRAM connection, or an approved enrollment
+  holding write access on `*` and `__manage`; any other is refused with
+  `AT0009`.
+- **`update:meta`** is authorized like `update`: it needs `rw` on the
+  key's namespace.
+
+Enrollments:
+
+- **`enroll:update`** lets an approved enrollment, authenticated as
+  itself, change its own `apkamPublicKey`, `signingAlgo`, `apsk`,
+  `apskLegacy` and `metadata` (merged per key), but never `namespaces`
+  or its state. A new `apkamPublicKey` needs `apkamPublicKeySignature`,
+  a signature by the new private key over
+  `<enrollmentId>|<apkamPublicKey>|<signingAlgo>`.
+- **Client data signing keys.** The atServer publishes an enrollment's
+  `public:_apsk.<enrollmentId>.a.__e@<atSign>` only from the `apsk`, or
+  the bare RSA `apskLegacy`, that `enroll:request` carries, and
+  publishes nothing otherwise; before, it published every enrollment's
+  `apkamPublicKey` there. A request carrying both is refused with
+  `AT0022`, as is one that would take the enrollment record over 500 KiB.
+- **Requests.** A grant's access must be `r` or `rw`, else `AT0022`. A
+  request installing a key a stored enrollment already holds is refused
+  with `AT0032`. An `enroll:request` must name at least one namespace,
+  unless it is over CRAM or a retrofit. One whose `metadata` carries a
+  `keyPackage` may omit `encryptedAPKAMSymmetricKey`. An enrollment
+  holding no namespaces is refused by `enroll:fetch`, `approve`, `deny`,
+  `revoke`, `unrevoke` and `delete`, except from itself or over CRAM.
+- **Revocation.** Revoking an enrollment revokes every enrollment it
+  approved, to any depth, and the response lists them as
+  `cascadedEnrollmentIds`. A revoke whose cascade would take the caller,
+  or that would leave no approved, permanent enrollment holding `*:rw`
+  and `__manage:rw`, is refused with `AT0031`, even with `force`. An
+  `enroll:unrevoke` or `enroll:approve` of an enrollment whose approver
+  exists and is not approved is refused with `AT0032`.
+  `enroll:infons:<namespace>` answers `{"lastRevokedAt":…}`, the last
+  revocation of an enrollment holding that namespace, or null.
+- **Records.** `enroll:list` and `enroll:fetch` report `expiresAt`, and
+  `enroll:list` also `parentEnrollmentId` (the approver),
+  `retrofitPredecessorEnrollmentId` and `predecessorSettledAt`. An
+  expired enrollment is listed as `expired` until the expiry sweep
+  removes it. Amending, revoking or un-revoking an enrollment keeps its
+  expiry, and a key expiry of zero or less means none. `enroll:fetch`
+  returns `metadata`. Enrollment ids are compared in the folded form of
+  [§6](#6-the-atkey-model).
+
+Records and data verbs:
+
+- **Timestamps.** `update`, `update:meta` and `update:json` store an
+  asserted `cAt`, `uAt`, `eAt` and `aAt`, derive a missing `ttl` or `ttb`
+  from them, and keep the stored expiry and availability unless the
+  write names them ([§7.1](#71-catalogue)). Notifications between
+  atServers carry the record's `cAt` and `uAt`, and its `eAt` and `aAt`
+  when set; an atServer whose grammar predates at_commons 5.10.0 refuses
+  them. An `update:json` changes `ttl`, `ttb` or `ttr` only when it names
+  them.
+- **Commit log.** `:nc` writes no commit entry, removes the key's
+  existing one and answers `data:-1`; `delete:dAt` stamps the delete's
+  commit entry; `scan:cl` lists commit-log entries
+  ([§10.1](#101-update), [§10.3](#103-delete), [§10.7](#107-scan)).
+- **`update:json`** is held to the rules of the positional form: an
+  empty, multi-line or non-string value, a negative `ttl`, a timestamp
+  that is not UTC, `isPublic` with `sharedWith`, a `sharedBy` naming
+  another atSign, or no atKey, is refused.
+- **Immutable records.** An expired immutable record no longer blocks a
+  new one.
+- **Cached public keys.** `plookup:all:publickey@<atSign>` and
+  `plookup:meta:publickey@<atSign>` report `ttr` `-1` and no `ttl`.
+
+### atServer 3.15.0
+
+Production release [p3.15.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.15.0), 2026-08-08. Includes canary release 3.15.0.
+
+- **`to:`.** An unauthenticated `to:@<atSign>` for this atServer's
+  atSign answers
+  `data:{"publickey":<lookup:all JSON or null>,"signing_publickey":<lookup:all JSON or null>}`;
+  one naming another atSign gets `AT0007`. An atServer opens its own
+  connections with it only when configured to.
+- **`enroll:listns:<namespace>`** lists the approved enrollments holding
+  that namespace, as `{enrollmentId, access, apkamPubKey, metadata}`
+  (at_commons 5.12.0). It needs an APKAM connection whose approved
+  enrollment holds `r` or more on the namespace: else `AT0401` when not
+  APKAM, `AT0009` otherwise, and `AT0022` for an empty namespace.
+- **Enrollment records.** `enroll:request` stores the `metadata` and
+  `signingAlgo` it carries, and `enroll:list` entries return them. CRAM
+  auto-approval and `enroll:approve` publish the enrollment's APKAM public
+  key at `public:_apsk.<enrollmentId>.a.__e@<atSign>`.
+- **`pkam:`** accepts `signingAlgo:mldsa65` (at_commons 5.12.0), and this
+  release verifies such a signature as `rsa2048`.
+- **`keys:get:keyName:<k>`** and **`keys:delete:keyName:<k>`** are
+  refused with `AT0009` unless `<k>` is one of the calling enrollment's
+  own records.
+- **`cram`** fails when the atServer holds no CRAM secret, or an empty
+  one.
+- **Data moves.** Approving, revoking, un-revoking or removing an
+  enrollment moves only that enrollment's own
+  `<enrollmentId>.a|r|d.__e` data.
+- **Sync.** `sync:from` skips a commit entry whose key no longer exists,
+  rather than failing the request.
+
+### atServer 3.14.0
+
+Production release [p3.14.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.14.0), 2026-06-19. Includes canary release 3.14.0.
+
+- **`appMetadata`.** `update`, `update:meta` and `notify` take
+  `:appMetadata:<base64 JSON>` (at_commons 5.11.0) and refuse a value
+  that does not decode with `AT0003`. The atServer stores it, keeps it
+  when a later update omits it or sends `null`, returns it as an object
+  in `llookup:meta`, `llookup:all` and monitor notifications and as
+  base64 in `sync:from`, and passes it on to the recipient's atServer
+  ([§7.1](#71-catalogue)).
+- **Commit log.** `config:block:add` and `config:block:remove` are not
+  recorded in the commit log, and the removal of an expired key never
+  writes a commit entry, so neither appears in `sync:from`.
+- **`notify:list`** dates are UTC calendar days.
+
+### atServer 3.13.2
+
+Production release [p3.13.2](https://github.com/atsign-foundation/at_server/releases/tag/p3.13.2), 2026-06-05. Includes canary releases 3.13.1 and 3.13.2.
+
+- **Split commands.** The atServer checks a command's verb once it has a
+  `\n` or 16 bytes, so a command whose first read is shorter than its
+  verb is no longer refused.
+
+### atServer 3.13.0
+
+Production release [p3.13.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.13.0), 2026-05-21. Includes canary release 3.13.0.
+
+- **Grammar.** at_commons 5.10.0 takes `cAt`, `uAt`, `eAt` and `aAt` in
+  the metadata fragment, `:nc` on `update`, `update:meta`,
+  `update:json` and `delete`, `:dAt:` on `delete`, and `:cl` on `scan`.
+  The atServer accepts them and acts on none of them until 3.16.5.
+
+### atServer 3.12.0
+
+Production release [p3.12.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.12.0), 2026-04-30. Includes canary releases 3.11.0 to 3.11.3 and 3.12.0.
+
+- **Known verbs only.** As a command arrives, the atServer refuses with
+  `AT0003` one whose verb is not `update`, `llookup`, `plookup`,
+  `delete`, `sync`, `notify`, `monitor`, `otp`, `keys`, `batch`,
+  `stats`, `config`, `from`, `cram`, `pkam`, `pol`, `scan`, `lookup`,
+  `info`, `noop` or `enroll`. `@exit` and `stream:` are among those
+  refused ([§3.3](#33-connection-lifecycle)).
+- **Client certificates.** For a `from:` naming another atSign, the
+  client certificate must name that atSign's atServer host exactly, as
+  its subject, CN or a SAN entry ([§3.2](#32-atserver)).
+- **Challenges.** A successful `cram`, `pkam` or `pol` removes its `from:`
+  challenge, so authenticating again on the connection needs a new
+  `from:`.
+- **`config`.** `config:set` and `config:reset` act for a connection
+  with access to `__config`, CRAM or legacy PKAM, or an enrollment
+  holding `__config` or `*`, and refuse any other with `AT0009`;
+  `config:print` acts for any authenticated connection. Before, all three
+  answered `data:testing mode disabled by default`.
+- **HTTP.** An HTTP `GET` also takes a path that starts with
+  `/<atSign>/`.
+- **Monitors.** A monitor notification's `metadata` carries `ttr`, `ttl`
+  and `ttb`.
+
+### atServer 3.10.3
+
+Production release [p3.10.3](https://github.com/atsign-foundation/at_server/releases/tag/p3.10.3), 2026-03-18. Includes canary releases 3.10.0 to 3.10.3, and versions 3.9.3 and 3.9.4.
+
+- **`enroll:deny`** of an enrollment that is not pending is refused with
+  `AT0032`.
+- **Notifications from other atServers.** One that has expired, or that
+  the atServer already holds, is answered `data:success` and neither
+  stored nor delivered.
+- **Notification lifetime.** A notification lives at most 8 days, and
+  one sent with no `ttln`, or a `ttln` of 0 or less, gets the default,
+  `notificationExpiryInMins` (15 minutes). An atServer passing a
+  notification on sends its remaining lifetime as `ttln`, and retries
+  until it is delivered, it expires, or its recipient leaves the
+  atDirectory.
+- **`notify:list`** on a `pol` connection lists, from this atServer's own
+  store, the notifications it has sent to that atSign.
+- **Monitors.** A monitor's live notifications carry `availableAt` and
+  `expiresAt` in `metadata`, as replayed ones do; `monitor:<epochMillis>`
+  replays in the order they were created; and a `monitor` whose regex
+  does not compile is refused with `AT0003`.
+- **Self notifications.** An `update` of a key shared with this
+  atServer's own atSign sends no notification.
+
+### atServer 3.9.0
+
+Production release [p3.9.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.9.0), 2026-01-12. Includes canary releases 3.8.0 and 3.9.0, and version 3.7.2.
+
+- **mTLS.** On its connections to other atServers, an atServer presents
+  the client certificate at `certs/mtls/fullchain.pem` and
+  `certs/mtls/privkey.pem` when it has one, and its server certificate
+  otherwise ([§3.2](#32-atserver)).
+- **`info:mtls`** returns that certificate chain as `mtls_fullchain`, and
+  **`info:mtlsbrief`** the times the chain and its key last changed
+  (at_commons 5.7.0). Neither needs authentication
+  ([§13.3](#133-info)).
+- **Expired keys.** When the expiry sweep removes a key, it writes no
+  delete commit entry and removes the key's latest one, so `sync:from`
+  sends no delete for it; clients expire such keys themselves.
+
+### atServer 3.7.1
+
+Production release [p3.7.1](https://github.com/atsign-foundation/at_server/releases/tag/p3.7.1), 2025-09-25. Includes canary releases 3.7.0 and 3.7.1.
+
+- **`stats:16`** returns inbound connection counts,
+  `{"total","self","other","anon"}`, and **`stats:17`** adds a list of
+  `{from, created, lastAccessed}` for each connection.
+- **Idle limits.** An authenticated inbound connection is closed after
+  10 minutes idle, not 30 days, and an outbound one after 9 minutes 59
+  seconds, not 10 minutes. As inbound connections near their limit, the
+  allowed idle time starts to shrink at 80% of it, not 50%, and to no
+  less than 5 minutes, not 60 seconds ([§3.4](#34-idle-and-timeout-behaviour)).
+
+### atServer 3.6.0
+
+Production release [p3.6.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.6.0), 2025-09-05. Includes canary release 3.6.0.
+
+- **HTTP `GET`** reads a public record named by the path's segments in
+  reverse, so `/baz/bar/index.html` reads `public:index.html.bar.baz@<atSign>`.
+  It answers the raw value, decoding a binary one, with `200`; `404` when
+  there is none; `405` for any other method; and `400` for a URI over
+  1000 characters. `at_rt=meta` or `at_rt=all` returns the metadata or
+  the `lookup:all` JSON, and `at_ct` sets the `Content-Type`.
+- **Monitors.** A monitor notification's `metadata` carries `pubKeyCS`
+  and `dataSignature`, and a replayed one `sharedKeyEnc`.
+- **atDirectory.** It answers HTTPS, by default on port `443`:
+  `GET /<atSign>`, with or without `@`, returns `host:port`;
+  `GET /<atSign>/<path>` redirects to `https://<host:port>/<path>`; an
+  unknown atSign gets `404`, any method but `GET` `401`, and a URI over
+  1000 characters `400` ([§3.1](#31-atdirectory)).
+
+### atServer 3.5.1
+
+Production release [p3.5.1](https://github.com/atsign-foundation/at_server/releases/tag/p3.5.1), 2025-06-08. Includes canary releases 3.5.0 and 3.5.1.
+
+- **Per-enrollment namespaces.** Each APKAM enrollment holds `rw` on a
+  namespace of its own, `<enrollmentId>.a.__e`. Its data moves to
+  `<enrollmentId>.r.__e` when it is revoked, back on approval or
+  un-revocation, and to `<enrollmentId>.d.__e` when it is removed or
+  expires; the moves sync ([§6.5](#65-reserved-keys)).
+- **APKAM `scan` and `sync:from`** list what the enrollment may read by
+  the rule other verbs apply: its namespaces, `__atserver`, its own
+  `<enrollmentId>.a.__e` and reserved keys. A key without a namespace, or
+  in a namespace it does not hold, does not sync to an enrollment without
+  `*`, whatever else it holds.
+- **Enrollment errors.** An `enroll` refusal carries `AT0022` for a
+  passcode or parameter that is not valid, `AT0032` for an operation the
+  enrollment's state does not allow or a duplicate request, and `AT0009`
+  for an approver without the access it needs, in place of `AT0011`.
+- **`enroll:list`** entries carry the whole stored record, `sessionId`,
+  `apkamPublicKey`, `namespaces`, `requestType`, `approval` and
+  `apkamKeysExpiryInMillis` among them.
+- **`__pkams`.** Approval no longer publishes
+  `public:<appName>.<deviceName>.pkam.__pkams.__public_keys@<atSign>`,
+  and the atServer removes such records at startup.
+- **Lookups.** `lookup` and `llookup` of a key in an enrollment's
+  namespace check that enrollment first, and `plookup` of one does not
+  answer from a cached copy.
+
+### atServer 3.4.1
+
+Production release [p3.4.1](https://github.com/atsign-foundation/at_server/releases/tag/p3.4.1), 2025-06-07. Includes canary release 3.4.1.
+
+- **Relayed values.** A value another atServer returns for a `lookup` is
+  passed on with only its leading `data:` removed, so a value containing
+  `data:` arrives unaltered.
+
+### atServer 3.4.0
+
+Production release [p3.4.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.4.0), 2025-03-12. Includes canary releases 3.3.0 and 3.4.0.
+
+- **atServer events.** When the atServer finds another atSign's
+  `public:publickey` has changed, it writes
+  `<microsecondsSinceEpoch>.events.__atserver@<atSign>` with value
+  `{"category":"atProtocol","name":"atsign_pk_changed","data":{"atSign":"@<other>"}}`,
+  and sends its own atSign a self notification of that key that lasts 5
+  minutes ([§14.3](#143-public-key-rotation)). Every APKAM enrollment may
+  read the `__atserver` namespace, and none may write it.
+- **Immutable records.** `update` and `update:meta` take
+  `:immutable:true|false` (at_commons 5.3.0), and refuse with `AT0032` a
+  later write of a record that is immutable. `delete` takes `:force`, and
+  refuses an immutable record without it with `AT0032`; a `delete:cached:`
+  is not refused. `notify` carries `immutable`, which is passed on to the
+  recipient's atServer and returned in `llookup:meta` and `sync:from`
+  metadata ([§7.1](#71-catalogue)).
+- **CRAM enrollment.** An `enroll:request` over CRAM is not refused for
+  the `appName` and `deviceName` of a pending or approved enrollment.
+
+### atServer 3.2.0
+
+Production release [p3.2.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.2.0), 2025-02-04. Includes canary release 3.2.0.
+
+- **ALPN.** The atServer's TLS port offers `atProtocol/1.0` and
+  `http/1.1` by ALPN. A connection that negotiates `atProtocol/1.0`, or
+  no protocol, speaks the Atsign Protocol; one that negotiates
+  `http/1.1` reaches an HTTP server ([§3.2](#32-atserver)).
+- **WebSocket.** An HTTP request for `/ws` is upgraded to a WebSocket
+  carrying the Atsign Protocol: the atServer sends `@`, then its
+  responses as text frames, and takes commands as text or binary frames.
+- **HTTP `GET /<key>`** answers `data:<value>` for
+  `public:<key>@<atSign>`, or an error when there is none, and any other
+  method gets `400`.
+- **TLS only.** The atServer will not start without TLS.
+
+### atServer 3.1.1
+
+Production release [p3.1.1](https://github.com/atsign-foundation/at_server/releases/tag/p3.1.1), 2024-12-20. Includes canary release 3.1.1.
+
+- **`pubKeyHash`.** `update`, `update:meta` and `notify` store
+  `pubKeyHash` and `hashingAlgo`, which come back as a `pubKeyHash`
+  object in `llookup:meta` and `llookup:all`, as a JSON string in
+  `sync:from` and monitor metadata, and are passed on to the recipient's
+  atServer.
+- **`sync:from`** honours `:limit:` as the most entries in a response,
+  the atServer's page size by default.
+
+### atServer 3.1.0
+
+Production release [p3.1.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.1.0), 2024-12-11. Includes canary release 3.1.0.
+
+- **`sync:from`** takes `:skipDeletesUntil:<n>`, and leaves out delete
+  entries up to commit id `n` other than the log's latest entry;
+  `:limit:` becomes optional (at_commons 5.1.1)
+  ([§12.1](#121-syncfrom)).
+- **Approval IVs.** `enroll:approve` takes `encPrivateKeyIV` and
+  `selfEncKeyIV`, stored as `iv` beside each encrypted key and returned
+  by `keys:get`. An `enroll:request` approved over CRAM stores no
+  encrypted key copies.
+
+### atServer 3.0.52
+
+Production release [p3.0.52](https://github.com/atsign-foundation/at_server/releases/tag/p3.0.52), 2024-12-04. Includes canary release 3.0.52.
+
+- **`pubKeyHash`.** `update`, `update:meta` and `notify` accept
+  `pubKeyHash:<hash>` and `hashingAlgo:<algo>` (at_commons 5.0.2), and a
+  `pubKeyHash` object in an `update:json` document is stored and
+  returned in the key's metadata.
+- **`enroll:delete`** also removes the enrollment's `__pkams` public-key
+  record and the encrypted key copies its approval stored.
+- **Sync.** `sync:from` with a regex always includes the reserved
+  `shared_key` keys, `public:publickey@<atSign>` and `public:` keys
+  without a namespace, and no longer every `public:` key.
+
+### atServer 3.0.51
+
+Production release [p3.0.51](https://github.com/atsign-foundation/at_server/releases/tag/p3.0.51), 2024-10-14. Includes canary release 3.0.51.
+
+- **`enroll:unrevoke`** returns a revoked enrollment to `approved`,
+  under the checks `enroll:approve` applies.
+- **`enroll:delete`** removes a denied or revoked enrollment and answers
+  `{"enrollmentId":…,"status":"deleted"}`; an expired one gets `AT0028`.
+- **APKAM key expiry.** `enroll:request` takes `apkamKeysExpiryInMillis`
+  (0 for none), and approval gives the enrollment that lifetime. Once it
+  lapses, a `pkam` naming the enrollment gets `AT0028`, and a connection
+  authenticated as it is closed on its next command.
+- **`pkam:`** accepts `hashingAlgo:sha512` (at_commons 5.0.0).
+- **`enroll:update`** is refused with `AT0003`: the grammar no longer
+  takes it.
+- **`info`** returns `apkam_metadata` as a JSON object, not a JSON
+  string.
+- **Records.** The `__pkams` public-key record an approval writes is not
+  recorded in the commit log, so it does not sync. `stats:15` returns
+  every key, not at most 25.
+
+### atServer 3.0.50
+
+Production release [p3.0.50](https://github.com/atsign-foundation/at_server/releases/tag/p3.0.50), 2024-09-27. Includes canary release 3.0.50.
+
+- **Namespaces with a dot.** An enrollment granted a namespace that
+  contains a `.`, such as `foo.bar`, reaches keys in it, such as
+  `phone.foo.bar@<atSign>`.
+
+### atServer 3.0.49
+
+Production release [p3.0.49](https://github.com/atsign-foundation/at_server/releases/tag/p3.0.49), 2024-08-27. Includes canary release 3.0.49.
+
+- **Approvers.** `enroll:approve`, `deny` and `revoke` on an APKAM
+  connection need an approved enrollment holding `__manage` and, for
+  each namespace the target holds, `rw`, or `r` where the target holds
+  only `r`.
+- **Required parameters.** `enroll:request` needs `appName`,
+  `deviceName` and `apkamPublicKey` and, with an `otp`, also
+  `encryptedAPKAMSymmetricKey` and at least one namespace;
+  `enroll:approve` needs `enrollmentId`,
+  `encryptedDefaultEncryptionPrivateKey` and
+  `encryptedDefaultSelfEncryptionKey`; `deny` and `revoke` need
+  `enrollmentId`.
+- **Notifications.** `notify` honours `isEncrypted:false` on a key
+  notification, and atServers pass `isEncrypted` on as given. A
+  monitor's notifications carry `sharedKeyEnc` in `metadata`.
+- **`info`** no longer returns `features`.
+- **Grants.** Where an enrollment holds both a namespace and `*`, the
+  namespace's own access applies to its keys. A denied enrollment keeps
+  the 48-hour expiry of its request.
+
+### atServer 3.0.48
+
+Production release [p3.0.48](https://github.com/atsign-foundation/at_server/releases/tag/p3.0.48), 2024-07-11. Includes canary release 3.0.48.
+
+- **`notify:list`** entries, and the notifications `monitor:<epochMillis>`
+  replays, carry `availableAt` and `expiresAt` in `metadata`.
+
+### atServer 3.0.47
+
+Production release [p3.0.47](https://github.com/atsign-foundation/at_server/releases/tag/p3.0.47), 2024-06-17. Includes canary release 3.0.47.
+
+- **Passcode records.** An OTP is kept at
+  `private:<otp>.__otp@<atSign>` and the SPP at
+  `private:spp.__otp@<atSign>`; passcodes kept in the earlier form are
+  still honoured.
+- **SPP lifetime.** `otp:put:<spp>:ttl:<ms>` sets the SPP's lifetime,
+  none by default, and an expired SPP is not accepted.
+- **Enrollment notification.** The pending-enrollment notification
+  carries the encrypted APKAM symmetric key as
+  `encryptedAPKAMSymmetricKey` too, beside `encryptedApkamSymmetricKey`.
+
+### atServer 3.0.46
+
+Production release [p3.0.46](https://github.com/atsign-foundation/at_server/releases/tag/p3.0.46), 2024-05-22. Includes canary release 3.0.46.
+
+- **Revocation closes connections.** `enroll:revoke` closes the
+  connections authenticated as the revoked enrollment. A forced revoke of
+  the caller's own enrollment adds a `message` to its answer and closes
+  the connection 10 seconds later.
+- **Enrollment notification.** The pending-enrollment notification is
+  keyed `<enrollmentId>.new.enrollments.__manage@<atSign>`, and reaches
+  APKAM monitors holding `r` or `rw` on `__manage`.
+- **`otp:get`** without `:ttl:` always issues a 5-minute OTP.
+
+### atServer 3.0.45
+
+Production release [p3.0.45](https://github.com/atsign-foundation/at_server/releases/tag/p3.0.45), 2024-05-02. Includes canary release 3.0.45.
+
+- **Self-revocation.** A connection revokes its own enrollment only with
+  `enroll:revoke:force:<json>` (at_commons 4.0.9); without `force` it gets
+  `AT0031`.
+- **`enroll:fetch`** answers
+  `{appName, deviceName, namespace, encryptedAPKAMSymmetricKey, status}`,
+  as an `enroll:list` entry does.
+- **Monitors.** An APKAM monitor receives a notification only when its
+  enrollment may read the key: `r` or `rw` on its namespace, `*` for a
+  key without one, and always for a reserved key.
+
+### atServer 3.0.44
+
+Production release [p3.0.44](https://github.com/atsign-foundation/at_server/releases/tag/p3.0.44), 2024-04-29. Includes canary release 3.0.44.
+
+- **`otp:`** needs an authenticated connection, else `AT0401`.
+- **`enroll:fetch:{"enrollmentId":…}`** returns the stored enrollment
+  record (at_commons 4.0.8); an unknown or expired id gets `AT0015`.
+- **Unique app and device.** `enroll:request` is refused while another
+  pending or approved enrollment has the same `appName` and
+  `deviceName`.
+- **`shared_key.<atSign>@<atSign>`** is a reserved key.
+
+### atServer 3.0.43
+
+Production release [p3.0.43](https://github.com/atsign-foundation/at_server/releases/tag/p3.0.43), 2024-04-23. Includes canary release 3.0.43.
+
+- **Key length.** An atKey longer than 248 characters, or 255 for a
+  `cached:` key, is refused: by `update` and `update:meta` with
+  `AT0016`, and elsewhere with `AT0002`, which closes the connection
+  ([§6.4](#64-key-length)).
+
+### atServer 3.0.42
+
+Production release [p3.0.42](https://github.com/atsign-foundation/at_server/releases/tag/p3.0.42), 2024-04-05. Includes canary release 3.0.42.
+
+- **APKAM notifications.** On an APKAM connection, `notify`,
+  `notify:all` and `notify:remove` need `rw`, and `notify:fetch` and
+  `notify:status` `r` or `rw`, on the key's namespace; `notify:list`
+  leaves out notifications the connection may not read.
+- **Keys without a namespace.** On an APKAM connection, a key without a
+  namespace needs `*`; reserved keys are open to every enrollment.
+- **`enroll:list:{"enrollmentStatusFilter":[…]}`** filters by status
+  (at_commons 4.0.5), and each entry carries `status`; without a filter,
+  every status is listed.
+- **`delete`** of a `cached:` key is never refused as protected.
+
+### atServer 3.0.41
+
+Production release [p3.0.41](https://github.com/atsign-foundation/at_server/releases/tag/p3.0.41), 2024-03-18. Includes canary release 3.0.41.
+
+- **`otp:put`** is accepted from an approved enrollment holding `r` or
+  `rw` on `__manage`, directly or through `*`, and from a connection
+  that carries no enrollment.
+
+### atServer 3.0.40
+
+Production release [p3.0.40](https://github.com/atsign-foundation/at_server/releases/tag/p3.0.40), 2024-03-04. Includes canary release 3.0.40.
+
+- **Enrollments.** `enroll:list` entries carry
+  `encryptedAPKAMSymmetricKey`, and the pending-enrollment notification
+  carries `appName`, `deviceName` and `namespace`.
+
+### atServer 3.0.39
+
+Production release [p3.0.39](https://github.com/atsign-foundation/at_server/releases/tag/p3.0.39), 2024-02-07. Includes canary release 3.0.39.
+
+- **Semi-permanent passcodes.** `otp:put:<spp>`, six or more word
+  characters, stores an SPP at `private:spp@<atSign>` and answers
+  `data:ok`. `enroll:request` accepts it in place of an OTP, and does not
+  use it up. Only an APKAM enrollment holding `__manage` or `*` may set
+  it.
+- **OTPs.** `otp:get:ttl:<ms>` sets an OTP's lifetime, 5 minutes by
+  default, and an OTP is used up the first time it is presented. An
+  `enroll:request` with a passcode that is not valid is answered after a
+  delay that grows with consecutive failures, up to 55 seconds by
+  default.
+- **`enroll` field.** `encryptedDefaultEncryptedPrivateKey` is renamed
+  `encryptedDefaultEncryptionPrivateKey` (at_commons 4.0.0).
+- **Blocklist.** The `config:block` list is kept at
+  `private:blocklist@<atSign>`.
+- **atSigns** named in `update`, `delete`, `notify`, `notify:all` and
+  `plookup` are lowercased.
+
+### atServer 3.0.36
+
+Production release [p3.0.36](https://github.com/atsign-foundation/at_server/releases/tag/p3.0.36), 2023-10-23. Includes canary release 3.0.36.
+
+- **OTPs.** An OTP from `otp:get` lasts 5 minutes, is matched in any
+  case, and is removed when an `enroll:request` presenting it succeeds.
+  `otp:validate` is removed (at_commons 3.0.57).
+- **Enrollment limits.** `enroll:request` is limited to 5 per connection
+  per hour by default; a request over the limit gets `AT0011`, and the
+  connection stays open. A pending enrollment expires 48 hours after its
+  request: `enroll:approve`, `deny`, `revoke` or `pkam` naming an expired
+  or unknown enrollment gets `AT0028`, and `enroll:list` leaves it out.
+- **Enrollment states.** `enroll:approve` accepts only a pending
+  enrollment and `enroll:revoke` only an approved one, and every
+  operation but `list` needs its JSON parameters, else `AT0022`.
+- **APKAM monitor and sync.** An APKAM monitor receives only
+  notifications in its enrolled namespaces, all of them with `*` or
+  `__manage`, and none once its enrollment is not approved. APKAM
+  `sync` returns only entries in the enrolled namespaces and entries
+  without a namespace, all of them with `*` or `__manage`, and `stats:3`
+  reports the highest commit id among them.
+- **Notification values.** A `notify` with a value and no `ttr` passes
+  the value on to the recipient's atServer, which delivers it without
+  caching it.
+- **atDirectory.** On one connection, the second lookup of an atSign the
+  atDirectory does not know is answered after 3 seconds, and the third
+  closes the connection ([§8.3](#83-response)).
+
+### atServer 3.0.35
+
+Production release [p3.0.35](https://github.com/atsign-foundation/at_server/releases/tag/p3.0.35), 2023-09-07. Includes canary release 3.0.35.
+
+- **`otp`.** The `totp` verb is replaced by `otp` (at_commons 3.0.54):
+  `otp:get`, on an authenticated connection, returns a passcode of six or
+  more uppercase letters and digits that lasts 90 seconds, and
+  `otp:validate:<otp>` answers `valid` or `invalid`.
+- **`enroll` parameters.** `enroll:request`, `approve`, `deny` and
+  `revoke` take one JSON object, `enroll:<operation>:<json>`, with
+  `enrollmentId`, `appName`, `deviceName`, `namespaces` (namespace to
+  `r` or `rw`), `otp`, `apkamPublicKey`,
+  `encryptedDefaultEncryptedPrivateKey`,
+  `encryptedDefaultSelfEncryptionKey` and `encryptedAPKAMSymmetricKey`,
+  in place of the colon-separated form.
+- **Approval.** An `enroll:request` over CRAM is approved at once with
+  `rw` on `__manage` and on `*`, answers status `approved`, and stores
+  the APKAM public key at `privatekey:at_pkam_publickey`; any other
+  request is stored as `pending`, and announced as a self notification
+  `<enrollmentId>.new.enrollments.__manage` whose value carries
+  `encryptedApkamSymmetricKey`. Approval stores the APKAM public key at
+  `public:<appName>.<deviceName>.pkam.__pkams.__public_keys@<atSign>`
+  and the encrypted keys at
+  `<enrollmentId>.default_enc_private_key.__manage@<atSign>` and
+  `<enrollmentId>.default_self_enc_key.__manage@<atSign>`. Enrollment
+  records and these copies are not recorded in the commit log.
+- **`pkam:`** names its enrollment with `enrollmentId:<id>`, in place of
+  `enrollApprovalId:<id>`, and a denied, pending or revoked enrollment is
+  answered `AT0025`, `AT0026` or `AT0027`.
+- **`keys`.** `keys:put`, `keys:get` and `keys:delete` serve connections
+  authenticated as an approved APKAM enrollment
+  ([§9.4.3](#943-the-keys-verb)).
+- **APKAM namespaces.** On an APKAM connection, `lookup` and `llookup`
+  need `r` or `rw`, and `update` and `delete` `rw`, on the key's
+  namespace; `*` grants every namespace, and `__manage` keys are refused.
+  APKAM `scan` lists `public:` keys and keys in the enrolled namespaces,
+  all of them with `*`.
+- **`lookup` before `pol`.** After `from:`, a `lookup` answers from
+  `public:` records until `pol` succeeds, and from records shared with
+  the `from:` atSign only after.
+- **Protected keys.** `delete` refuses this atSign's
+  `public:publickey`, `public:signing_publickey` and
+  `@<atSign>:signing_privatekey`, and any key configured as protected,
+  with `AT0009`.
+- **Errors.** An `enroll` failure, such as a passcode that is not valid,
+  keeps the connection open. A `sync` response carries at most 25 commit
+  entries.
