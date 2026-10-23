@@ -1,7 +1,6 @@
 # Atsign Protocol Specification
 
 <!-- pyml disable-num-lines 5000 md013-->
-
 This document specifies the **Atsign Protocol** at the level required to
 implement either side of the wire, an atClient or an atServer, in any
 language. Every byte that crosses a TCP socket between an atClient,
