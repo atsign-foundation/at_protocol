@@ -480,8 +480,8 @@ keeps for itself. A `privatekey:` name carries no `@<owner>`.
 A **hidden** key is a public or self key whose `<key>` part starts
 with `_`. Which hidden keys `scan` lists depends on the form:
 
-- `public:__<key>@<owner>` (two underscores) and a self key
-  `_<key>@<owner>` are listed only when the caller passes
+- `public:__<key>.<namespace>@<owner>` (two underscores) and a self
+  key `_<key>@<owner>` are listed only when the caller passes
   `:showhidden:true`. The commit log records both, so both sync.
 - `public:_<key>@<owner>` (one underscore) is never listed, even with
   `:showhidden:true`. The commit log never records one, so it never
@@ -682,7 +682,7 @@ for an enrollment.
 |----------------------------------------|---------|---------|---------|
 | `public:phone.wavi@alice`              | Public  | No      | No      |
 | `public:_diagnostics@alice`            | Public  | Yes     | No      |
-| `public:__location@alice`              | Public  | Yes     | No      |
+| `public:__location.wavi@alice`         | Public  | Yes     | No      |
 | `phone.wavi@alice`                     | Self    | No      | No      |
 | `_settings.wavi@alice`                 | Self    | Yes     | No      |
 | `@bob:phone.wavi@alice`                | Shared  | No      | No      |
