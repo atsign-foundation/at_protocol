@@ -680,8 +680,12 @@ provider-owned fields beside `providerId`. The reference SDK sets it
 on each value it encrypts, with `providerId` `legacy` unless the app
 configures another provider. The atServer refuses, with `AT0003`, a
 value that does not decode to such an object. Otherwise it stores,
-returns and forwards it without acting on it. An `update` or
-`update:meta` that omits it, or sends `null`, keeps the stored value.
+returns and forwards it without acting on it, except that since atServer
+3.18.0 it writes, keeps and drops the `apskLinks` on an enrollment's
+`_apsk` record
+([§9.4.4](#944-linking-an-enrollments-client-data-signing-keys-enrolllink)).
+An `update` or `update:meta` that omits it, or sends `null`, keeps the
+stored value.
 
 ### 7.2 Tag ordering
 
@@ -928,27 +932,28 @@ enroll:<operation>[:force][:<enrollParams-json>]
 Source:
 
 ```text
-^enroll:(?<operation>(?:(request|approve|deny|revoke|list|fetch|unrevoke|delete)))(:(?<force>force))?(?::)?((?<enrollParams>.+)|(<=list:)<enrollParams>.?)?$
+^enroll:(?<operation>(?:(request|approve|deny|revoke|listns|infons|list|fetch|unrevoke|delete|update|link)))(:(?<force>force))?(:(?<listNamespace>[^:{\n]+))?(?::)?((?<enrollParams>.+)|(<=list:)<enrollParams>.?)?$
 ```
 
 `<enrollParams>` is the JSON serialisation of the `EnrollParams` shape
 (`at_commons/lib/src/verb/enroll_params.dart`):
 
-| Field                                  | Used by                                   | Description                                                                                    |
-|----------------------------------------|-------------------------------------------|------------------------------------------------------------------------------------------------|
-| `enrollmentId`                         | approve/deny/revoke/fetch/delete/unrevoke | UUID of the enrollment.                                                                        |
-| `appName`                              | request                                   | Application name, e.g. `"todos"`.                                                              |
-| `deviceName`                           | request                                   | Unique device identifier.                                                                      |
-| `namespaces`                           | request                                   | Map of `namespace → permission` (`r`, `w`, `rw`, `rwx`).                                       |
-| `otp`                                  | request                                   | One-time password from `otp:get`.                                                              |
-| `apkamPublicKey`                       | request                                   | New device's APKAM public key (PEM or base64).                                                 |
-| `encryptedAPKAMSymmetricKey`           | request                                   | New device's APKAM symmetric key, RSA-encrypted to the default encryption public key.          |
-| `encryptedDefaultEncryptionPrivateKey` | approve                                   | Owner's encryption private key, AES-encrypted with the APKAM symmetric key.                    |
-| `encPrivateKeyIV`                      | approve                                   | IV (base64) for the line above.                                                                |
-| `encryptedDefaultSelfEncryptionKey`    | approve                                   | Owner's self-encryption key, AES-encrypted with the APKAM symmetric key.                       |
-| `selfEncKeyIV`                         | approve                                   | IV (base64) for the line above.                                                                |
-| `enrollmentStatusFilter`               | list                                      | Optional list of statuses to filter on: `pending`, `approved`, `denied`, `revoked`, `expired`. |
-| `apkamKeysExpiryInMillis`              | request                                   | Lifetime the request asks for, in milliseconds from approval; absent or 0 for none.            |
+| Field                                  | Used by                                        | Description                                                                                                                                                                                             |
+|----------------------------------------|------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `enrollmentId`                         | approve/deny/revoke/fetch/delete/unrevoke/link | UUID of the enrollment.                                                                                                                                                                                 |
+| `appName`                              | request                                        | Application name, e.g. `"todos"`.                                                                                                                                                                       |
+| `deviceName`                           | request                                        | Unique device identifier.                                                                                                                                                                               |
+| `namespaces`                           | request                                        | Map of `namespace → permission` (`r`, `w`, `rw`, `rwx`).                                                                                                                                                |
+| `otp`                                  | request                                        | One-time password from `otp:get`.                                                                                                                                                                       |
+| `apkamPublicKey`                       | request                                        | New device's APKAM public key (PEM or base64).                                                                                                                                                          |
+| `encryptedAPKAMSymmetricKey`           | request                                        | New device's APKAM symmetric key, RSA-encrypted to the default encryption public key.                                                                                                                   |
+| `encryptedDefaultEncryptionPrivateKey` | approve                                        | Owner's encryption private key, AES-encrypted with the APKAM symmetric key.                                                                                                                             |
+| `encPrivateKeyIV`                      | approve                                        | IV (base64) for the line above.                                                                                                                                                                         |
+| `encryptedDefaultSelfEncryptionKey`    | approve                                        | Owner's self-encryption key, AES-encrypted with the APKAM symmetric key.                                                                                                                                |
+| `selfEncKeyIV`                         | approve                                        | IV (base64) for the line above.                                                                                                                                                                         |
+| `enrollmentStatusFilter`               | list                                           | Optional list of statuses to filter on: `pending`, `approved`, `denied`, `revoked`, `expired`.                                                                                                          |
+| `apkamKeysExpiryInMillis`              | request                                        | Lifetime the request asks for, in milliseconds from approval; absent or 0 for none.                                                                                                                     |
+| `links`                                | link                                           | For each `kid`, an object holding the `link` to store and, as `expect`, the link the writer read on that key, or `null`. See [§9.4.4](#944-linking-an-enrollments-client-data-signing-keys-enrolllink). |
 
 #### Operations and responses
 
@@ -962,6 +967,7 @@ Source:
 | `delete`   | `data:{"enrollmentId":"<uuid>","status":"deleted"}`                                             |
 | `fetch`    | `data:{ <full enrollment record JSON> }`                                                        |
 | `list`     | `data:{"<enrollKey>":{<enrollment record JSON>}, …}`                                            |
+| `link`     | Since atServer 3.18.0: `data:{"enrollmentId":"<uuid>","linked":["<kid>", …]}`; see [§9.4.4](#944-linking-an-enrollments-client-data-signing-keys-enrolllink) |
 
 Since atServer 3.17.1, a request is refused with `AT0022` unless its
 `apkamKeysExpiryInMillis`, when given, is a whole number from 0 to
@@ -1045,6 +1051,169 @@ on the receiving side. App code rarely calls it directly.
 
 **Response**: `data:-1` on `put` (commit ID; APKAM keys are
 non-committed) and `data:<JSON record>` on `get`.
+
+#### 9.4.4 Linking an enrollment's client data signing keys (`enroll:link`)
+
+> **Since atServer 3.18.0.**
+
+An enrollment publishes its client data signing keys at
+`public:_apsk.<enrollmentId>.a.__e@<atSign>`, from its request or a later
+`enroll:update`. Where, as [§6.5](#65-reserved-keys) describes, a key
+published there is also the enrollment's client authentication signing key,
+its APKAM key, that key takes no link. The value is one bare RSA-2048 public
+key, or the list form:
+
+```json
+{"v":1,"keys":[{"kid":"<kid>","use":"sign","alg":"<alg>","pub":"<public key>","status":"<status>"}]}
+```
+
+`status` is `active` or `retired`, and an entry without one is active. A
+**link**
+vouches for one of those keys. The atServer keeps an enrollment's links in
+one map, `apskLinks`, in that record's `appMetadata`, keyed by `kid`, and
+`enroll:link` is the only way to write one. When the record carries no
+`appMetadata`, the atServer creates `{"providerId":"legacy","apskLinks":{…}}`,
+since a reader requires `providerId`. A reader finds the links in the
+record's metadata: `lookup:all` and `plookup:all` return `appMetadata` as a
+JSON object, where an `update` carries it as base64.
+
+#### Request and response
+
+```text
+enroll:link:{"enrollmentId":"<uuid>","links":{"<kid>":{"link":<link>,"expect":<link or null>}}}
+```
+
+| Field          | Description                                                                                                                                                                                       |
+|----------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `enrollmentId` | Required. The enrollment whose keys are linked.                                                                                                                                                   |
+| `links`        | Required and not empty. For each `kid`, an object holding the link to store as `link`, and as `expect` the link the writer read on that key, or `null` if it read none. `expect` must be present. |
+
+**Response**: `data:{"enrollmentId":"<uuid>","linked":["<kid>", …]}`.
+
+An atServer before 3.18.0 refuses `enroll:link` with `AT0003`, as a command
+its grammar does not know, and keeps an authenticated connection open.
+
+#### Who may call it
+
+The enrollment itself, for its own keys; a connection that could approve
+it, that is an approved enrollment holding `__manage` explicitly (a `*`
+grant does not count) and every namespace the target holds, at the
+target's access; or a CRAM connection, as for `enroll:approve`. A target
+holding no namespaces can be linked only by itself or over CRAM. Any other
+authenticated caller making a well-formed call on an enrollment that exists
+is refused with `AT0009`, and nothing is written.
+
+#### What the atServer checks
+
+The atServer writes every link in a call or none of them. A call is
+refused, naming what failed, unless:
+
+- the target enrollment is approved;
+- each `kid` is one the target's `_apsk` lists, with its public key spelt in
+  padded standard base64, and that key is not the target's client
+  authentication signing key, the `apkamPublicKey` its enrollment record
+  holds, compared as key bytes;
+- each link is a JSON object whose `payload`, a JSON object or the base64url
+  encoding of one, names the target enrollment and that key's `kid`, `alg`
+  and public key as `enrollmentId`, `kid`, `alg` and `pub`;
+- each link is at most 16 KiB as JSON, the call's parameters are within
+  500 KiB (512,000 bytes) as JSON, and so is the `_apsk` record's value and
+  `appMetadata` with every link the record would then hold;
+- each `expect` equals, compared as JSON, the link stored on that key, or
+  is `null` when none is stored.
+
+Since atServer 3.18.1, a call is also refused when the target's `_apsk`
+record is immutable or lists the `kid` more than once, and the payload's
+`enrollmentId` is compared in the folded form of
+[§6](#6-the-atkey-model); 3.18.0 compares it exactly.
+
+A stale `expect` is refused with `AT0032`, so a writer can tell a lost race
+from a bad request, read the record again and decide afresh. Since atServer
+3.18.1, an immutable record is refused with `AT0032` too. The request's
+required fields and
+every other check above are refused with `AT0022`, except the target's own
+state: a target that does not exist or is not approved is refused with an
+error naming it. Two writers of one key's link therefore cannot lose each
+other's write. Beside the links it writes, `enroll:link` keeps only the
+stored links that any write of the record keeps
+([Other writes of the record](#other-writes-of-the-record)); otherwise a
+key's link goes only when another write of the record stops keeping it, or
+when the record is deleted.
+
+In the list form, the atServer reads each entry that carries a string
+`kid`, `alg` and `pub`, takes its `kid` as written, and ignores `use` and
+`status`, so a retired key can take a link. A bare `_apsk` value is one
+`rsa2048` key, whose `kid` the atServer derives: the first 8 bytes of the
+SHA-256 of the decoded key, as lowercase hex, which is how clients derive
+every `kid`. The atServer compares `kid`s exactly. Since atServer 3.18.1,
+it reads an `_apsk` value trimmed of surrounding whitespace, as a client
+does, and a `kid` the value lists twice takes no link; 3.18.0 reads the
+value as stored and keeps the first entry when a `kid` repeats.
+
+#### Links
+
+The atServer checks no more of a link than the above: it never checks a
+signature, and a stored link is a claim that whoever reads it verifies. A
+reader expects the payload
+`{"v":2,"enrollmentId":"<uuid>","kid":"<kid>","alg":"<alg>","pub":"<public key>"}`
+in one of two forms:
+
+- a **root link**, signed by a key of `public:pq_signing_root@<atSign>`:
+  `{"v":2,"alg":"mldsa65","kid":"<root kid>","payload":{…},"signature":"<base64>"}`.
+  The signature is over `at-root-link:` followed by the payload's members,
+  in the order they are stored, as JSON with no whitespace, so the atServer
+  stores a link's JSON value with its members in the order they were sent;
+- a **chain link**, signed by a client data signing key that an enrollment's
+  `_apsk` lists, whether another enrollment's or the target's own when it
+  links a key it has added: an RFC 7515 JWS in the general JSON
+  serialization, carrying the payload base64url-encoded and exactly one
+  signature, whose protected header gives `typ` `at-chain-link+jws`, the
+  key's `kid` as `kid` and its enrollment as `enid`.
+
+#### Other writes of the record
+
+Every other write of an approved enrollment's `_apsk` record, an
+`enroll:update` that republishes it, the publish when an enrollment is
+approved, or an `update` or `update:meta` of the record, keeps the links
+for the keys the new value still lists, whatever the write sent, and drops
+those for keys it no longer lists. `enroll:link`, these writes and a
+`delete` of the record run one at a time for each atSign, so each lands
+wholly before or after another.
+
+Since atServer 3.18.1, these writes, a rotation of the enrollment's client
+authentication signing key, and the record's move back when the enrollment
+is unrevoked keep a link on a key only while the new value lists that key's
+`kid` once, with the `alg` and public key the link's payload names, and
+never on the enrollment's client authentication signing key. When such a
+write drops the last link from `appMetadata` holding nothing else under the
+`providerId` the atServer gives, it drops that `appMetadata` too, and a
+publish or republish that changes the value drops a `dataSignature` over
+the value it replaces.
+
+An `enroll:update` is refused with `AT0022`, naming the key, when it would
+leave the enrollment's client authentication signing key listed in its
+`_apsk` beside another key, or carrying a link.
+
+Since atServer 3.18.1, an `enroll:update`, an `update` or `update:meta` of
+the record, or an `enroll:request` is also refused with `AT0022`, naming
+what failed, when the `_apsk` it would leave or carries lists a `kid`
+twice, an entry without a string `kid`, `alg` and `pub`, or the
+enrollment's client authentication signing key beside another key. An
+`enroll:request` is refused before its OTP is spent. A CRAM `update` of
+`privatekey:at_pkam_publickey` is refused when `primary`'s `_apsk`, whether
+`primary` is approved, revoked or deleted, lists the key it installs beside
+another key or with a link. A write that would
+take the record, with the links it keeps, over 500 KiB is refused with
+`AT0022`; a record that keeps no links is not held to that bound. An
+`enroll:update` that republishes an immutable record is refused with
+`AT0032`, as an `update` of one is.
+
+Since atServer 3.18.1, the publish at `enroll:approve`, a rotation of
+`primary`'s key that the atServer makes itself, at startup or on a legacy
+`pkam:`, and the move back on unrevoke cannot be refused. Each keeps fewer
+links instead: it drops a link on the client authentication signing key,
+keeps none when they would take the record over 500 KiB, leaves an
+immutable record as it stands, and logs at warning what it drops.
 
 ---
 
@@ -2487,7 +2656,7 @@ Terse reference for ctrl-F. Authoritative regex source:
 | `cram`          | —      | Bootstrap-only authentication.                                        | §9.2    |
 | `pkam`          | —      | Sign-the-challenge authentication.                                    | §9.3    |
 | `pol`           | —      | Inter-atServer proof-of-life. Server-emitted only.                    | §15.2   |
-| `enroll`        | varies | APKAM enrollment lifecycle.                                           | §9.4.1  |
+| `enroll`        | varies | APKAM enrollment lifecycle; `enroll:link` in §9.4.4.                  | §9.4.1  |
 | `otp`           | owner  | Get/put OTP for APKAM.                                                | §9.4.2  |
 | `keys`          | yes    | APKAM-issued key storage. **Being deprecated** — see §9.4.3 and §B.7. | §9.4.3  |
 | `update`        | yes    | Insert/overwrite an atKey.                                            | §10.1   |
