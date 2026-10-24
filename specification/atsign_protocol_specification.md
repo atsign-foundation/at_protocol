@@ -945,7 +945,7 @@ Source:
 | `appName`                              | request                                        | Application name, e.g. `"todos"`.                                                                                                                                                                       |
 | `deviceName`                           | request                                        | Unique device identifier.                                                                                                                                                                               |
 | `namespaces`                           | request                                        | Map of `namespace → permission` (`r`, `w`, `rw`, `rwx`).                                                                                                                                                |
-| `otp`                                  | request                                        | One-time password from `otp:get`.                                                                                                                                                                       |
+| `otp`                                  | request                                        | One-time passcode from `otp:get`, or the SPP.                                                                                                                                                           |
 | `apkamPublicKey`                       | request                                        | New device's APKAM public key (PEM or base64).                                                                                                                                                          |
 | `encryptedAPKAMSymmetricKey`           | request                                        | New device's APKAM symmetric key, RSA-encrypted to the default encryption public key.                                                                                                                   |
 | `encryptedDefaultEncryptionPrivateKey` | approve                                        | Owner's encryption private key, AES-encrypted with the APKAM symmetric key.                                                                                                                             |
@@ -1029,8 +1029,8 @@ unauthenticated `enroll:request` ([§9.4.1](#941-the-enroll-verb)). A
 passcode is six or more word characters and matches in any case, as
 does `spp`, which names the SPP. The atServer applies the regex
 case-insensitively but acts only on a lowercase operation, so
-`otp:LIST` is refused with `AT0003`. `otp:list` and `otp:delete` are
-since atServer 3.19.0.
+`otp:LIST` is refused with `AT0003`. Since atServer 3.19.0, the atServer
+also accepts `otp:list` and `otp:delete`.
 
 #### Operations
 
@@ -1072,8 +1072,9 @@ Every operation needs an authenticated connection, and is refused with
 enrollment with write access on both `*` and `__manage`, such as
 `*:rw,__manage:rw`; `*` alone or `__manage` alone does not qualify.
 
-- `get`: full privilege, or an enrollment granted `__manage`, read access
-  included. Anyone else is refused with `AT0009`.
+- `get`: since atServer 3.16.0, full privilege, or an enrollment granted
+  `__manage`, read access included. Anyone else is refused with
+  `AT0009`. Before, any authenticated connection could send `get`.
 - `put`: full privilege only, since atServer 3.19.0, and anyone else is
   refused with `AT0009`. Before, an enrollment granted `__manage` could
   set the SPP, and anyone else was answered with `AT0011` and the
@@ -1087,10 +1088,11 @@ enrollment with write access on both `*` and `__manage`, such as
 #### Which OTPs an enrollment covers
 
 An enrollment covers an OTP when, for each namespace the OTP records,
-the enrollment holds that namespace with at least the same access
+the enrollment holds that same namespace with at least the same access
 (`rw` covers `r`), or holds no grant for it but holds `*` with that
 access. `*` and `__manage` count only when held themselves. Namespaces
-are compared in the folded form of [§6](#6-the-atkey-model). An OTP
+are compared whole, in the folded form of [§6](#6-the-atkey-model), so
+a grant on `wavi` does not cover an OTP that records `x.wavi`. An OTP
 that records no namespaces is covered by full privilege only.
 
 The namespaces an OTP records limit `otp:list` and `otp:delete` only.
@@ -1102,16 +1104,18 @@ ask for; that is
 
 Since atServer 3.18.0, an `enroll:request` passcode is accepted only as
 the SPP or as an OTP issued with `otp:get`, and each OTP admits one
-request: the atServer spends an OTP when it accepts it. OTPs stored in
-the namespace-less form older atServers used are no longer accepted; an
-SPP in that form still is, until `otp:put` sets an SPP, which removes
-it. A passcode that is not accepted is refused with `AT0022`.
+request: the atServer spends an OTP when it accepts it. A passcode
+stored outside the `__otp` namespace, as older atServers stored OTPs,
+is no longer accepted as an OTP. An SPP stored that way is still
+accepted, until `otp:put` sets an SPP, which removes it. A passcode
+that is not accepted is refused with `AT0022`.
 
 #### Refusals and compatibility
 
-A command the regex does not match is refused with `AT0003`: for
-example `otp:delete` with no passcode, a `ttl` after `list` or
-`delete`, and `otp:put:spp`, since `spp` is shorter than a passcode.
+On an authenticated connection, a command the regex does not match is
+refused with `AT0003`: for example `otp:delete` with no passcode, a
+`ttl` after `list` or `delete`, and `otp:put:spp`, since `spp` is
+shorter than a passcode.
 `otp:put` with no passcode matches the regex and, since atServer
 3.19.0, is refused with `AT0003` after the privilege check; before, it
 was answered with `AT0011` and the connection closed. After `AT0003` or
@@ -2722,7 +2726,7 @@ must distinguish between them; clients may retry on `AT0401` but not on
   onboarding: the PKAM key (a client authentication signing key), the
   encryption key (also the legacy data signing key) and the
   self-encryption key.
-- **OTP**, Six-character alphanumeric one-time password. Used to bind
+- **OTP**, Six-character alphanumeric one-time passcode. Used to bind
   an APKAM enrollment to an out-of-band human approval.
 - **PKAM**, Public-Key Authentication Mechanism. Sign-the-challenge
   authentication; underpins APKAM.
