@@ -2738,7 +2738,7 @@ must distinguish between them; clients may retry on `AT0401` but not on
   [§6.5](#65-reserved-keys).
 - **SPP**, Semi-permanent passcode. The one reusable passcode an atSign
   holds, accepted like an OTP by `enroll:request`. See
-  [§9.4.2](#942-the-otp-verb).  
+  [§9.4.2](#942-the-otp-verb).
 - **Verb**, A single-line command in the protocol.
 
 ---
