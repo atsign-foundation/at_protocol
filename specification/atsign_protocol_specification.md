@@ -1074,9 +1074,10 @@ enrollment with write access on both `*` and `__manage`, such as
 
 - `get`: full privilege, or an enrollment granted `__manage`, read access
   included. Anyone else is refused with `AT0009`.
-- `put`: full privilege only, since atServer 3.19.0; before, an
-  enrollment granted `__manage` could set the SPP. Anyone else is
-  refused with `AT0009`.
+- `put`: full privilege only, since atServer 3.19.0, and anyone else is
+  refused with `AT0009`. Before, an enrollment granted `__manage` could
+  set the SPP, and anyone else was answered with `AT0011` and the
+  connection closed.
 - `list`: full privilege sees every OTP and the SPP. An enrollment
   granted `__manage` sees the OTPs it covers, below, and never the SPP.
   Anyone else is refused with `AT0009`.
