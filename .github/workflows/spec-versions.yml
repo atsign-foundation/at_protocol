@@ -1,7 +1,4 @@
 name: Spec versions
-# Runs the workflow on the below events:
-# 1. on pull request raised to trunk branch.
-# 2. on push event to trunk branch.
 on:
   push:
     branches:
