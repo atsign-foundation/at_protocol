@@ -1,7 +1,7 @@
 # Atsign Protocol Specification
 
 <!-- pyml disable-num-lines 5000 md013-->
-**This document describes atServer 3.19.0** (production release [p3.19.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.19.0), YYYY-MM-DD, to be set when p3.19.0 is published). Behaviour marked *Unreleased* is on at_server's trunk but not yet in a production release. Changes by version are in [Appendix E](#appendix-e-changes-by-atserver-version).
+**This document describes atServer 3.19.0** (production release [p3.19.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.19.0), 2026-10-26). Behaviour marked *Unreleased* is on at_server's trunk but not yet in a production release. Changes by version are in [Appendix E](#appendix-e-changes-by-atserver-version).
 
 This document specifies the **Atsign Protocol** at the level required to
 implement either side of the wire, an atClient or an atServer, in any
@@ -3369,7 +3369,7 @@ No changes yet.
 
 ### atServer 3.19.0
 
-Production release [p3.19.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.19.0), YYYY-MM-DD, to be set when p3.19.0 is published. Includes canary release 3.19.0.
+Production release [p3.19.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.19.0), 2026-10-26. Includes canary release 3.19.0.
 
 - **Passcodes.** `otp:put`, which sets the semi-permanent passcode
   (SPP), is refused with `AT0009` unless the connection is CRAM or an
