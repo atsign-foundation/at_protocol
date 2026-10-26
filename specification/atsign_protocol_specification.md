@@ -211,10 +211,12 @@ negotiates `http/1.1` by ALPN. A client that negotiates `atProtocol/1.0`,
 or no protocol, speaks the Atsign Protocol ([§8](#8-the-atdirectory-protocol)).
 
 - `GET /<atSign>` returns `host:port`, and `GET /<atSign>/<path>`
-  redirects to `https://<host:port>/@<atSign>/<path>`. The atSign may
+  redirects to `https://<host:port>/@<atSign>/<path>`, keeping any
+  query string. The atSign may
   be given with or without its `@`, and is matched in its canonical form
   ([§5](#5-the-atsign-identity-model)).
-- An unknown atSign gets `404`, a path that does not decode `400`, any
+- A URI over 1000 characters gets `400`, whatever the method. Otherwise
+  an unknown atSign gets `404`, a path that does not decode `400`, any
   method other than `GET` `401`, and a request the atDirectory cannot
   answer `500`.
 - Every answer carries `Access-Control-Allow-Origin: *` and closes its
@@ -494,8 +496,10 @@ not hidden: `scan` lists it like any other shared key.
 Since atServer [3.19.0](#atserver-3190), a key whose name starts with
 `__` and has no `.<namespace>`, such as `public:__location@alice`, uses
 a reserved namespace ([§6.5](#65-reserved-keys)), so `update`,
-`update:meta` and `delete` refuse it. Give such a key a namespace, as
-in `public:__location.wavi@alice`.
+`update:meta` and `delete` refuse it, so a record stored under such a
+name by an earlier atServer can no longer be changed or deleted with
+them. Give such a key a namespace, as in
+`public:__location.wavi@alice`.
 
 A **cached** key is a copy of a remote-owned shared or public key,
 stored on the recipient's atServer for offline or fast access. Wire
@@ -895,8 +899,13 @@ metadata:
 
 Unrecognised fields are ignored.
 
-Response: the server generates a UUIDv4 challenge and a session
-ID and stores the challenge under
+Response: the server generates a challenge and a session ID. For a
+self-connect the challenge is a UUIDv4. Since atServer
+[3.16.5](#atserver-3165), for a cross-atSign connect it is
+`pol1.<base64url(json)>`, where the JSON is
+`{"v":"<this atServer's atSign>","n":"<UUIDv4>"}`, `v` in canonical form
+and the base64url padded; before, it was a UUIDv4 too. The server stores
+the challenge under
 `<keyPrefix><sessionId><fromAtSign>` (with TTL 60 s), where
 `keyPrefix` is `private:` if the connecting atSign matches the
 server's own atSign (self-connect) and `public:` otherwise. This
@@ -975,13 +984,13 @@ private key. Either is a client authentication signing key
 #### Syntax
 
 ```text
-pkam:[signingAlgo:<rsa2048|ecc_secp256r1>:][hashingAlgo:<sha256|sha512>:][enrollmentId:<id>:]<signature>
+pkam:[signingAlgo:<rsa2048|ecc_secp256r1|mldsa65>:][hashingAlgo:<sha256|sha512>:][enrollmentId:<id>:]<signature>
 ```
 
 Source:
 
 ```text
-^pkam:(signingAlgo:(?<signingAlgo>ecc_secp256r1|rsa2048):)?(hashingAlgo:(?<hashingAlgo>sha256|sha512):)?(enrollmentId:(?<enrollmentId>.+):)?(?<signature>.+$)
+^pkam:(signingAlgo:(?<signingAlgo>ecc_secp256r1|rsa2048|mldsa65):)?(hashingAlgo:(?<hashingAlgo>sha256|sha512):)?(enrollmentId:(?<enrollmentId>.+):)?(?<signature>.+$)
 ```
 
 Signature computation: the client signs the `from` challenge
@@ -993,6 +1002,11 @@ Defaults: `signingAlgo:rsa2048`, `hashingAlgo:sha256`. The `enrollmentId`
 is omitted for plain PKAM; an APKAM-issued credential includes the
 enrollment's ID so the atServer can look up the namespace permission
 map.
+
+Since atServer [3.16.5](#atserver-3165), an APKAM `pkam:` is verified
+under the signing algorithm recorded on its enrollment, whatever
+`signingAlgo` it sends, and an `mldsa65` key authenticates. The grammar
+has taken `mldsa65` since atServer [3.15.0](#atserver-3150).
 
 Response: same as CRAM: `data:success` on success,
 `error:AT0401-…` on failure.
@@ -1048,7 +1062,7 @@ Source:
 | `enrollmentId`                         | approve/deny/revoke/fetch/delete/unrevoke/link | UUID of the enrollment.                                                                                                                                                                                 |
 | `appName`                              | request                                        | Application name, e.g. `"todos"`.                                                                                                                                                                       |
 | `deviceName`                           | request                                        | Unique device identifier.                                                                                                                                                                               |
-| `namespaces`                           | request                                        | Map of `namespace → permission` (`r`, `w`, `rw`, `rwx`).                                                                                                                                                |
+| `namespaces`                           | request                                        | Map of `namespace → permission`. Since atServer [3.16.5](#atserver-3165) a permission other than `r` or `rw` is refused with `AT0022`.                                                                  |
 | `otp`                                  | request                                        | One-time passcode from `otp:get`, or the SPP.                                                                                                                                                           |
 | `apkamPublicKey`                       | request                                        | New device's APKAM public key (PEM or base64).                                                                                                                                                          |
 | `encryptedAPKAMSymmetricKey`           | request                                        | New device's APKAM symmetric key, RSA-encrypted to the default encryption public key.                                                                                                                   |
@@ -1059,6 +1073,11 @@ Source:
 | `enrollmentStatusFilter`               | list                                           | Optional list of statuses to filter on: `pending`, `approved`, `denied`, `revoked`, `expired`.                                                                                                          |
 | `apkamKeysExpiryInMillis`              | request                                        | Lifetime the request asks for, in milliseconds from approval; absent or 0 for none.                                                                                                                     |
 | `links`                                | link                                           | For each `kid`, an object holding the `link` to store and, as `expect`, the link the writer read on that key, or `null`. See [§9.4.4](#944-linking-an-enrollments-client-data-signing-keys-enrolllink). |
+| `signingAlgo`                          | request/update                                 | Algorithm of `apkamPublicKey`: `rsa2048` (the default), `ecc_secp256r1` or `mldsa65`. Kept with the enrollment since atServer [3.15.0](#atserver-3150).                                                 |
+| `apsk`                                 | request/update                                 | The enrollment's client data signing keys, as the JSON object the atServer publishes at `_apsk` ([§6.5](#65-reserved-keys)). Not with `apskLegacy`.                                                     |
+| `apskLegacy`                           | request/update                                 | The enrollment's client data signing key as one bare RSA-2048 public key, published verbatim at `_apsk`. Not with `apsk`.                                                                               |
+| `metadata`                             | request/update                                 | An opaque JSON object the atServer stores with the enrollment; `update` merges it per key.                                                                                                              |
+| `apkamPublicKeySignature`              | update                                         | Since atServer [3.16.5](#atserver-3165), needed when `update` changes `apkamPublicKey`: a signature by the new private key over `<enrollmentId>\|<apkamPublicKey>\|<signingAlgo>`.                      |
 
 #### Operations and responses
 
@@ -1073,6 +1092,9 @@ Source:
 | `fetch`    | `data:{ <full enrollment record JSON> }`                                                        |
 | `list`     | `data:{"<enrollKey>":{<enrollment record JSON>}, …}`                                            |
 | `link`     | Since atServer [3.18.1](#atserver-3181): `data:{"enrollmentId":"<uuid>","linked":["<kid>", …]}`; see [§9.4.4](#944-linking-an-enrollments-client-data-signing-keys-enrolllink) |
+| `update`   | Since atServer [3.16.5](#atserver-3165): `data:{"enrollmentId":"<uuid>","status":"approved"}`. The enrollment amends its own record: `apkamPublicKey`, `signingAlgo`, `apsk`, `apskLegacy`, `metadata` |
+| `listns`   | Since atServer [3.15.0](#atserver-3150), `enroll:listns:<namespace>`: `data:[{"enrollmentId":…,"access":…,"apkamPubKey":…,"metadata":…}, …]`, the approved enrollments holding that namespace |
+| `infons`   | Since atServer [3.16.5](#atserver-3165), `enroll:infons:<namespace>`: `data:{"lastRevokedAt":<ISO-8601 UTC or null>}` |
 
 Since atServer [3.18.1](#atserver-3181), a request is refused with `AT0022` unless its
 `apkamKeysExpiryInMillis`, when given, is a whole number from 0 to
@@ -1812,7 +1834,7 @@ Emit a notification.
 #### Syntax
 
 ```text
-notify[:id:<id>][:<update|delete>][:messageType:key][:priority:<low|medium|high>][:strategy:<all|latest>][:latestN:<n>][:notifier:<n>][:ttln:<ms>]<metadata>:[public|@<forAtSign>]:<atKey>[@<atSign>][:<value>]
+notify[:id:<id>][:<update|delete>][:messageType:key][:priority:<low|medium|high>][:strategy:<all|latest>][:latestN:<n>][:notifier:<n>][:ttln:<ms>][:eAtn:<timestamp>][:eph]<metadata>:[public|@<forAtSign>]:<atKey>[@<atSign>][:<value>]
 ```
 
 Source: see `at_commons/lib/src/verb/syntax.dart` `notify`.
@@ -1828,6 +1850,8 @@ Source: see `at_commons/lib/src/verb/syntax.dart` `notify`.
 | `latestN`         | Coalesce window size. Used with `strategy:latest`.                                                |
 | `notifier`        | Identifier of the notifying subsystem. Defaults to `SYSTEM`.                                      |
 | `ttln`            | Notification time-to-live in ms. After expiry the server gives up delivering and marks `expired`. |
+| `eAtn`            | Since atServer [3.17.0](#atserver-3170): the UTC time the notification expires. Not with `ttln`.                    |
+| `eph`             | Since atServer [3.17.0](#atserver-3170): no atServer stores it; it lives at most 2 minutes.                         |
 
 Response: `data:<notificationId>` on success.
 
@@ -1835,6 +1859,12 @@ Response: `data:<notificationId>` on success.
 C: notify:update:ttr:-1:isEncrypted:true:@bob:phone.wavi@alice <ciphertext>\n
 S: data:7c6c8d7d-7e0e-4ab4-9c7d-4b07e1e84a52\n@alice@
 ```
+
+Since atServer [3.17.0](#atserver-3170), `eAtn` with `ttln`, or `eph`
+with `delete`, `ttr` or `ccd`, is refused with `AT0003`. An atServer
+passing on a notification that carries either first sends `info:brief`
+to the recipient's atServer, and passes them on only when its `info`
+lists `notify.eAtn` or `notify.eph` with any status but `Retired`.
 
 Since atServer [3.19.0](#atserver-3190), a `notify` or `notify:all` from
 a client is refused with `AT0003` when its atKey's name holds a
@@ -2069,14 +2099,16 @@ Source:
 Without IDs, all statistics are returned. Statistics are identified
 by integer IDs:
 
-| ID | Name                        | Value type              |
-|----|-----------------------------|-------------------------|
-| 1  | `activeInboundConnections`  | int                     |
-| 2  | `activeOutboundConnections` | int                     |
-| 3  | `lastCommitId`              | int                     |
-| 4  | `secondaryStorageSize`      | int (bytes)             |
-| 5  | `topAtSigns`                | `{<atSign>: <hits>, …}` |
-| 6  | `topKeys`                   | `{<atKey>: <hits>, …}`  |
+| ID | Name                               | Value type                                                                                                   |
+|----|------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| 1  | `activeInboundConnections`         | int                                                                                                          |
+| 2  | `activeOutboundConnections`        | int                                                                                                          |
+| 3  | `lastCommitId`                     | int                                                                                                          |
+| 4  | `secondaryStorageSize`             | int (bytes)                                                                                                  |
+| 5  | `topAtSigns`                       | `{<atSign>: <hits>, …}`                                                                                      |
+| 6  | `topKeys`                          | `{<atKey>: <hits>, …}`                                                                                       |
+| 16 | `activeInboundConnectionsSummary`  | `{"total","self","other","anon"}` counts, since atServer [3.7.1](#atserver-371)                              |
+| 17 | `activeInboundConnectionsDetailed` | the counts and each connection's `from`, `created` and `lastAccessed`, since atServer [3.7.1](#atserver-371) |
 
 (Servers may expose additional IDs, IDs 11 and 15 take regex filters
 per the syntax; see source for current set.)
@@ -2337,12 +2369,21 @@ Source: `at_secondary_server/lib/src/connection/outbound/outbound_client.dart`.
    mutual TLS: A presents a client certificate, which B checks against
    the host the atDirectory gives for A's atSign (see
    [§3.2](#32-atserver)).
-4. **Public-key warm-up.** Before any handshake, A runs an
-   unauthenticated `lookup:all:publickey<B-atSign>` against B and
-   caches the result (cached as
-   `cached:public:publickey@<B-atSign>` in A's keystore). This makes
+4. **Public-key warm-up.** Before any handshake, A fetches B's
+   encryption public key and caches it as
+   `cached:public:publickey@<B-atSign>` in A's keystore. This makes
    subsequent encryption-to-B operations cheap and detects key
-   rotation early.
+   rotation early. Since atServer [3.16.6](#atserver-3166), A's first
+   line on the connection is `to:@<B-atSign>`; when B does not accept
+   it, A reconnects if B closed the connection and sends the
+   unauthenticated `lookup:all:publickey@<B-atSign>`, which is all it
+   sent before. Setting at_secondary_server's `toVerbOutboundEnabled` to
+   `false` sends only the `lookup:all:`. Since atServer
+   [3.15.0](#atserver-3150), an unauthenticated `to:@<atSign>` naming
+   the atServer's own atSign is answered
+   `data:{"publickey":<record>,"signing_publickey":<record>}`, each
+   `<record>` in the shape of a `lookup:all:` response, or `null` when
+   the atServer holds none; one naming another atSign gets `AT0007`.
 5. **Handshake.** If the planned operation requires authentication, A
    runs the `pol` handshake, see [§15.2](#152-the-pol-handshake).
    `lookup` requires it. Serving a `plookup` does not: A fetches the
@@ -2373,9 +2414,12 @@ fetches from A.
 A ──TLS──► B  (already connected)
 
 A → B:  from:@A
-B → A:  data:proof:<sessionId>@A:<challenge-uuid>\n@
+B → A:  data:proof:<sessionId>@A:<challenge>\n@
+        (<challenge> = pol1.<base64url({"v":"@B","n":"<uuid>"})>)
 
 A:  parses cookieParams from response → (sessionId, challenge)
+A:  refuses to sign a pol1. challenge whose v is not the atSign it
+    connected to, or that does not decode
 A:  signedChallenge = base64( sign_RSA_SHA256(challenge, A_server_auth_priv) )
 A:  store in own keystore: public:<sessionId>@A = signedChallenge   (TTL ~60s)
 
@@ -2403,6 +2447,12 @@ B → A:  @A@
 A:  reads handshake result; if it begins with "@A@", marks the
     outbound connection authenticated.
 ```
+
+Since atServer [3.16.5](#atserver-3165), B's challenge names B, as `v`
+in its `pol1.` form ([§9.1](#91-the-from-verb)), and A signs it only
+when `v` is the atSign A connected to. A signs a bare UUID challenge, as
+an older B issues, as it stands, and both sides sign and verify the
+challenge exactly as sent, `pol1.` included.
 
 After `pol` succeeds, A's connection to B is authenticated **as @A**.
 B treats subsequent verbs on this connection as coming from `@A`. For
@@ -2692,7 +2742,8 @@ C(bob): lookup:phone.wavi@alice\n
 #   bobServer → aliceServer:  from:@bob
 #   aliceServer → bobServer:  data:proof:<sessionId>@bob:<chal>\n@
 #
-#   bobServer signs <chal> with its server authentication signing key.
+#   <chal> names @alice (§15.2), so bobServer signs it with its server
+#   authentication signing key.
 #   bobServer stores public:<sessionId>@bob = signedChallenge in its
 #   own keystore.
 #
@@ -3365,7 +3416,7 @@ release that shipped it. The history starts at atServer 3.0.35.
 
 ### Unreleased
 
-No changes yet.
+Nothing is listed here yet.
 
 ### atServer 3.19.0
 
