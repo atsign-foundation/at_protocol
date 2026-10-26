@@ -1008,8 +1008,9 @@ A high-level flow:
 
 1. **Bootstrap atSign**, the new app generates a fresh APKAM keypair
    and a fresh APKAM symmetric key.
-2. **Get an OTP**, the user, on a session already authenticated as
-   owner, runs `otp:get` and reads the OTP to the new app.
+2. **Get an OTP**, the user, on a session with full privilege or
+   `__manage` ([§9.4.2](#942-the-otp-verb)), runs `otp:get` and reads
+   the OTP to the new app.
 3. **`enroll:request`**, the new app submits the request, including
    its APKAM public key, the OTP, the namespace permission map, and
    the APKAM symmetric key encrypted with the **default encryption
@@ -1048,7 +1049,7 @@ Source:
 | `appName`                              | request                                        | Application name, e.g. `"todos"`.                                                                                                                                                                       |
 | `deviceName`                           | request                                        | Unique device identifier.                                                                                                                                                                               |
 | `namespaces`                           | request                                        | Map of `namespace → permission` (`r`, `w`, `rw`, `rwx`).                                                                                                                                                |
-| `otp`                                  | request                                        | One-time password from `otp:get`.                                                                                                                                                                       |
+| `otp`                                  | request                                        | One-time passcode from `otp:get`, or the SPP.                                                                                                                                                           |
 | `apkamPublicKey`                       | request                                        | New device's APKAM public key (PEM or base64).                                                                                                                                                          |
 | `encryptedAPKAMSymmetricKey`           | request                                        | New device's APKAM symmetric key, RSA-encrypted to the default encryption public key.                                                                                                                   |
 | `encryptedDefaultEncryptionPrivateKey` | approve                                        | Owner's encryption private key, AES-encrypted with the APKAM symmetric key.                                                                                                                             |
@@ -1125,44 +1126,114 @@ Source (at_commons 5.24.0):
 ^otp:(?<operation>get|put|list|delete)(:(?<otp>(?<=put:)\w{6,}|(?<=delete:)(?:spp|\w{6,})))?(?<=^otp:(?:get|put|put:\w{6,}|list|delete:spp|delete:\w{6,}))(:(?:(?<=^otp:(?:get|put|put:\w{6,}):)ttl:(?<ttl>\d+)))?$
 ```
 
-Every operation needs an authenticated connection. A **full-privilege**
-connection here is a CRAM connection, or an enrollment holding `*:rw`
-and `__manage:rw`.
+An **OTP** is a one-time passcode from `otp:get`. The **SPP**, the
+semi-permanent passcode, is the one reusable passcode an atSign holds,
+set with `otp:put`. Either is presented as the `otp` of an
+unauthenticated `enroll:request` ([§9.4.1](#941-the-enroll-verb)). A
+passcode is six or more word characters and matches in any case, as
+does `spp`, which names the SPP. The atServer applies the regex
+case-insensitively but acts only on a lowercase operation, so
+`otp:LIST` is refused with `AT0003`. Since atServer
+[3.19.0](#atserver-3190), the atServer also accepts `otp:list` and
+`otp:delete`.
 
-- `otp:get` needs access to `__manage`, since atServer
-  [3.16.5](#atserver-3165): a CRAM connection, or an enrollment holding
-  `__manage`; before, any authenticated connection. It returns a fresh
-  6-character
-  alphanumeric OTP, valid for `:ttl:` ms or, without it, 5 minutes,
-  for the `otp` field of `enroll:request`. Since atServer
-  [3.19.0](#atserver-3190), the OTP records the namespaces of the
-  enrollment that issued it; one issued over CRAM records none.
-- `otp:put:<spp>` sets the semi-permanent passcode (SPP), for headless
-  or CLI enrollment flows, valid for `:ttl:` ms or, without it, until
-  it is replaced. Since atServer [3.19.0](#atserver-3190) it needs a
-  full-privilege connection and refuses any other with `AT0009`; before,
-  access to `__manage` was enough.
-- `otp:list`, since atServer [3.19.0](#atserver-3190), returns the live
-  passcodes as a JSON array of
-  `{"type":"otp"|"spp","value":"<passcode>","expiresAt":<epochMillis or -1>}`,
-  with `"namespaces":{…}` on an OTP that records them. A full-privilege
-  connection sees every OTP and the SPP. An enrollment holding
-  `__manage` sees only the OTPs whose namespaces it holds, each at the
-  same access or more (`*` covers any namespace but `*` and
-  `__manage`), and never the SPP. Any other connection is refused with
-  `AT0009`.
-- `otp:delete:<otp>` deletes an OTP, and `otp:delete:spp` the SPP,
-  since atServer [3.19.0](#atserver-3190), by the rules of `otp:list`.
-  It answers `data:ok` whether or not it deleted anything.
+#### Operations
 
-Each OTP admits one `enroll:request`; the SPP admits any number until it
-is replaced or expires. `lookup` and `llookup` refuse a passcode record
-with `AT0009`, since atServer [3.19.0](#atserver-3190), so passcodes are
-read only through `otp:`. `info` lists `otp.list` and `otp.delete` with
-status `Beta`.
+- `otp:get` returns `data:<otp>`, a fresh six-character alphanumeric
+  OTP that lives for the `ttl` in milliseconds, 5 minutes by default.
+  A `ttl` of 0 gives an OTP that never expires; capping it is
+  [at_server#2887](https://github.com/atsign-foundation/at_server/issues/2887).
+  Since atServer [3.19.0](#atserver-3190), the OTP records the
+  namespaces of the enrollment that issued it. One issued over CRAM, or stored by an
+  atServer before 3.19.0, records none.
+- `otp:put:<spp>` sets the SPP, replacing any SPP already set, and
+  returns `data:ok`. Without a `ttl` the SPP never expires.
+- `otp:list` returns `data:` and a JSON array of the passcodes the
+  caller may manage, as below.
+- `otp:delete:<otp>` removes that OTP when the caller may manage it, and
+  `otp:delete:spp` removes the SPP when the caller has full privilege.
+  `otp:delete:<otp>` never removes the SPP, even when the values match.
+  Every well-formed `delete` on an authenticated connection returns
+  `data:ok`, whether or not anything was removed, so `delete` reveals
+  nothing about which passcodes exist.
 
-**Response**: `data:<otp>` for `get`, `data:ok` for `put` and
-`delete`, and `data:[…]` for `list`.
+Each `otp:list` entry is one of:
+
+```text
+{"type":"otp","value":"<otp>","expiresAt":<ms>,"namespaces":{"<namespace>":"<access>"}}
+{"type":"spp","value":"<spp>","expiresAt":<ms>}
+```
+
+`expiresAt` is milliseconds since the epoch, or -1 for a passcode that
+never expires. `namespaces` is present only on an OTP that records them.
+An expired passcode is not listed, and an OTP that an `enroll:request`
+has spent is gone. A full-privilege caller sees the SPP's value in plain
+text.
+
+#### Who may send each operation
+
+Every operation needs an authenticated connection, and is refused with
+`AT0401` on any other. **Full privilege** is a CRAM connection, or an
+enrollment with write access on both `*` and `__manage`, such as
+`*:rw,__manage:rw`; `*` alone or `__manage` alone does not qualify.
+
+- `get`: since atServer [3.16.5](#atserver-3165), full privilege, or an
+  enrollment granted `__manage`, read access included. Anyone else is refused with
+  `AT0009`. Before, any authenticated connection could send `get`.
+- `put`: full privilege only, since atServer [3.19.0](#atserver-3190),
+  and anyone else is refused with `AT0009`. Before, an enrollment granted `__manage` could
+  set the SPP, and anyone else was answered with `AT0011` and the
+  connection closed.
+- `list`: full privilege sees every OTP and the SPP. An enrollment
+  granted `__manage` sees the OTPs it covers, below, and never the SPP.
+  Anyone else is refused with `AT0009`.
+- `delete`: as for `list`. A caller who may not remove the passcode
+  named still gets `data:ok`, and nothing is removed.
+
+#### Which OTPs an enrollment covers
+
+An enrollment covers an OTP when, for each namespace the OTP records,
+the enrollment holds that same namespace with at least the same access
+(`rw` covers `r`), or holds no grant for it but holds `*` with that
+access. `*` and `__manage` count only when held themselves. Namespaces
+are compared whole, in the folded form of [§6](#6-the-atkey-model), so
+a grant on `wavi` does not cover an OTP that records `x.wavi`. An OTP
+that records no namespaces is covered by full privilege only.
+
+The namespaces an OTP records limit `otp:list` and `otp:delete` only.
+They do not yet limit what an `enroll:request` presenting the OTP may
+ask for; that is
+[at_server#2886](https://github.com/atsign-foundation/at_server/issues/2886).
+
+#### Passcodes in `enroll:request`
+
+Since atServer [3.18.1](#atserver-3181), an `enroll:request` passcode is
+accepted only as the SPP or as an OTP issued with `otp:get`, and each OTP admits one
+request: the atServer spends an OTP when it accepts it. A passcode
+stored outside the `__otp` namespace, as older atServers stored OTPs,
+is no longer accepted as an OTP. An SPP stored that way is still
+accepted, until `otp:put` sets an SPP, which removes it. A passcode
+that is not accepted is refused with `AT0022`.
+
+#### Refusals and compatibility
+
+On an authenticated connection, a command the regex does not match is
+refused with `AT0003`: for example `otp:delete` with no passcode, a
+`ttl` after `list` or `delete`, and `otp:put:spp`, since `spp` is
+shorter than a passcode.
+`otp:put` with no passcode matches the regex and, since atServer
+[3.19.0](#atserver-3190), is refused with `AT0003` after the privilege
+check; before, it was answered with `AT0011` and the connection closed.
+After `AT0003` or `AT0009` an authenticated connection stays open.
+
+Since atServer [3.19.0](#atserver-3190), `lookup` and `llookup` refuse a
+passcode record with `AT0009`, so passcodes are read only through
+`otp:`.
+
+An atServer before 3.19.0 refuses `otp:list` and `otp:delete` with
+`AT0003`, as commands its grammar does not know. A client checks that
+`info` ([§13.3](#133-info)) lists the features `otp.list` and
+`otp.delete`, both `Beta`, before sending them.
 
 #### 9.4.3 The `keys` verb
 
@@ -2793,7 +2864,7 @@ must distinguish between them; clients may retry on `AT0401` but not on
   onboarding: the PKAM key (a client authentication signing key), the
   encryption key (also the legacy data signing key) and the
   self-encryption key.
-- **OTP**, Six-character alphanumeric one-time password. Used to bind
+- **OTP**, Six-character alphanumeric one-time passcode. Used to bind
   an APKAM enrollment to an out-of-band human approval.
 - **PKAM**, Public-Key Authentication Mechanism. Sign-the-challenge
   authentication; underpins APKAM.
@@ -2808,6 +2879,9 @@ must distinguish between them; clients may retry on `AT0401` but not on
 - **Signing keys**, The client authentication, client data, legacy
   data and server authentication signing keys. See
   [§6.5](#65-reserved-keys).
+- **SPP**, Semi-permanent passcode. The one reusable passcode an atSign
+  holds, accepted like an OTP by `enroll:request`. See
+  [§9.4.2](#942-the-otp-verb).
 - **Verb**, A single-line command in the protocol.
 
 ---
@@ -2824,7 +2898,7 @@ Terse reference for ctrl-F. Authoritative regex source:
 | `pkam`          | —      | Sign-the-challenge authentication.                                    | §9.3    |
 | `pol`           | —      | Inter-atServer proof-of-life. Server-emitted only.                    | §15.2   |
 | `enroll`        | varies | APKAM enrollment lifecycle; `enroll:link` in §9.4.4.                  | §9.4.1  |
-| `otp`           | owner  | Get, put, list or delete passcodes for APKAM.                         | §9.4.2  |
+| `otp`           | varies | Issue, set, list and delete OTPs and the SPP.                         | §9.4.2  |
 | `keys`          | yes    | APKAM-issued key storage. **Being deprecated** — see §9.4.3 and §B.7. | §9.4.3  |
 | `update`        | yes    | Insert/overwrite an atKey.                                            | §10.1   |
 | `update:meta`   | yes    | Update only metadata.                                                 | §10.2   |
