@@ -1,0 +1,21 @@
+name: Spec versions
+on:
+  push:
+    branches:
+      - trunk
+  pull_request:
+    branches:
+      - trunk
+
+permissions:
+  contents: read
+
+jobs:
+  check-spec-versions:
+    runs-on: ubuntu-24.04
+    name: Check specification versions
+    steps:
+      - name: checkout repo content
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check the header, markers and Appendix E agree
+        run: python3 tools/check_spec_versions.py specification/atsign_protocol_specification.md
