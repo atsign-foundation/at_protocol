@@ -1,7 +1,7 @@
 # Atsign Protocol Specification
 
 <!-- pyml disable-num-lines 5000 md013-->
-**This document describes atServer 3.19.0** (production release [p3.19.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.19.0), 2026-10-26). Behaviour marked *Unreleased* is on at_server's trunk but not yet in a production release. Changes by version are in [Appendix E](#appendix-e-changes-by-atserver-version).
+**This document describes atServer 3.20.0** (production release [p3.20.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.20.0), 2026-11-04). Behaviour marked *Unreleased* is on at_server's trunk but not yet in a production release. Changes by version are in [Appendix E](#appendix-e-changes-by-atserver-version).
 
 This document specifies the **Atsign Protocol** at the level required to
 implement either side of the wire, an atClient or an atServer, in any
@@ -1163,10 +1163,21 @@ case-insensitively but acts only on a lowercase operation, so
 
 - `otp:get` returns `data:<otp>`, a fresh six-character alphanumeric
   OTP that lives for the `ttl` in milliseconds, 5 minutes by default.
-  A `ttl` of 0 gives an OTP that never expires; capping it is
-  [at_server#2887](https://github.com/atsign-foundation/at_server/issues/2887).
-  Since atServer [3.19.0](#atserver-3190), the OTP records the
-  namespaces of the enrollment that issued it. One issued over CRAM, or stored by an
+  Since atServer [3.20.0](#atserver-3200), a `ttl` of 0, or one above
+  the atServer's maximum, is refused with `AT0022`, and an OTP issued
+  without a `ttl` lives 5 minutes or the maximum, whichever is shorter.
+  The maximum is at_secondary_server's `otp.maxTtlInMinutes`, 60 minutes
+  by default; a value of 0 or less means the default, and one above a
+  year is cut to a year. Before, a `ttl` of 0 gave an OTP that never
+  expires, and any `ttl` was accepted.
+- Since atServer [3.20.0](#atserver-3200), `otp:get` is refused with
+  `AT0028` while `otp.maxLive` OTPs are live, 10 by default; a value of
+  0 or less means the default. The count is for the atSign as a whole,
+  whichever enrollment issued the OTPs, and the SPP is not counted. An
+  OTP issued with a `ttl` of 0 before 3.20.0 never expires, so it counts
+  until a full-privilege connection deletes it with `otp:delete`.
+- Since atServer [3.19.0](#atserver-3190), an OTP from `otp:get` records
+  the namespaces of the enrollment that issued it. One issued over CRAM, or stored by an
   atServer before 3.19.0, records none.
 - `otp:put:<spp>` sets the SPP, replacing any SPP already set, and
   returns `data:ok`. Without a `ttl` the SPP never expires.
@@ -1214,18 +1225,23 @@ enrollment with write access on both `*` and `__manage`, such as
 
 #### Which OTPs an enrollment covers
 
-An enrollment covers an OTP when, for each namespace the OTP records,
-the enrollment holds that same namespace with at least the same access
-(`rw` covers `r`), or holds no grant for it but holds `*` with that
-access. `*` and `__manage` count only when held themselves. Namespaces
-are compared whole, in the folded form of [§6](#6-the-atkey-model), so
-a grant on `wavi` does not cover an OTP that records `x.wavi`. An OTP
+A set of grants covers a namespace with some access when it holds `*`
+with at least that access (`rw` covers `r`), or holds, with at least
+that access, the namespace itself or a namespace it ends with after a
+`.`: a grant on `wavi` covers `wavi` and `x.wavi`, as access to keys
+resolves. `*` and `__manage` are covered only when held themselves.
+Namespaces are compared in the folded form of
+[§6](#6-the-atkey-model). An enrollment covers an OTP when its grants
+cover each namespace the OTP records, with the access recorded. An OTP
 that records no namespaces is covered by full privilege only.
 
-The namespaces an OTP records limit `otp:list` and `otp:delete` only.
-They do not yet limit what an `enroll:request` presenting the OTP may
-ask for; that is
-[at_server#2886](https://github.com/atsign-foundation/at_server/issues/2886).
+Before atServer 3.20.0, namespaces are compared whole, so a grant on
+`wavi` does not cover `x.wavi`, and `*` counts only for a namespace the
+enrollment holds no grant for.
+
+Since atServer [3.20.0](#atserver-3200), the namespaces an OTP records
+also limit an `enroll:request` that presents it, below. Before, they
+limit `otp:list` and `otp:delete` only.
 
 #### Passcodes in `enroll:request`
 
@@ -1236,6 +1252,13 @@ stored outside the `__otp` namespace, as older atServers stored OTPs,
 is no longer accepted as an OTP. An SPP stored that way is still
 accepted, until `otp:put` sets an SPP, which removes it. A passcode
 that is not accepted is refused with `AT0022`.
+
+Since atServer [3.20.0](#atserver-3200), an `enroll:request` presenting
+an OTP that records namespaces may ask only for namespaces the OTP's
+own namespaces cover, by the rules above, each with no more access than
+the OTP records. A request asking for more is refused with `AT0009`,
+and the OTP is spent all the same. The SPP, and an OTP that records no
+namespaces, do not limit the request.
 
 #### Refusals and compatibility
 
@@ -3417,6 +3440,24 @@ release that shipped it. The history starts at atServer 3.0.35.
 ### Unreleased
 
 Nothing is listed here yet.
+
+### atServer 3.20.0
+
+Production release [p3.20.0](https://github.com/atsign-foundation/at_server/releases/tag/p3.20.0), 2026-11-04. Includes canary release 3.20.0.
+
+- **`otp:get` limits.** `otp:get` refuses a `ttl` of 0, which gave an
+  OTP that never expires, and a `ttl` above `otp.maxTtlInMinutes`, 60
+  minutes by default, with `AT0022`; an OTP issued without a `ttl` lives
+  5 minutes, or the maximum when that is shorter. `otp:get` refuses a
+  new OTP with `AT0028` while `otp.maxLive` OTPs are live, 10 by
+  default, counted for the atSign as a whole and not counting the SPP
+  ([§9.4.2](#942-the-otp-verb)).
+- **OTP scope.** An `enroll:request` presenting an OTP that records
+  namespaces is refused with `AT0009` when it asks for a namespace, or
+  an access, the OTP's namespaces do not cover, and the OTP is spent.
+  Coverage, for this and for `otp:list` and `otp:delete`, now counts a
+  grant on `wavi` as covering `x.wavi`, and counts `*` even beside a
+  narrower grant on the same namespace ([§9.4.2](#942-the-otp-verb)).
 
 ### atServer 3.19.0
 
