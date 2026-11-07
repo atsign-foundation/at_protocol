@@ -1094,7 +1094,7 @@ Source:
 | `link`     | Since atServer [3.18.1](#atserver-3181): `data:{"enrollmentId":"<uuid>","linked":["<kid>", …]}`; see [§9.4.4](#944-linking-an-enrollments-client-data-signing-keys-enrolllink) |
 | `update`   | Since atServer [3.16.5](#atserver-3165): `data:{"enrollmentId":"<uuid>","status":"approved"}`. The enrollment amends its own record: `apkamPublicKey`, `signingAlgo`, `apsk`, `apskLegacy`, `metadata` |
 | `listns`   | Since atServer [3.15.0](#atserver-3150), `enroll:listns:<namespace>`: `data:[{"enrollmentId":…,"access":…,"apkamPubKey":…,"metadata":…}, …]`, the approved enrollments holding that namespace |
-| `infons`   | Since atServer [3.16.5](#atserver-3165), `enroll:infons:<namespace>`: `data:{"lastRevokedAt":<ISO-8601 UTC or null>}` |
+| `infons`   | Since atServer [3.16.5](#atserver-3165), `enroll:infons:<namespace>`: `data:{"lastRevokedAt":<ISO-8601 UTC or null>}`, with `"lastKeyHolderRevokedAt"` beside it since atServer [3.20.0](#atserver-3200) |
 
 Since atServer [3.18.1](#atserver-3181), a request is refused with `AT0022` unless its
 `apkamKeysExpiryInMillis`, when given, is a whole number from 0 to
@@ -1124,6 +1124,22 @@ a request is approved, they are the term granted and the moment it ends;
 a root requested before atServer 3.18.1 is the exception above.
 `list` and `fetch` carry `expiresAt` since atServer [3.16.5](#atserver-3165), and `fetch`
 carries `apkamKeysExpiryInMillis` since atServer [3.18.1](#atserver-3181).
+
+`infons` answers `lastRevokedAt`, the last revocation of an enrollment
+holding the namespace, null when there is none. It can move backwards,
+since `unrevoke` withdraws a revocation, so a client compares it for
+change rather than order. Since atServer [3.20.0](#atserver-3200),
+`infons` also answers `lastKeyHolderRevokedAt`, always present: the same
+over only the enrollments that may have held a namespace private. Such
+an enrollment is a **key holder**: its record has ever carried a
+`keyPackage` in its `metadata`, or a connection authenticated as it has
+written a namespace-key advertisement,
+`public:__nskey.<namespace>@<atSign>`. The mark is per enrollment and is
+never cleared, so revoking a key holder moves `lastKeyHolderRevokedAt`
+for every namespace its grants reach. A revocation recorded before
+3.20.0 counts as a key holder's. `list` shows a key holder with
+`"keyHolder":true` to a CRAM connection, to an enrollment that may
+approve it, and to the enrollment itself.
 
 A pending request is announced to approver apps as a self notification
 keyed `<enrollmentId>.new.enrollments.__manage@<atSign>`. Its value
@@ -3487,6 +3503,15 @@ Production release [p3.20.0](https://github.com/atsign-foundation/at_server/rele
   `keys:get:private`, `keys:get:self` and `keys:get:public` listings,
   and a `keys:get` of any other key. A connection whose enrollment has
   no record is refused with `AT0009` too ([§9.4.3](#943-the-keys-verb)).
+- **Key holders.** `enroll:infons:<namespace>` also answers
+  `lastKeyHolderRevokedAt`, the last revocation of an enrollment holding
+  the namespace that may have held a namespace private: its record has
+  ever carried a `keyPackage`, or a connection authenticated as it has
+  written `public:__nskey.<namespace>@<atSign>`. It is always present,
+  null when nothing qualifies, and revocations from before this release
+  count. `enroll:list` shows such an enrollment with `"keyHolder":true`
+  to a caller that may approve it, and to the enrollment itself
+  ([§9.4.1](#941-the-enroll-verb)).
 
 ### atServer 3.19.0
 
