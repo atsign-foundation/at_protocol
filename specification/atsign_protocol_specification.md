@@ -304,11 +304,14 @@ connect to.
   `inbound_max_limit` (200).
 - Since atServer [3.20.0](#atserver-3200), an inbound connection whose
   client leaves more than `connection.inbound_max_unsent_bytes` waiting
-  to be read, 16 MiB by default and never less than 1 MiB, is closed
-  with nothing more sent to it. One response or notification is always sent whole,
-  however large, when nothing else is waiting. A `monitor` replay waits
-  for the client to read before it sends more, and a client that stops
-  reading during it is closed at the same limit.
+  to be read, 16 MiB by default, is closed with nothing more sent to
+  it. The atServer refuses to start when the setting is below 1 MiB or
+  is not an integer. One response or notification is always sent whole,
+  however large, when nothing else is waiting. A `monitor` replay sends
+  each stored notification only once the client has read what it was
+  sent before, so a client that stops reading stalls the replay; the
+  live notifications held back for it meanwhile count towards the
+  limit, and the connection is closed when they pass it.
 
 When the server-side idle timeout fires, the server closes the
 connection without warning. Long-lived `monitor` connections must be
@@ -1152,13 +1155,17 @@ change rather than order. Since atServer [3.20.0](#atserver-3200),
 over only the enrollments that may have held a namespace private. Such
 an enrollment is a **key holder**: its record has ever carried a
 `keyPackage` in its `metadata`, or a connection authenticated as it has
-written a namespace-key advertisement,
-`public:__nskey.<namespace>@<atSign>`. The mark is per enrollment and is
+sent an `update`, alone or in a `batch`, of a namespace-key
+advertisement, `public:__nskey.<namespace>@<atSign>`. The atServer marks
+the enrollment before it stores the record, so an `update` that then
+fails still marks it, and `update:meta` does not mark it. The mark is per enrollment and is
 never cleared, so revoking a key holder moves `lastKeyHolderRevokedAt`
 for every namespace its grants reach. A revocation recorded before
 3.20.0 counts as a key holder's. `list` shows a key holder with
-`"keyHolder":true` to a CRAM connection, to an enrollment that may
-approve it, and to the enrollment itself.
+`"keyHolder":true` to a CRAM connection, to an enrollment holding
+`__manage:rw`, and to an enrollment without `__manage` reading its own
+record. An enrollment holding only `__manage:r` gets the roster, which
+omits it.
 
 A pending request is announced to approver apps as a self notification
 keyed `<enrollmentId>.new.enrollments.__manage@<atSign>`. Its value
@@ -1207,10 +1214,11 @@ case-insensitively but acts only on a lowercase operation, so
   expires, and any `ttl` was accepted.
 - Since atServer [3.20.0](#atserver-3200), `otp:get` is refused with
   `AT0028` while `otp.maxLive` OTPs are live, 10 by default; a value of
-  0 or less means the default. The count is for the atSign as a whole,
+  0 or less means the default. The count is for the Atsign as a whole,
   whichever enrollment issued the OTPs, and the SPP is not counted. An
   OTP issued with a `ttl` of 0 before 3.20.0 never expires, so it counts
-  until a full-privilege connection deletes it with `otp:delete`.
+  until an `enroll:request` spends it or a caller who may manage it
+  deletes it with `otp:delete`, as below.
 - Since atServer [3.19.0](#atserver-3190), an OTP from `otp:get` records
   the namespaces of the enrollment that issued it. One issued over CRAM, or stored by an
   atServer before 3.19.0, records none.
@@ -1263,8 +1271,9 @@ enrollment with write access on both `*` and `__manage`, such as
 A set of grants covers a namespace with some access when it holds `*`
 with at least that access (`rw` covers `r`), or holds, with at least
 that access, the namespace itself or a namespace it ends with after a
-`.`: a grant on `wavi` covers `wavi` and `x.wavi`, as access to keys
-resolves. `*` and `__manage` are covered only when held themselves.
+`.`: a grant on `wavi` covers `wavi` and `x.wavi`. Unlike access to
+keys, where an explicit grant on a namespace wins over `*`, any grant
+that holds the access covers it. `*` and `__manage` are covered only when held themselves.
 Namespaces are compared in the folded form of
 [§6](#6-the-atkey-model). An enrollment covers an OTP when its grants
 cover each namespace the OTP records, with the access recorded. An OTP
@@ -1331,7 +1340,9 @@ An atServer before 3.19.0 refuses `otp:list` and `otp:delete` with
 keys:<put|get|delete>[:public|private|self][:namespace:<ns>][:appName:<n>][:deviceName:<n>][:keyType:<t>][:encryptionKeyName:<n>][:keyName:<n>] [<value>]
 ```
 
-Source: see `at_commons/lib/src/verb/syntax.dart`.
+Source: see `at_commons/lib/src/verb/syntax.dart`. The grammar still
+parses `put`, `delete` and the listings, which the atServer refuses
+since 3.20.0, below.
 
 Since atServer [3.20.0](#atserver-3200), `keys` answers only the two
 requests the APKAM enrollment flow makes, on a connection authenticated
@@ -1344,12 +1355,16 @@ keys:get:keyName:<enrollmentId>.default_self_enc_key.__manage@<atSign>
 ```
 
 The key name is matched in its folded form, and the request may carry
-no other field. The answer is `data:` and the stored value. Every other
+no other field. The answer is `data:` and the stored value, or `AT0015`
+when no such key is stored, as when the approval stored none or it has
+expired. On a connection authenticated as an enrollment, every other
 `keys` request is refused with `AT0009` before anything is read or
 written: `keys:put`, `keys:delete`, the `keys:get:private`,
 `keys:get:self` and `keys:get:public` listings, and a `keys:get` of any
 other key, another enrollment's two keys among them. A connection whose
-enrollment has no record is refused with `AT0009` too.
+enrollment has no record is refused with `AT0009` too. A connection not
+authenticated as an enrollment, or whose enrollment is not approved, is
+refused as before atServer 3.20.0.
 
 Before atServer 3.20.0, `keys` also stores, lists and deletes keys
 tagged with the connection's enrollment, under the `__public_keys`,
@@ -1951,9 +1966,9 @@ reserved namespace
 breaks either rule is answered `data:success` and dropped.
 
 Since atServer [3.20.0](#atserver-3200), a `notify` whose `id` is
-longer than 36 characters is refused with `AT0003`, whether the atSign's
+longer than 36 characters is refused with `AT0003`, whether the Atsign's
 own client or another atServer sends it. A `notify` or `notify:all` from
-the atSign's own client is refused with `AT0016`, with nothing stored or
+the Atsign's own client is refused with `AT0016`, with nothing stored or
 sent, when the key it notifies, `@<recipient>:<name>@<atSign>` or
 `public:<name>@<atSign>`, is longer than 255 characters, counting a
 `cached:` prefix when the notification has a `ttr` or is a `delete`. A
@@ -2102,10 +2117,10 @@ same connection replaces its feed, with the latest regex and
 for every `monitor` sent. Notifications reach a `monitor` connection in
 the order they arrive, and only while it is authenticated. A
 `monitor:<epochMillis>` whose stored notifications cannot be read is
-refused with that error, and the connection is closed, so the client
-reconnects and sends it again. The replay waits for the client to read
-what it has been sent, under the limit in
-[§3.4](#34-idle-and-timeout-behaviour).
+refused with that error and, unless it ran inside a `batch`, the
+connection is closed, so the client reconnects and sends it again. The
+replay sends each stored notification only once the client has read
+what it was sent before ([§3.4](#34-idle-and-timeout-behaviour)).
 
 ---
 
@@ -3139,14 +3154,15 @@ messages with "Secondary Server not found" remain accepted.
 The `keys:put|get|delete` verb (§9.4.3) is **being deprecated**. It
 overlaps with `update`/`llookup`/`delete` against the `__pkams` /
 `__manage` namespaces and adds parsing surface without adding
-capability. The current APKAM enrollment flow still uses it under
-the covers; new implementations should not produce it. Removal is
+capability. The APKAM enrollment flow still uses it: a new client
+collects its keys with the two `keys:get` requests of §9.4.3, and
+should produce no other `keys` request. Removal is
 expected to ride alongside the new AtKeys structure and pluggable
 encryption work in [Appendix C.3](#c3-new-atkeys-structure) /
 [C.1](#c1-post-quantum-cryptography-and-crypto-agility). Since atServer
 [3.20.0](#atserver-3200), the atServer answers only the two `keys:get`
 requests by which an enrollment collects its own encryption keys, and
-refuses every other `keys` request with `AT0009`.
+refuses every other `keys` request from an enrollment with `AT0009`.
 
 ---
 
@@ -3529,7 +3545,7 @@ Production release [p3.20.0](https://github.com/atsign-foundation/at_server/rele
   minutes by default, with `AT0022`; an OTP issued without a `ttl` lives
   5 minutes, or the maximum when that is shorter. `otp:get` refuses a
   new OTP with `AT0028` while `otp.maxLive` OTPs are live, 10 by
-  default, counted for the atSign as a whole and not counting the SPP
+  default, counted for the Atsign as a whole and not counting the SPP
   ([§9.4.2](#942-the-otp-verb)).
 - **OTP scope.** An `enroll:request` presenting an OTP that records
   namespaces is refused with `AT0009` when it asks for a namespace, or
@@ -3542,7 +3558,7 @@ Production release [p3.20.0](https://github.com/atsign-foundation/at_server/rele
   and
   `keys:get:keyName:<enrollmentId>.default_self_enc_key.__manage@<atSign>`,
   on a connection authenticated as that enrollment. Every other `keys`
-  request is refused with `AT0009`: `keys:put`, `keys:delete`, the
+  request from an enrollment is refused with `AT0009`: `keys:put`, `keys:delete`, the
   `keys:get:private`, `keys:get:self` and `keys:get:public` listings,
   and a `keys:get` of any other key. A connection whose enrollment has
   no record is refused with `AT0009` too ([§9.4.3](#943-the-keys-verb)).
@@ -3550,10 +3566,12 @@ Production release [p3.20.0](https://github.com/atsign-foundation/at_server/rele
   `lastKeyHolderRevokedAt`, the last revocation of an enrollment holding
   the namespace that may have held a namespace private: its record has
   ever carried a `keyPackage`, or a connection authenticated as it has
-  written `public:__nskey.<namespace>@<atSign>`. It is always present,
+  sent an `update` of `public:__nskey.<namespace>@<atSign>`. It is
+  always present,
   null when nothing qualifies, and revocations from before this release
   count. `enroll:list` shows such an enrollment with `"keyHolder":true`
-  to a caller that may approve it, and to the enrollment itself
+  to a CRAM connection, to an enrollment holding `__manage:rw`, and to
+  an enrollment without `__manage` reading its own record
   ([§9.4.1](#941-the-enroll-verb)).
 - **Notifications.** A `notify` whose `id` is longer than 36 characters
   is refused with `AT0003`, from a client or another atServer. A
@@ -3569,8 +3587,8 @@ Production release [p3.20.0](https://github.com/atsign-foundation/at_server/rele
   sending each later notification once more. Notifications reach a
   `monitor` connection in the order they arrive, and only while it is
   authenticated. A `monitor:<epochMillis>` whose stored notifications
-  cannot be read is refused with that error and the connection is
-  closed ([§11.7](#117-monitor)).
+  cannot be read is refused with that error and, outside a `batch`, the
+  connection is closed ([§11.7](#117-monitor)).
 - **Connections.** A connection whose client leaves more than
   `connection.inbound_max_unsent_bytes`, 16 MiB by default, waiting to be
   read is closed; one response or notification is always sent whole
