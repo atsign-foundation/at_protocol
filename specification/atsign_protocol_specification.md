@@ -1298,13 +1298,30 @@ keys:<put|get|delete>[:public|private|self][:namespace:<ns>][:appName:<n>][:devi
 
 Source: see `at_commons/lib/src/verb/syntax.dart`.
 
-`keys` is the storage / retrieval verb for APKAM-issued keys. The
-APKAM enrollment flow uses it under the covers to publish the new
-device's APKAM public key and to retrieve the encrypted bootstrap keys
-on the receiving side. App code rarely calls it directly.
+Since atServer [3.20.0](#atserver-3200), `keys` answers only the two
+requests the APKAM enrollment flow makes, on a connection authenticated
+as the enrollment they name, to collect the keys its approval stored
+([§16.2](#162-apkam-enrollment-end-to-end)):
 
-**Response**: `data:-1` on `put` (commit ID; APKAM keys are
-non-committed) and `data:<JSON record>` on `get`.
+```text
+keys:get:keyName:<enrollmentId>.default_enc_private_key.__manage@<atSign>
+keys:get:keyName:<enrollmentId>.default_self_enc_key.__manage@<atSign>
+```
+
+The key name is matched in its folded form, and the request may carry
+no other field. The answer is `data:` and the stored value. Every other
+`keys` request is refused with `AT0009` before anything is read or
+written: `keys:put`, `keys:delete`, the `keys:get:private`,
+`keys:get:self` and `keys:get:public` listings, and a `keys:get` of any
+other key, another enrollment's two keys among them. A connection whose
+enrollment has no record is refused with `AT0009` too.
+
+Before atServer 3.20.0, `keys` also stores, lists and deletes keys
+tagged with the connection's enrollment, under the `__public_keys`,
+`__private_keys` and `__self_keys` namespaces: `put` answers `data:-1`
+(a commit ID; these keys are not committed), a listing answers a JSON
+array of key names, and `get` and `delete` by name reach any key tagged
+with the enrollment.
 
 #### 9.4.4 Linking an enrollment's client data signing keys (`enroll:link`)
 
@@ -3067,8 +3084,10 @@ capability. The current APKAM enrollment flow still uses it under
 the covers; new implementations should not produce it. Removal is
 expected to ride alongside the new AtKeys structure and pluggable
 encryption work in [Appendix C.3](#c3-new-atkeys-structure) /
-[C.1](#c1-post-quantum-cryptography-and-crypto-agility). Servers
-should accept it for the foreseeable future.
+[C.1](#c1-post-quantum-cryptography-and-crypto-agility). Since atServer
+[3.20.0](#atserver-3200), the atServer answers only the two `keys:get`
+requests by which an enrollment collects its own encryption keys, and
+refuses every other `keys` request with `AT0009`.
 
 ---
 
@@ -3321,10 +3340,11 @@ there is no double-prefixing. Parsers must not assume a uniform
 
 ### D.7 `keys:put` returns `data:-1`
 
-`keys:put` is used for APKAM-issued keys, which by design are not
-written to the commit log. Rather than return a real commit ID, the
-handler returns the sentinel `-1`. Clients must not interpret this
-as an error.
+Before atServer 3.20.0, `keys:put` is used for APKAM-issued keys, which
+by design are not written to the commit log. Rather than return a real
+commit ID, the handler returns the sentinel `-1`. Clients must not
+interpret this as an error. Since atServer [3.20.0](#atserver-3200),
+`keys:put` is refused with `AT0009` ([§9.4.3](#943-the-keys-verb)).
 
 ### D.8 Mutating verbs typically require auth, `enroll:request` does not
 
@@ -3458,6 +3478,15 @@ Production release [p3.20.0](https://github.com/atsign-foundation/at_server/rele
   Coverage, for this and for `otp:list` and `otp:delete`, now counts a
   grant on `wavi` as covering `x.wavi`, and counts `*` even beside a
   narrower grant on the same namespace ([§9.4.2](#942-the-otp-verb)).
+- **`keys` narrowed.** `keys` answers only
+  `keys:get:keyName:<enrollmentId>.default_enc_private_key.__manage@<atSign>`
+  and
+  `keys:get:keyName:<enrollmentId>.default_self_enc_key.__manage@<atSign>`,
+  on a connection authenticated as that enrollment. Every other `keys`
+  request is refused with `AT0009`: `keys:put`, `keys:delete`, the
+  `keys:get:private`, `keys:get:self` and `keys:get:public` listings,
+  and a `keys:get` of any other key. A connection whose enrollment has
+  no record is refused with `AT0009` too ([§9.4.3](#943-the-keys-verb)).
 
 ### atServer 3.19.0
 
