@@ -250,6 +250,18 @@ carrying the Atsign Protocol. Since atServer [3.17.0](#atserver-3170), a command
 starts like an HTTP request, on a connection that did not select
 `http/1.1`, is answered `AT0003` and the connection is closed.
 
+Since atServer [3.20.0](#atserver-3200), the atServer holds at most
+`connection.http_max_limit` HTTP connections at once, 50 by default,
+apart from its Atsign Protocol connections; one beyond that is closed
+without an answer, and a limit of 0 or less holds none. An HTTP
+connection with no request in progress is closed within 10 seconds of
+its TLS handshake or its last answer, and one whose answer is not fully
+sent within 30 seconds of its request is closed then. A `GET` whose path
+or query does not decode is answered `400`, and one the atServer fails
+to answer, an unreadable record among them, `500`. The WebSocket upgrade
+negotiates no extension, so a client that offers `permessage-deflate` is
+sent uncompressed frames.
+
 The port is per-atSign and is discovered via the atDirectory. The
 atDirectory response is the canonical source for the host and port to
 connect to.
@@ -290,6 +302,13 @@ connect to.
   its own outbound connections, before and after `pol`. The allowed inbound idle time can
   shrink towards a minimum as the number of inbound connections nears
   `inbound_max_limit` (200).
+- Since atServer [3.20.0](#atserver-3200), an inbound connection whose
+  client leaves more than `connection.inbound_max_unsent_bytes` waiting
+  to be read, 16 MiB by default and never less than 1 MiB, is closed
+  with nothing more sent to it. One response or notification is always sent whole,
+  however large, when nothing else is waiting. A `monitor` replay waits
+  for the client to read before it sends more, and a client that stops
+  reading during it is closed at the same limit.
 
 When the server-side idle timeout fires, the server closes the
 connection without warning. Long-lived `monitor` connections must be
@@ -1931,6 +1950,19 @@ reserved namespace
 ([§6.5](#65-reserved-keys)). A `notify` from another atServer that
 breaks either rule is answered `data:success` and dropped.
 
+Since atServer [3.20.0](#atserver-3200), a `notify` whose `id` is
+longer than 36 characters is refused with `AT0003`, whether the atSign's
+own client or another atServer sends it. A `notify` or `notify:all` from
+the atSign's own client is refused with `AT0016`, with nothing stored or
+sent, when the key it notifies, `@<recipient>:<name>@<atSign>` or
+`public:<name>@<atSign>`, is longer than 255 characters, counting a
+`cached:` prefix when the notification has a `ttr` or is a `delete`. A
+`notify` from another atServer with a `ttr`, or a `delete`, whose cached
+key would be longer than 255 characters is refused with `AT0016` before
+it is stored or pushed to `monitor` connections; before 3.20.0 it was
+refused after. A notification queued
+with an overlong key before 3.20.0 is not sent, and is marked `errored`.
+
 ### 11.2 `notify:all`
 
 Emit one notification to multiple recipients in one round-trip. The
@@ -2063,6 +2095,17 @@ is set.
 `:multiplexed` is accepted and has no effect. A monitor connection
 takes further commands like any other (see [§4.7](#47-pipelining)),
 and a notification may arrive between a command and its response.
+
+Since atServer [3.20.0](#atserver-3200), a `monitor` sent again on the
+same connection replaces its feed, with the latest regex and
+`selfNotifications` flag; before, each later notification was sent once
+for every `monitor` sent. Notifications reach a `monitor` connection in
+the order they arrive, and only while it is authenticated. A
+`monitor:<epochMillis>` whose stored notifications cannot be read is
+refused with that error, and the connection is closed, so the client
+reconnects and sends it again. The replay waits for the client to read
+what it has been sent, under the limit in
+[§3.4](#34-idle-and-timeout-behaviour).
 
 ---
 
@@ -3512,6 +3555,33 @@ Production release [p3.20.0](https://github.com/atsign-foundation/at_server/rele
   count. `enroll:list` shows such an enrollment with `"keyHolder":true`
   to a caller that may approve it, and to the enrollment itself
   ([§9.4.1](#941-the-enroll-verb)).
+- **Notifications.** A `notify` whose `id` is longer than 36 characters
+  is refused with `AT0003`, from a client or another atServer. A
+  client's `notify` or `notify:all` whose key, counting `cached:` when
+  it has a `ttr` or is a `delete`, is longer than 255 characters is
+  refused with `AT0016`, and nothing is stored or sent. Another
+  atServer's `notify` with a `ttr`, or a `delete`, whose cached key would
+  be longer than 255 characters is refused with `AT0016` before it is stored or pushed
+  to `monitor` connections, rather than after
+  ([§11.1](#111-notify)).
+- **`monitor`.** Sending `monitor` again on a connection replaces its
+  feed, with the latest regex and `selfNotifications` flag, instead of
+  sending each later notification once more. Notifications reach a
+  `monitor` connection in the order they arrive, and only while it is
+  authenticated. A `monitor:<epochMillis>` whose stored notifications
+  cannot be read is refused with that error and the connection is
+  closed ([§11.7](#117-monitor)).
+- **Connections.** A connection whose client leaves more than
+  `connection.inbound_max_unsent_bytes`, 16 MiB by default, waiting to be
+  read is closed; one response or notification is always sent whole
+  ([§3.4](#34-idle-and-timeout-behaviour)). The atServer holds at most
+  `connection.http_max_limit` HTTP connections, 50 by default, and closes
+  one beyond that without an answer. An HTTP connection with no request
+  in progress is closed within 10 seconds, and one whose answer is not
+  sent within 30 seconds of its request is closed then. An HTTP `GET`
+  whose path or query does not decode is answered `400`, and one the
+  atServer fails to answer `500`. The WebSocket upgrade no longer
+  negotiates `permessage-deflate` ([§3.2](#32-atserver)).
 
 ### atServer 3.19.0
 
