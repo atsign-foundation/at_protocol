@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   check-spec-versions:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     name: Check specification versions
     steps:
       - name: checkout repo content
