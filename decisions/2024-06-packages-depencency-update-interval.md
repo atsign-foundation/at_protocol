@@ -55,6 +55,7 @@ We propose reviewing the dependencies of all our packages on a quarterly
 basis, and updating where necessary. New versions of the packages will be
 published where applicable. The update order is crucial to ensure successful
 updates and avoid conflicts. Here's the recommended sequence:
+
 * Core packages (at_client, at_client_mobile etc)
 * at_widgets packages (in dependency order, starting with at_commons_flutter)
 

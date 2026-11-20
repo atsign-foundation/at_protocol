@@ -9,20 +9,21 @@ payloads are encrypted in the same way as is described below for the `put`
 and `get` operations.
 
 <!-- TOC -->
+
 * [How to exchange encrypted data](#how-to-exchange-encrypted-data)
 * [Background](#background)
 * [Goals](#goals)
   * [Non-goals](#non-goals)
 * [Technical prerequisites](#technical-prerequisites)
 * [Specification](#specification)
-  * ["Sending" atSign](#-sending--atsign)
+  * ["Sending" atSign](#sending-atsign)
     * [1. Lookup address of the _@alice_ atServer](#1-lookup-address-of-the-alice-atserver)
     * [2. Authenticate to _@alice_ atServer](#2-authenticate-to-alice-atserver)
     * [3a. Fetch existing shared symmetric key if it has already been created,]#3a-fetch-existing-shared-symmetric-key-if-it-has-already-been-created)
     * [3b. or create a new shared symmetric key](#3b-or-create-a-new-shared-symmetric-key)
     * [4. Encrypt some data](#4-encrypt-some-data)
     * [5. Share the data with _@bob_](#5-share-the-data-with-bob)
-  * ["Receiving" atSign](#-receiving--atsign)
+  * ["Receiving" atSign](#receiving-atsign)
     * [1. Lookup address of the _@bob_ atServer](#1-lookup-address-of-the-bob-atserver)
     * [2. PKAM authenticate to _@bob_ atServer](#2-pkam-authenticate-to-bob-atserver)
     * [3. Fetch the data which _@alice_ shared](#3-fetch-the-data-which-alice-shared)
@@ -37,7 +38,7 @@ and `get` operations.
 ## Background
 
 Some details of how the atPlatform works are not specified in detail by the
-atProtocol itself, but are usage conventions which are embedded in the client
+Atsign Protocol itself, but are usage conventions which are embedded in the client
 SDKs. As a result, building new client software, be it in a new language or
 building alternative client software for a language for which client software
 is already available, currently requires the engineer to base their efforts
@@ -57,7 +58,8 @@ another atSign.
 
 ## Technical prerequisites
 
-Ability to
+Ability to:
+
 * create RSA encryption public/private keypairs and use them to do encryption
 and decryption
 * cryptographically sign data using a private key, and verify signatures using
@@ -68,7 +70,7 @@ a public key
 
 ## Specification
 
-### "Sending" atSign
+### Sending atSign
 
 Given an already-onboarded client (i.e. access to authentication private key
 and encryption private key) for atsign `@alice`
@@ -162,7 +164,7 @@ $base64EncodedSharedAESKey
 attributes:>@bob:some.key_name.in.some.namespace@alice base64EncodedEncryptedData`
 and handle the response
 
-### "Receiving" atSign
+### Receiving atSign
 
 #### 1. Lookup address of the _@bob_ atServer
 
@@ -212,6 +214,7 @@ shared symmetric key. Java example:
 ### Key descriptions
 
 .atKeys:
+
 * `aesPkamPublicKey`: used by the AtServer to verify the signature (unused by
 Client)
 * `aesPkamPrivateKey`: key for signing the challenge during authentication
@@ -222,6 +225,7 @@ to AtSign
 AES symmetric key
 
 Other:
+
 * `aesSymmetricalKey`: Generated for each atSign that is communicated with.
 This is created the first time one AtSign tries to communicate with another.
 

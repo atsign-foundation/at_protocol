@@ -38,6 +38,7 @@ solution:
 
 To verify that migrating to pub workspaces is a sane solution.
 To introduce an approach which allows us to migrate with the least amount of:
+
 * effort
 * impact to other in-progress changesets
 
@@ -76,6 +77,7 @@ A sub option that was considered is migrating everything into at_server.
 Instead, keep at_server separate, and make at_client_sdk the monorepo.
 
 Reasons for this:
+
 * at_client_sdk and packages it depends on as well as packages that depend on it
   are where the conflicts are happening.
 * at_server is complex and has a different release cycle than the rest of the
@@ -87,6 +89,7 @@ Reasons for this:
   at_client_sdk need to be migrated.
 
 Packages to migrate into at_client_sdk:
+
 * at_libraries
 * at_widgets
 * at_tools (maybe)
@@ -103,6 +106,7 @@ This is a similar migration approach to the one that  has been previously used
 to merge at_app_flutter from at_app into at_widgets before it was deprecated.
 
 Legend:
+
 * import repo - original source repo to have it's history imported
 * monorepo - destination repo where the import repo will be added
 

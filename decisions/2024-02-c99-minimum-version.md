@@ -27,7 +27,7 @@ impacts of choosing C99 as the minimum version of C to support in the C SDK.
 
 N/A
 
-## Other considerations <!-- optional -->
+## Other considerations
 
 C99 supports backwards compatibility with C89/90 (kind of).
 [source](https://en.wikipedia.org/wiki/C99).
@@ -53,8 +53,8 @@ Limit ourselves to ANSI C (C89/90) and avoid using C99 features.
 
 ## Proposal Summary
 
-After discussions found
-[here](https://github.com/atsign-foundation/at_c/issues/105),
+After discussions on the use of
+[stdbool](https://github.com/atsign-foundation/at_c/issues/105),
 we are leaning to making C99 the minimum version of the C SDK.
 
 ## Proposal in Detail

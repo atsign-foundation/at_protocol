@@ -30,8 +30,8 @@ reality of breaking changes occurring when the semver increase dictates otherwis
 
 ### Flutter SDK Pinned Packages
 
-In the Dart SDK docs they mention the reason for package pins in the Flutter SDK
-[here](https://github.com/dart-lang/sdk/blob/2ac59922d2e6ab5f62ceb8725ffad96cfd147c68/docs/Flutter-Pinned-Packages.md?plain=1#L13-L15).
+In the Dart SDK docs they mention the
+[reason for package pins in the Flutter SDK](https://github.com/dart-lang/sdk/blob/2ac59922d2e6ab5f62ceb8725ffad96cfd147c68/docs/Flutter-Pinned-Packages.md?plain=1#L13-L15).
 This statement indicates that teams maintaining Flutter & Dart have no intention
 of respecting semver, as they don't even trust themselves to respect it.
 More elaboration on the consequences of this in the following options.
@@ -75,6 +75,7 @@ Dart dependencies are never allowed to surpass the Flutter SDK's constraints.
 
 Obviously, the problem with this solution is that it requires a massive migration,
 and then we run into a bunch more problems with migrating:
+
 * in progress changesets
 * CI workflows
 * Updating references to packages/repos
@@ -151,6 +152,7 @@ We often perform the following development cycles:
 * Upon CI passing, request initial approval
 
 Upon initial approval:
+
 * Remove the dependency overrides.
 * Publish the packages
 * Resubmit for review (since the dependency overrides removal commit was pushed)

@@ -46,7 +46,6 @@ changes, white space changes, etc.
 > seem to be popular.
 
 <!-- pyml disable-num-lines 11 md013-->
-
 | Formatter                                   | Description                                                        | Language(s)                                             |
 | ------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------- |
 | dart format                                 | Native                                                             | Dart                                                    |
@@ -95,7 +94,6 @@ Proposed a list of formatters for the team to use for various languages.
 ### Approved Formatters
 
 <!-- pyml disable-num-lines 11 md013-->
-
 | Formatter                                   | Description                                                        | Language(s)                                             |
 | ------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------- |
 | dart format                                 | Native                                                             | Dart                                                    |

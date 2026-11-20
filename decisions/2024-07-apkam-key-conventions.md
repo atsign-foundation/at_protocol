@@ -34,6 +34,7 @@ Come up with default key name for APKAM keys. The user will still be able
 to see which keys are for what using the `at_activate list` command
 
 Such as:
+
 * `@soccer0_{enrollment_id}_key.atKeys`
 * `@soccer0_{hashed_namespace}_key.atKeys`
 
@@ -66,6 +67,7 @@ If we want we could instead include the hash inside of the json of the file.
 Rewriting the code to include the hashed namespace key name.
 
 Which include:
+
 * at_activate
 * noports
 * any other app that would use apkam keys
